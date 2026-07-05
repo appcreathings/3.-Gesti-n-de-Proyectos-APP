@@ -2,7 +2,12 @@ import { Link } from "react-router-dom";
 import { HitoMark } from "@/components/brand/HitoMark";
 import { ROUTES } from "@/routes/paths";
 
-type FooterLink = { label: string; href: string; external?: boolean };
+type FooterLink = {
+  label: string;
+  href?: string;
+  to?: string;
+  external?: boolean;
+};
 
 const GITHUB_URL = "https://github.com/hito-app/hito";
 const DOCS_URL = "https://hito.autos/docs";
@@ -20,6 +25,7 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Recursos",
     links: [
+      { label: "Blog", to: "/blogs" },
       { label: "Documentación", href: DOCS_URL, external: true },
       { label: "Código fuente", href: GITHUB_URL, external: true },
       { label: "Reportar issue", href: `${GITHUB_URL}/issues/new`, external: true },
@@ -60,23 +66,35 @@ export function LandingFooter() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                <a
-                  href={link.href}
-                  className="text-sm text-foreground/80 transition-colors hover:text-foreground"
-                  {...(link.external
-                    ? {
-                        target: "_blank",
-                        rel: "noopener noreferrer",
-                      }
-                    : {})}
-                >
-                  {link.label}
-                  {link.external ? (
-                    <span aria-hidden="true" className="ml-1 text-muted-foreground/60">
-                      ↗
-                    </span>
-                  ) : null}
-                </a>
+                    {link.to ? (
+                      <Link
+                        to={link.to}
+                        className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                        {...(link.external
+                          ? {
+                              target: "_blank",
+                              rel: "noopener noreferrer",
+                            }
+                          : {})}
+                      >
+                        {link.label}
+                        {link.external ? (
+                          <span
+                            aria-hidden="true"
+                            className="ml-1 text-muted-foreground/60"
+                          >
+                            ↗
+                          </span>
+                        ) : null}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

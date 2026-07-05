@@ -68,9 +68,9 @@ export function BlogIndexPage() {
               </div>
               <div className="rounded-2xl border border-border/60 bg-background p-6 lg:p-8">
                 <blockquote className="text-balance text-lg font-medium leading-relaxed text-foreground/90">
-                  “En una era donde el modelo SaaS convierte tus proyectos en
-                  datos de entrenamiento, tener el control de tu información no
-                  es paranoia: es estrategia.”
+                  “La soberanía de los datos no significa rechazar toda la nube.
+                  Significa decidir conscientemente qué información vive dónde,
+                  bajo qué condiciones y quién puede acceder a ella.”
                 </blockquote>
               </div>
             </div>
