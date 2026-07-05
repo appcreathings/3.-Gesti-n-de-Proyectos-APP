@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -65,12 +65,12 @@ export function AppLayout() {
         Saltar al contenido
       </a>
       <aside className="flex w-60 shrink-0 flex-col border-r bg-card/40">
-        <div className="flex h-16 items-center gap-2 px-5">
+        <Link to={ROUTES.landing} className="flex h-16 items-center gap-2 px-5">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <FolderKanban className="size-4" />
           </div>
           <span className="text-sm font-semibold">Hito</span>
-        </div>
+        </Link>
         {/* Command palette trigger */}
         <button
           onClick={() => {
