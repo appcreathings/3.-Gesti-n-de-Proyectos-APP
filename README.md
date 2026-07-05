@@ -12,14 +12,36 @@ carpeta local (File System Access API). Sin backend.
 React 18 · TypeScript · Vite · Tailwind · shadcn/ui · Zustand · Zod · File System Access API ·
 @dnd-kit (Kanban) · @google/genai (asistente IA).
 
+## Privacidad (local-first)
+**Tus datos nunca salen de tu equipo.** No hay backend: todo se guarda en una carpeta local que
+tú eliges (File System Access API, Chrome/Edge) o en IndexedDB con export/import manual
+(Firefox/Safari). La API key de Gemini vive solo en IndexedDB de tu navegador. Desplegar la app
+en la web solo publica el _código_; cada visitante trabaja con sus propios datos locales.
+
 ## Cómo correr
 ```bash
 npm install
 npm run dev        # desarrollo
 npm run typecheck  # tsc --noEmit
 npm test           # vitest (dominio puro + capa de tools IA)
-npm run build      # producción
+npm run lint       # eslint
+npm run build      # producción (PWA incluida)
+npm run preview    # sirve dist/ para probar el build
 ```
+
+## Deploy (Vercel)
+La app es un SPA estático con `createBrowserRouter`; el rewrite necesario ya está en
+[`vercel.json`](vercel.json). Pasos:
+
+1. Crea un repo en GitHub y sube el código (`git push`). Verifica antes que `local-data-app/`
+   **no** esté trackeado (`git status` no debe mostrarlo; está en `.gitignore`).
+2. En [vercel.com](https://vercel.com) → **Add New → Project** → importa el repo. Vercel detecta
+   Vite automáticamente (build `npm run build`, output `dist/`). No se necesita ninguna variable
+   de entorno.
+3. Deploy. Comprueba en producción: refrescar en una ruta profunda (p. ej. `/projects/<id>`)
+   debe funcionar, y la app debe ser instalable como PWA (icono en la barra de direcciones).
+
+Cada push a `main` redespliega automáticamente.
 
 ## Asistente IA (Gemini)
 - Configúralo en **Ajustes → Asistente IA**: pega una API key de
@@ -53,6 +75,10 @@ npm run build      # producción
   proyecto), tab **Automatizaciones por proyecto**, nombre de organización editable.
 - ✅ M9–M11: **asistente IA** — capa de tools estilo MCP, cliente Gemini con function calling
   en streaming, panel de chat global con confirmación de escrituras.
+- ✅ Spec 002: refactor visual (PageHeader/Breadcrumb/EntityCard/HealthBadge compartidos).
+- ✅ Spec 003: drag & drop para reordenar checklists, pasos, áreas y Kanban intra-columna.
+- ✅ v1.0: listo para deploy — ErrorBoundary, code-splitting por ruta, PWA instalable,
+  ESLint/Prettier, config de Vercel.
 
 ## Arquitectura (resumen)
 ```
