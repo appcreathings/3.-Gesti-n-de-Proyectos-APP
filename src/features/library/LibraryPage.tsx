@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import {
   Plus,
   Boxes,
@@ -28,6 +29,18 @@ import { ProjectTypeDialog } from "./ProjectTypeDialog";
 import { ROUTES } from "@/routes/paths";
 
 export function LibraryPage() {
+  return (
+    <>
+      <Helmet>
+        <title>Biblioteca | Hito</title>
+        <meta name="description" content="Plantillas y tipos reutilizables para proyectos en Hito: checklists, procesos y tipos de proyecto." />
+      </Helmet>
+      <LibraryContent />
+    </>
+  );
+}
+
+function LibraryContent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "checklists";

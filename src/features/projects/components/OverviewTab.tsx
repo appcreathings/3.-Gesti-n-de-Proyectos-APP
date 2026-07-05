@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Panel } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
@@ -31,43 +31,39 @@ export function OverviewTab({ project, productName, productId, onChangeHealth }:
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-base">Resumen</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {project.description ? (
-            <p className="text-sm leading-relaxed">{project.description}</p>
+      <Panel
+        label="Resumen"
+        title={project.name}
+        description={
+          project.description ? (
+            <span className="text-pretty text-sm leading-relaxed text-foreground">
+              {project.description}
+            </span>
           ) : (
-            <p className="text-sm italic text-muted-foreground">Sin descripción.</p>
-          )}
+            <span className="italic text-muted-foreground">Sin descripción.</span>
+          )
+        }
+        className="lg:col-span-2"
+      >
+        <div className="space-y-5">
+          <ProgressRow
+            label="Avance de checklists"
+            done={cl.done}
+            total={cl.total}
+            pct={cl.pct}
+          />
+          <ProgressRow
+            label="Tareas completadas"
+            done={tk.done}
+            total={tk.total}
+            pct={tk.pct}
+            indicatorClassName="bg-success"
+          />
+        </div>
+      </Panel>
 
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Avance de checklists</span>
-              <span>
-                {cl.done}/{cl.total} · {cl.pct}%
-              </span>
-            </div>
-            <Progress value={cl.pct} />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Tareas completadas</span>
-              <span>
-                {tk.done}/{tk.total} · {tk.pct}%
-              </span>
-            </div>
-            <Progress value={tk.pct} indicatorClassName="bg-success" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Detalles</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+      <Panel label="Detalles" title="Metadatos">
+        <dl className="space-y-3 text-sm">
           <Row
             label="Producto"
             value={
@@ -99,9 +95,9 @@ export function OverviewTab({ project, productName, productId, onChangeHealth }:
               </Badge>
             }
           />
-          <Row label="Inicio" value={project.startDate ?? "—"} />
-          <Row label="Fecha límite" value={project.dueDate ?? "—"} />
-          <Row label="Áreas" value={String(project.areas.length)} />
+          <Row label="Inicio" value={project.startDate ?? "—"} mono />
+          <Row label="Fecha límite" value={project.dueDate ?? "—"} mono />
+          <Row label="Áreas" value={String(project.areas.length)} mono />
           <div className="grid gap-1.5 pt-1">
             <Label htmlFor="ov-health">Salud (RAG)</Label>
             <Select
@@ -116,17 +112,43 @@ export function OverviewTab({ project, productName, productId, onChangeHealth }:
               ))}
             </Select>
           </div>
-        </CardContent>
-      </Card>
+        </dl>
+      </Panel>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function ProgressRow({
+  label,
+  done,
+  total,
+  pct,
+  indicatorClassName,
+}: {
+  label: string;
+  done: number;
+  total: number;
+  pct: number;
+  indicatorClassName?: string;
+}) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono text-foreground">
+          {done}/{total} · {pct}%
+        </span>
+      </div>
+      <Progress value={pct} indicatorClassName={indicatorClassName} />
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-2 last:border-0 last:pb-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className={mono ? "font-mono text-xs font-medium" : "font-medium"}>{value}</span>
     </div>
   );
 }

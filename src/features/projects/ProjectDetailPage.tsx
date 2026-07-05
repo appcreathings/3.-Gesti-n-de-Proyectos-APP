@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +24,23 @@ import { ROUTES } from "@/routes/paths";
 
 export function ProjectDetailPage() {
   const { id = "" } = useParams();
-  const navigate = useNavigate();
   const project = useDataStore((s) => s.projects.find((p) => p.id === id));
+  const projectName = project?.name ?? "Proyecto";
+
+  return (
+    <>
+      <Helmet>
+        <title>{projectName} | Hito</title>
+        <meta name="description" content={`Detalle del proyecto ${projectName} en Hito — áreas, procesos, checklists y tareas.`} />
+      </Helmet>
+      <ProjectDetailContent projectId={id} />
+    </>
+  );
+}
+
+function ProjectDetailContent({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
+  const project = useDataStore((s) => s.projects.find((p) => p.id === projectId));
   const products = useDataStore((s) => s.products);
   const people = useDataStore((s) => s.people);
   const activity = useDataStore((s) => s.activity);
@@ -40,8 +56,8 @@ export function ProjectDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const mutate = useCallback(
-    (recipe: (p: Project) => Project) => void mutateProject(id, recipe),
-    [id, mutateProject],
+    (recipe: (p: Project) => Project) => void mutateProject(projectId, recipe),
+    [projectId, mutateProject],
   );
 
   if (!project) {
@@ -64,6 +80,7 @@ export function ProjectDetailPage() {
   return (
     <div>
       <PageHeader
+        label="Proyecto"
         breadcrumb={[
           { label: "Proyectos", href: ROUTES.projects },
           ...(productName
@@ -94,7 +111,7 @@ export function ProjectDetailPage() {
       <Tabs
         value={activeTab}
         onValueChange={(tab) => {
-          navigate(`${ROUTES.project(id)}?tab=${tab}`, { replace: true });
+          navigate(`${ROUTES.project(projectId)}?tab=${tab}`, { replace: true });
         }}
       >
         <TabsList>

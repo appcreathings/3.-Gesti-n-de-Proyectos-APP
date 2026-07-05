@@ -150,7 +150,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
                   const kind = e.target.value as Scope["kind"];
                   setScope(kind === "global" ? { kind } : ({ kind, id: "" } as Scope));
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <option value="global">Global</option>
                 <option value="project">Proyecto</option>
@@ -224,7 +224,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
               </p>
             )}
             {conditions.map((c, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="flex flex-wrap items-center gap-2">
                 <Select
                   value={c.field}
                   onChange={(e) =>
@@ -241,7 +241,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
                 </Select>
                 <Select
                   value={c.op}
-                  className="w-20"
+                  className="w-full sm:w-20"
                   onChange={(e) =>
                     setConditions((s) =>
                       s.map((x, j) =>
@@ -258,7 +258,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
                 </Select>
                 <Input
                   value={String(c.value ?? "")}
-                  className="w-28"
+                  className="w-full sm:w-28"
                   onChange={(e) =>
                     setConditions((s) =>
                       s.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)),
@@ -281,7 +281,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
             <div className="flex items-center justify-between">
               <Label>Acciones</Label>
               <Select
-                className="w-56"
+                className="w-full sm:w-56"
                 value=""
                 onChange={(e) => {
                   if (!e.target.value) return;
@@ -394,7 +394,7 @@ function ActionFields({
         <div className="grid gap-2">
           <Select
             value={action.severity}
-            className="w-40"
+            className="w-full sm:w-40"
             onChange={(e) =>
               onChange({ ...action, severity: e.target.value as typeof action.severity })
             }
@@ -414,7 +414,7 @@ function ActionFields({
       );
     case "setField":
       return (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select
             value={action.field}
             onChange={(e) => onChange({ ...action, field: e.target.value })}

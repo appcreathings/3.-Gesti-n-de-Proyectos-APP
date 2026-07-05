@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { FolderKanban, Plus, Boxes } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -21,6 +22,18 @@ import { projectChecklistProgress } from "@/domain/compute";
 import { ROUTES } from "@/routes/paths";
 
 export function ProjectsPage() {
+  return (
+    <>
+      <Helmet>
+        <title>Proyectos | Hito</title>
+        <meta name="description" content="Gestiona proyectos con áreas, procesos, checklists y tareas en Hito." />
+      </Helmet>
+      <ProjectsContent />
+    </>
+  );
+}
+
+function ProjectsContent() {
   const projects = useDataStore((s) => s.projects);
   const products = useDataStore((s) => s.products);
   const createProject = useDataStore((s) => s.createProject);
@@ -85,7 +98,7 @@ export function ProjectsPage() {
         <>
           <div className="mb-5 flex flex-wrap gap-3">
             <Select
-              className="w-48"
+              className="w-full sm:w-48"
               value={productFilter}
               onChange={(e) => setProductFilter(e.target.value)}
             >
@@ -97,7 +110,7 @@ export function ProjectsPage() {
               ))}
             </Select>
             <Select
-              className="w-48"
+              className="w-full sm:w-48"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >

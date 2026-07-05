@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { Download, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -25,6 +26,18 @@ const THEMES = [
 ] as const;
 
 export function SettingsPage() {
+  return (
+    <>
+      <Helmet>
+        <title>Configuración | Hito</title>
+        <meta name="description" content="Ajustes de organización, preferencias, exportación e importación de datos en Hito." />
+      </Helmet>
+      <SettingsContent />
+    </>
+  );
+}
+
+function SettingsContent() {
   const ws = useAppStore((s) => s.workspace);
   const adapter = useAppStore((s) => s.adapter);
   const updateSettings = useAppStore((s) => s.updateSettings);

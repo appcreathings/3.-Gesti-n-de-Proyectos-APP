@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { Package, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -14,6 +15,18 @@ import { ROUTES } from "@/routes/paths";
 import type { Product } from "@/domain/schemas";
 
 export function ProductsPage() {
+  return (
+    <>
+      <Helmet>
+        <title>Productos | Hito</title>
+        <meta name="description" content="Gestiona las líneas de negocio y productos que agrupan tus proyectos en Hito." />
+      </Helmet>
+      <ProductsContent />
+    </>
+  );
+}
+
+function ProductsContent() {
   const products = useDataStore((s) => s.products);
   const projects = useDataStore((s) => s.projects);
   const createProduct = useDataStore((s) => s.createProduct);

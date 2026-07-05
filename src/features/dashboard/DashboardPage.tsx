@@ -11,11 +11,12 @@ import {
   Library,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Panel } from "@/components/ui/Panel";
+import { StatTile } from "@/components/ui/StatTile";
 import { HierarchyLegend } from "@/components/HierarchyLegend";
 import { HealthBadge, HealthDot, healthColorClass } from "@/components/HealthBadge";
 import { useDataStore } from "@/store/useDataStore";
@@ -43,14 +44,15 @@ export function DashboardPage() {
     return (
       <div>
         <PageHeader
-          title="Dashboard de portafolio"
-          description="Vista global de productos, proyectos y salud."
+          label="Dashboard"
+          title="Aún no hay proyectos"
+          description="El dashboard se llena con salud, vencidos y estancados en cuanto crees tu primer proyecto."
         />
         <div className="grid gap-6 lg:grid-cols-2">
           <EmptyState
             icon={FolderKanban}
-            title="Aún no hay proyectos"
-            description="El dashboard se llenará con salud, vencidos y estancados en cuanto crees tu primer proyecto."
+            title="Empezá por crear un proyecto"
+            description="Si querés, definí primero plantillas en la Biblioteca para acelerar el setup."
             action={
               <div className="flex flex-wrap gap-2">
                 <Link to={ROUTES.library("checklists")}>
@@ -68,47 +70,56 @@ export function DashboardPage() {
               </div>
             }
           />
-          <HierarchyLegend />
+          <Panel label="Jerarquía" title="Datos de la organización">
+            <HierarchyLegend />
+          </Panel>
         </div>
       </div>
     );
   }
 
   const kpis = [
-    { label: "Proyectos activos", value: stats.active, icon: FolderKanban, tone: "" },
-    { label: "Avance medio", value: `${stats.avgProgress}%`, icon: Gauge, tone: "" },
-    { label: "Vencidos", value: stats.overdue.length, icon: AlertTriangle, tone: "text-destructive" },
-    { label: "Estancados", value: stats.stalled.length, icon: Hourglass, tone: "text-warning" },
+    { label: "Proyectos activos", value: stats.active, icon: FolderKanban },
+    { label: "Avance medio", value: `${stats.avgProgress}%`, icon: Gauge },
+    {
+      label: "Vencidos",
+      value: stats.overdue.length,
+      icon: AlertTriangle,
+      tone: "destructive" as const,
+    },
+    {
+      label: "Estancados",
+      value: stats.stalled.length,
+      icon: Hourglass,
+      tone: "warning" as const,
+    },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Dashboard de portafolio"
+        label="Dashboard"
+        title="Portafolio"
         description={
           settings.deriveHealth
-            ? "Salud RAG automática (derivada de fechas y actividad)."
+            ? "Salud RAG automática, derivada de fechas y actividad."
             : "Vista global de productos, proyectos y salud."
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid gap-px overflow-hidden rounded-2xl border border-border/70 bg-border sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map(({ label, value, icon: Icon, tone }) => (
-          <Card key={label} className="transition-shadow hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-              <Icon className={`size-4 ${tone || "text-muted-foreground"}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-semibold ${typeof value === "number" && value > 0 ? tone : ""}`}>
-                {value}
-              </div>
-            </CardContent>
-          </Card>
+          <StatTile
+            key={label}
+            value={value}
+            label={label}
+            icon={Icon}
+            tone={tone ?? "default"}
+          />
         ))}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <HealthCard byHealth={stats.byHealth} />
         <StatusCard byStatus={stats.byStatus} total={stats.total} />
       </div>
@@ -118,51 +129,48 @@ export function DashboardPage() {
         <StalledCard projects={stats.stalled} stalledAfterDays={settings.stalledAfterDays} />
       </div>
 
-      <DueCard overdue={stats.overdue} dueSoon={stats.dueSoon} />
+      <div className="mt-6">
+        <DueCard overdue={stats.overdue} dueSoon={stats.dueSoon} />
+      </div>
     </div>
   );
 }
 
-/* ---- Salud RAG (T061) ---- */
+/* ---- Salud RAG ---- */
 function HealthCard({ byHealth }: { byHealth: Record<Health, number> }) {
   const total = HEALTH_ORDER.reduce((s, h) => s + byHealth[h], 0);
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Salud del portafolio</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {total === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
-        ) : (
-          <>
-            <div className="mb-4 flex h-2.5 overflow-hidden rounded-full bg-muted">
-              {HEALTH_ORDER.map((h) =>
-                byHealth[h] > 0 ? (
-                  <div
-                    key={h}
-                    className={healthColorClass[h]}
-                    style={{ width: `${(byHealth[h] / total) * 100}%` }}
-                  />
-                ) : null,
-              )}
-            </div>
-            <ul className="space-y-2">
-              {HEALTH_ORDER.map((h) => (
-                <li key={h} className="flex items-center gap-2 text-sm">
-                  <HealthBadge health={h} className="flex-1 text-muted-foreground" />
-                  <span className="font-semibold">{byHealth[h]}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <Panel label="Salud" title="Salud del portafolio">
+      {total === 0 ? (
+        <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
+      ) : (
+        <>
+          <div className="mb-6 flex h-2 overflow-hidden rounded-full bg-muted">
+            {HEALTH_ORDER.map((h) =>
+              byHealth[h] > 0 ? (
+                <div
+                  key={h}
+                  className={healthColorClass[h]}
+                  style={{ width: `${(byHealth[h] / total) * 100}%` }}
+                />
+              ) : null,
+            )}
+          </div>
+          <ul className="space-y-3">
+            {HEALTH_ORDER.map((h) => (
+              <li key={h} className="flex items-center gap-3 rounded-md border border-border/60 px-3 py-2">
+                <HealthBadge health={h} className="flex-1 text-muted-foreground" />
+                <span className="font-mono text-sm font-semibold">{byHealth[h]}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Panel>
   );
 }
 
-/* ---- Distribución por estado (T060) ---- */
+/* ---- Distribución por estado ---- */
 function StatusCard({
   byStatus,
   total,
@@ -172,67 +180,61 @@ function StatusCard({
 }) {
   const rows = (Object.keys(byStatus) as ProjectStatus[]).filter((s) => byStatus[s] > 0);
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Distribución por estado</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-3">
+    <Panel label="Estado" title="Distribución por estado">
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Sin proyectos activos.</p>
+      ) : (
+        <ul className="space-y-4">
           {rows.map((s) => (
             <li key={s}>
-              <div className="mb-1 flex items-center justify-between text-sm">
+              <div className="mb-1.5 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{projectStatusLabel[s]}</span>
-                <span className="font-medium">{byStatus[s]}</span>
+                <span className="font-mono text-sm font-semibold">{byStatus[s]}</span>
               </div>
               <Progress value={total === 0 ? 0 : (byStatus[s] / total) * 100} />
             </li>
           ))}
         </ul>
-      </CardContent>
-    </Card>
+      )}
+    </Panel>
   );
 }
 
-/* ---- Salud por producto (T061) ---- */
+/* ---- Salud por producto ---- */
 function ProductCard({ rollups }: { rollups: ProductRollup[] }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Por producto</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {rollups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
-        ) : (
-          <ul className="space-y-3">
-            {rollups.map((r) => (
-              <li key={r.id ?? "none"} className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{r.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.total} proyecto{r.total === 1 ? "" : "s"} · {r.avgProgress}% avance
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {HEALTH_ORDER.map((h) =>
-                    r.byHealth[h] > 0 ? (
-                      <span key={h} className="flex items-center gap-1 text-xs">
-                        <HealthDot health={h} className="size-2" />
-                        {r.byHealth[h]}
-                      </span>
-                    ) : null,
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <Panel label="Producto" title="Por producto">
+      {rollups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
+      ) : (
+        <ul className="space-y-2">
+          {rollups.map((r) => (
+            <li key={r.id ?? "none"} className="flex items-center gap-3 rounded-md border border-border/60 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{r.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.total} proyecto{r.total === 1 ? "" : "s"} · {r.avgProgress}% avance
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {HEALTH_ORDER.map((h) =>
+                  r.byHealth[h] > 0 ? (
+                    <span key={h} className="flex items-center gap-1 font-mono text-xs">
+                      <HealthDot health={h} className="size-2" />
+                      {r.byHealth[h]}
+                    </span>
+                  ) : null,
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
-/* ---- Proyectos estancados (T062) ---- */
+/* ---- Proyectos estancados ---- */
 function StalledCard({
   projects,
   stalledAfterDays,
@@ -241,67 +243,59 @@ function StalledCard({
   stalledAfterDays: number;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Proyectos estancados</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Sin proyectos inactivos por más de {stalledAfterDays} días. 👌
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {projects
-              .slice()
-              .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-              .map((p) => (
-                <li key={p.id}>
-                  <Link
-                    to={ROUTES.project(p.id)}
-                    className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-accent"
-                  >
-                    <span className="min-w-0 truncate">{p.name}</span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-warning">
-                      {daysSince(p.updatedAt)} días sin actividad
-                      <ArrowRight className="size-3.5" />
-                    </span>
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <Panel label="Estancados" title={`Proyectos sin actividad hace más de ${stalledAfterDays} días`}>
+      {projects.length === 0 ? (
+        <p className="text-sm text-muted-foreground">👌 Todo se mueve.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {projects
+            .slice()
+            .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+            .map((p) => (
+              <li key={p.id}>
+                <Link
+                  to={ROUTES.project(p.id)}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2 text-sm transition-colors hover:bg-accent"
+                >
+                  <span className="min-w-0 truncate">{p.name}</span>
+                  <span className="flex shrink-0 items-center gap-1 font-mono text-xs font-medium text-warning">
+                    {daysSince(p.updatedAt)} días
+                    <ArrowRight className="size-3.5" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
-/* ---- Resumen del día: fechas (M4) ---- */
+/* ---- Resumen del día: fechas ---- */
 function DueCard({ overdue, dueSoon }: { overdue: DueRow[]; dueSoon: DueRow[] }) {
   if (overdue.length === 0 && dueSoon.length === 0) {
     return (
-      <div className="mt-6">
-        <EmptyState
-          icon={CheckCircle2}
-          title="Sin fechas urgentes"
-          description="No hay fechas vencidas ni próximos vencimientos."
-        />
-      </div>
+      <Panel label="Vencimientos" title="Sin fechas urgentes">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <CheckCircle2 className="size-5 text-success" />
+          No hay fechas vencidas ni próximos vencimientos.
+        </div>
+      </Panel>
     );
   }
   return (
-    <div className="mt-6 grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <DueSection
         title="Vencidos"
         icon={AlertTriangle}
-        tone="text-destructive"
+        tone="destructive"
         rows={overdue}
         format={(r) => `hace ${-r.d} día${r.d === -1 ? "" : "s"}`}
       />
       <DueSection
         title="Por vencer"
         icon={CalendarClock}
-        tone="text-warning"
+        tone="warning"
         rows={dueSoon}
         format={(r) => (r.d === 0 ? "vence hoy" : `en ${r.d} día${r.d === 1 ? "" : "s"}`)}
       />
@@ -318,49 +312,55 @@ function DueSection({
 }: {
   title: string;
   icon: typeof AlertTriangle;
-  tone: string;
+  tone: "destructive" | "warning";
   rows: DueRow[];
   format: (r: DueRow) => string;
 }) {
   if (rows.length === 0) return null;
+  const toneText = tone === "destructive" ? "text-destructive" : "text-warning";
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Icon className={`size-4 ${tone}`} />
+    <Panel
+      label={
+        <span className="flex items-center gap-2">
+          <Icon className={`size-3.5 ${toneText}`} />
+          {title}
+        </span>
+      }
+      title={
+        <span className="flex items-center gap-2">
           {title}
           <Badge variant="secondary">{rows.length}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-1.5">
-          {rows.map((r) => {
-            // Build deep-link URL: tab + focus depend on entity kind
-            const params = new URLSearchParams();
-            if (r.ref.kind === "task") {
-              params.set("tab", "tasks");
-              if (r.ref.taskId) params.set("focus", r.ref.taskId);
-            } else if (r.ref.kind === "checklistItem") {
-              params.set("tab", "areas");
-              if (r.ref.itemId) params.set("focus", r.ref.itemId);
-            } else {
-              params.set("tab", "overview");
-            }
-            return (
+        </span>
+      }
+    >
+      <ul className="space-y-1.5">
+        {rows.map((r) => {
+          const params = new URLSearchParams();
+          if (r.ref.kind === "task") {
+            params.set("tab", "tasks");
+            if (r.ref.taskId) params.set("focus", r.ref.taskId);
+          } else if (r.ref.kind === "checklistItem") {
+            params.set("tab", "areas");
+            if (r.ref.itemId) params.set("focus", r.ref.itemId);
+          } else {
+            params.set("tab", "overview");
+          }
+          return (
             <li key={`${r.ref.kind}-${r.ref.itemId ?? r.ref.taskId ?? r.ref.projectId}`}>
               <Link
                 to={`${ROUTES.project(r.projectId)}?${params.toString()}`}
-                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-accent"
+                className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2 text-sm transition-colors hover:bg-accent"
               >
                 <span className="min-w-0 truncate">{r.label}</span>
-                <span className={`shrink-0 text-xs font-medium ${tone}`}>{format(r)}</span>
+                <span className={`shrink-0 font-mono text-xs font-medium ${toneText}`}>
+                  {format(r)}
+                </span>
               </Link>
             </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
+          );
+        })}
+      </ul>
+    </Panel>
   );
 }
 

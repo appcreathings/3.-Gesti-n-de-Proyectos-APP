@@ -183,6 +183,16 @@ export function AppLayout() {
     return () => document.removeEventListener("keydown", onKey);
   }, [toggleAssistant]);
 
+  // Lock body scroll when drawer or assistant is open on mobile
+  useEffect(() => {
+    const locked = sidebarOpen || (assistantOpen && !isDesktop);
+    if (locked) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [sidebarOpen, assistantOpen, isDesktop]);
+
   return (
     <div className="flex h-full">
       <a
@@ -198,13 +208,26 @@ export function AppLayout() {
       </aside>
 
       {/* Mobile drawer overlay */}
-      {!isDesktop && sidebarOpen && (
-        <div className="fixed inset-0 z-40">
+      {!isDesktop && (
+        <div
+          className={cn(
+            "fixed inset-0 z-40 transition-all duration-300 ease-in-out",
+            sidebarOpen ? "" : "pointer-events-none",
+          )}
+        >
           <div
-            className="fixed inset-0 bg-black/50"
+            className={cn(
+              "fixed inset-0 bg-black/50 transition-opacity duration-300 ease-in-out",
+              sidebarOpen ? "opacity-100" : "opacity-0",
+            )}
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-border/70 bg-background">
+          <aside
+            className={cn(
+              "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-border/70 bg-background transition-transform duration-300 ease-in-out",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full",
+            )}
+          >
             <div className="flex h-14 items-center justify-end px-4">
               <button
                 onClick={() => setSidebarOpen(false)}

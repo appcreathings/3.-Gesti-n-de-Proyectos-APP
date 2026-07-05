@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, type ReactNode } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { Helmet, HelmetProvider } from "react-helmet-async";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AppGate } from "@/components/layout/AppGate";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -41,6 +42,9 @@ const NotificationsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
+const NotFoundPage = lazy(() =>
+  import("@/features/not-found/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
+);
 
 function page(el: ReactNode) {
   return <Suspense fallback={<Loading />}>{el}</Suspense>;
@@ -67,6 +71,7 @@ const router = createBrowserRouter([
       },
     ],
   },
+  { path: "*", element: page(<NotFoundPage />) },
 ]);
 
 export function App() {
@@ -95,9 +100,12 @@ export function App() {
   }, [connection, hydrated, runTemporal]);
 
   return (
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <HelmetProvider>
+      <Helmet defaultTitle="Hito — Gestión de proyectos local-first" />
+      <ThemeProvider>
+        <RouterProvider router={router} />
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

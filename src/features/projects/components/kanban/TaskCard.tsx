@@ -53,9 +53,9 @@ export function TaskCard({
       }}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group rounded-lg border bg-background p-3 shadow-sm transition-colors",
-        focused && "ring-2 ring-primary",
-        isDragging && "z-10 opacity-80 shadow-lg ring-2 ring-primary/40",
+        "group rounded-lg border border-border/70 bg-background p-3 transition-colors hover:border-border",
+        focused && "ring-2 ring-foreground/60",
+        isDragging && "z-10 opacity-80 shadow-lg ring-2 ring-foreground/30",
       )}
     >
       <div className="flex items-start justify-between gap-2">

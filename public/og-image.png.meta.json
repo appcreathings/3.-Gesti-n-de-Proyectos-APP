@@ -1,0 +1,21 @@
+{
+  "source": "pexels",
+  "type": "photo",
+  "id": 326511,
+  "url": "https://www.pexels.com/photo/326511/",
+  "download_url": "https://images.pexels.com/photos/326511/pexels-photo-326511.jpeg",
+  "downloaded_size": "large",
+  "width": 940,
+  "height": 627,
+  "photographer": "Tranmautritam",
+  "photographer_url": "https://www.pexels.com/@tranmautritam",
+  "photographer_id": 20780,
+  "avg_color": "#A6A099",
+  "alt": "A well-organized modern office desk with dual computer screens and various devices.",
+  "license": "Pexels License - Free for personal and commercial use",
+  "attribution": "Photo by Tranmautritam on Pexels",
+  "attribution_html": "<a href=\"https://www.pexels.com/photo/326511/\">Photo</a> by <a href=\"https://www.pexels.com/@tranmautritam\">Tranmautritam</a> on <a href=\"https://www.pexels.com\">Pexels</a>",
+  "downloaded_at": "2026-07-05T00:00:00Z",
+  "composited_into": "public/og-image.png",
+  "description": "Used as background for Hito OG image (1200x630) with brand overlay and text"
+}

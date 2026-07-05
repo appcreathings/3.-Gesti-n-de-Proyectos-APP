@@ -48,12 +48,12 @@ export function PeopleCard() {
                   value={p.roleTitle}
                   placeholder="Rol (opcional)"
                   onChange={(e) => updatePerson({ ...p, roleTitle: e.target.value })}
-                  className="h-8 w-40"
+                  className="h-8 w-full sm:w-40"
                 />
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8"
+                  className="min-h-11 min-w-11 size-8"
                   onClick={() => deletePerson(p.id)}
                 >
                   <Trash2 className="size-4" />

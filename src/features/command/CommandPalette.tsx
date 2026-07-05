@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -20,6 +19,7 @@ import {
   Plus,
   Boxes,
 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDataStore } from "@/store/useDataStore";
 import { ROUTES } from "@/routes/paths";
 
@@ -54,15 +54,16 @@ export function CommandPalette() {
   const productMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-xl gap-0 p-0 sm:max-w-xl">
       {/* cmdk requires these inner primitives */}
       <Command
-        className="flex w-full flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg"
+        className="flex w-full flex-col overflow-hidden rounded-lg border-0 bg-popover text-popover-foreground shadow-none sm:rounded-lg sm:border"
         shouldFilter
       >
         <CommandInput
           placeholder="Buscar o ejecutar acción… (Cmd+K)"
-          className="flex h-11 w-full border-b bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+          className="flex h-12 w-full border-b bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
         />
         <CommandList className="max-h-[400px] overflow-y-auto p-2">
           <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
@@ -228,6 +229,7 @@ export function CommandPalette() {
           )}
         </CommandList>
       </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

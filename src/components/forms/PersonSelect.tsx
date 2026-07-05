@@ -87,7 +87,7 @@ export function MultiPersonSelect({ people, value, onChange }: MultiPersonSelect
               value={row.role}
               onChange={(e) => updateRow(idx, { role: e.target.value as RaciRole })}
               className={cn(
-                "flex h-9 w-36 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background",
+                "flex h-9 w-full sm:w-36 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background",
                 "focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import {
   Bell,
   BellOff,
@@ -31,6 +32,18 @@ const SEVERITY: Record<Severity, { icon: LucideIcon; variant: BadgeProps["varian
 type Filter = "all" | "unread";
 
 export function NotificationsPage() {
+  return (
+    <>
+      <Helmet>
+        <title>Notificaciones | Hito</title>
+        <meta name="description" content="Vencidos, próximos a vencer y proyectos estancados en Hito." />
+      </Helmet>
+      <NotificationsContent />
+    </>
+  );
+}
+
+function NotificationsContent() {
   const navigate = useNavigate();
   const notifications = useDataStore((s) => s.notifications);
   const markRead = useDataStore((s) => s.markNotificationRead);

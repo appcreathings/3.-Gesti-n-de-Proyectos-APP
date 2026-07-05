@@ -134,7 +134,7 @@ export function ProjectTypeDialog({
                     <Select
                       value={area.icon}
                       onChange={(e) => patchArea(idx, { icon: e.target.value })}
-                      className="h-9 w-32"
+                      className="h-9 w-full sm:w-32"
                     >
                       {AREA_ICONS.map((i) => (
                         <option key={i} value={i}>

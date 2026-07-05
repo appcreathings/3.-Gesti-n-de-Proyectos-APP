@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { Plus, Workflow } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -23,7 +24,12 @@ export function AutomationsPage() {
     r.scope.kind === "global" ? "Global" : r.scope.kind;
 
   return (
-    <div>
+    <>
+      <Helmet>
+        <title>Automatizaciones | Hito</title>
+        <meta name="description" content="Reglas disparador → condición → acción para automatizar procesos en Hito." />
+      </Helmet>
+      <div>
       <PageHeader
         title="Automatizaciones"
         description="Reglas disparador → condición → acción. Se ejecutan en tu navegador al cambiar los datos."
@@ -88,5 +94,6 @@ export function AutomationsPage() {
         onConfirm={() => toDelete && remove(toDelete.id)}
       />
     </div>
+    </>
   );
 }

@@ -38,7 +38,7 @@ function TabsList({ className, children }: { className?: string; children: React
     <div
       role="tablist"
       className={cn(
-        "inline-flex h-10 items-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
+        "flex h-10 items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground",
         className,
       )}
     >

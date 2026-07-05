@@ -4,12 +4,14 @@ import { AlertTriangle, MessageSquarePlus, Settings, Sparkles, X } from "lucide-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AI_ERROR_MESSAGES } from "@/ai/gemini/errors";
+import { cn } from "@/lib/utils";
 import { useAiConfigStore } from "@/store/useAiConfigStore";
 import { useChatStore } from "@/store/useChatStore";
 import { AssistantEmptyState } from "./AssistantEmptyState";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
 import { ROUTES } from "@/routes/paths";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 /**
  * Global assistant side panel (Ctrl/Cmd+J). Lazy-mounted from AppLayout while
@@ -49,13 +51,27 @@ export function AssistantPanel() {
   if (!open) return null;
 
   const streaming = status === "streaming" || status === "awaiting-confirmation";
+  const isDesktop = useBreakpoint("lg");
 
   return (
-    <aside
-      ref={panelRef}
-      aria-label="Asistente IA"
-      className="flex w-[400px] shrink-0 flex-col border-l bg-card/30"
-    >
+    <>
+      {/* Mobile backdrop */}
+      {!isDesktop && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => toggleOpen(false)}
+        />
+      )}
+      <aside
+        ref={panelRef}
+        aria-label="Asistente IA"
+        className={cn(
+          "flex flex-col bg-card/30",
+          isDesktop
+            ? "w-[400px] shrink-0 border-l"
+            : "fixed inset-0 z-50 border-0",
+        )}
+      >
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
         <Sparkles className="size-4 text-primary" />
         <h2 className="text-sm font-semibold">Asistente</h2>
@@ -119,5 +135,6 @@ export function AssistantPanel() {
         onStop={stop}
       />
     </aside>
+    </>
   );
 }
