@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import { PersonSelect } from "@/components/forms/PersonSelect";
+import { DateFieldPreview } from "@/components/forms/DateFieldPreview";
 import { priorityLabel, taskStatusLabel } from "@/domain/labels";
 import { newTask } from "@/domain/factories";
-import type { Area, Person, Priority, Task, TaskStatus } from "@/domain/schemas";
+import type { Area, Person, Priority, Sprint, Task, TaskStatus } from "@/domain/schemas";
 
 interface Props {
   open: boolean;
@@ -24,7 +26,10 @@ interface Props {
   task?: Task;
   areas: Area[];
   people: Person[];
+  sprints: Sprint[];
   defaultStatus?: TaskStatus;
+  /** Sprint pre-selected for a new task (e.g. created from within a sprint scope). */
+  defaultSprintId?: string | null;
   onSubmit: (t: Task) => void;
 }
 
@@ -34,7 +39,9 @@ export function TaskFormDialog({
   task,
   areas,
   people,
+  sprints,
   defaultStatus = "todo",
+  defaultSprintId = null,
   onSubmit,
 }: Props) {
   const [title, setTitle] = useState("");
@@ -44,6 +51,7 @@ export function TaskFormDialog({
   const [areaId, setAreaId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [sprintId, setSprintId] = useState("");
   // "Más opciones" toggle: start expanded when editing an existing task
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -56,10 +64,11 @@ export function TaskFormDialog({
       setAreaId(task?.areaId ?? "");
       setAssigneeId(task?.assigneeId ?? "");
       setDueDate(task?.dueDate ?? "");
+      setSprintId(task?.sprintId ?? defaultSprintId ?? "");
       // Expand advanced options automatically when editing
       setShowAdvanced(!!task);
     }
-  }, [open, task, defaultStatus]);
+  }, [open, task, defaultStatus, defaultSprintId]);
 
   function submit() {
     if (!title.trim()) return;
@@ -73,6 +82,7 @@ export function TaskFormDialog({
       areaId: areaId || null,
       assigneeId: assigneeId || null,
       dueDate: dueDate || null,
+      sprintId: sprintId || null,
     });
     onOpenChange(false);
   }
@@ -166,12 +176,28 @@ export function TaskFormDialog({
                     people={people}
                   />
                 </div>
+                {sprints.length > 0 && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="t-sprint">Sprint</Label>
+                    <Select
+                      id="t-sprint"
+                      value={sprintId}
+                      onChange={(e) => setSprintId(e.target.value)}
+                    >
+                      <option value="">— Backlog —</option>
+                      {sprints.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="t-due">Fecha límite</Label>
-                <Input
+                <DateFieldPreview
                   id="t-due"
-                  type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                 />
@@ -187,13 +213,56 @@ export function TaskFormDialog({
             </>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!title.trim()}>
-            {task ? "Guardar" : "Crear"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="task"
+            fields={{
+              title,
+              description,
+              status,
+              priority,
+              areaId,
+              assigneeId,
+              dueDate,
+              sprintId,
+            }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "title":
+                  setTitle(value as string);
+                  break;
+                case "description":
+                  setDescription(value as string);
+                  break;
+                case "status":
+                  setStatus(value as TaskStatus);
+                  break;
+                case "priority":
+                  setPriority(value as Priority);
+                  break;
+                case "areaId":
+                  setAreaId(value as string);
+                  break;
+                case "assigneeId":
+                  setAssigneeId(value as string);
+                  break;
+                case "dueDate":
+                  setDueDate(value as string);
+                  break;
+                case "sprintId":
+                  setSprintId(value as string);
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!title.trim()}>
+              {task ? "Guardar" : "Crear"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

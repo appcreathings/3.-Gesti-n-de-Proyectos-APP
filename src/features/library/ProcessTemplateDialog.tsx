@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   DndContext,
   KeyboardSensor,
@@ -133,9 +134,7 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  setSteps((s) => [...s, { id: uuid(), text: "", details: "" }])
-                }
+                onClick={() => setSteps((s) => [...s, { id: uuid(), text: "", details: "" }])}
               >
                 <Plus className="size-4" />
                 Añadir paso
@@ -201,13 +200,32 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
             </DndContext>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!name.trim()}>
-            {template ? "Guardar" : "Crear"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="process-template"
+            fields={{ name, category, description, steps }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "name":
+                  setName(value as string);
+                  break;
+                case "category":
+                  setCategory(value as string);
+                  break;
+                case "description":
+                  setDescription(value as string);
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!name.trim()}>
+              {template ? "Guardar" : "Crear"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

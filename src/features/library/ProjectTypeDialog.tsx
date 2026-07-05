@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
@@ -123,8 +124,8 @@ export function ProjectTypeDialog({
             </div>
             {areas.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Sin áreas. Define áreas y asóciales plantillas para que se generen al
-                crear un proyecto de este tipo.
+                Sin áreas. Define áreas y asóciales plantillas para que se generen al crear un
+                proyecto de este tipo.
               </p>
             )}
             <div className="space-y-3">
@@ -177,13 +178,29 @@ export function ProjectTypeDialog({
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!name.trim()}>
-            {type ? "Guardar" : "Crear"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="project-type"
+            fields={{ name, description, defaultAreas: areas }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "name":
+                  setName(value as string);
+                  break;
+                case "description":
+                  setDescription(value as string);
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!name.trim()}>
+              {type ? "Guardar" : "Crear"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -219,9 +236,7 @@ function TemplatePicker({
                 onClick={() => onToggle(o.id)}
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  on
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "hover:bg-accent",
+                  on ? "border-primary bg-primary/10 text-primary" : "hover:bg-accent",
                 )}
               >
                 {o.name}

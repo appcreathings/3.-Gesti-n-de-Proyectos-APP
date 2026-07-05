@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ListChecks } from "lucide-react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PersonSelect } from "@/components/forms/PersonSelect";
+import { DateFieldPreview } from "@/components/forms/DateFieldPreview";
 import type { ChecklistItem, Person } from "@/domain/schemas";
 
 interface Props {
@@ -88,9 +90,8 @@ export function ItemEditorDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="it-due">Fecha límite</Label>
-              <Input
+              <DateFieldPreview
                 id="it-due"
-                type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
@@ -107,31 +108,47 @@ export function ItemEditorDialog({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="it-notes">Notas</Label>
-            <Textarea
-              id="it-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+            <Textarea id="it-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           <div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={hasTask}
-              onClick={onConvertToTask}
-            >
+            <Button variant="outline" size="sm" disabled={hasTask} onClick={onConvertToTask}>
               <ListChecks className="size-4" />
               {hasTask ? "Ya tiene tarea" : "Convertir en tarea"}
             </Button>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!text.trim()}>
-            Guardar
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="checklist-item"
+            fields={{ text, required, dueDate, assigneeId, notes }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "text":
+                  setText(value as string);
+                  break;
+                case "notes":
+                  setNotes(value as string);
+                  break;
+                case "dueDate":
+                  setDueDate(value as string);
+                  break;
+                case "assigneeId":
+                  setAssigneeId(value as string);
+                  break;
+                case "required":
+                  setRequired(Boolean(value));
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!text.trim()}>
+              Guardar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

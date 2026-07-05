@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
@@ -103,13 +104,32 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!name.trim()}>
-            {area ? "Guardar" : "Crear"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="area"
+            fields={{ name, icon, ownerId }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "name":
+                  setName(value as string);
+                  break;
+                case "icon":
+                  setIcon(value as string);
+                  break;
+                case "ownerId":
+                  setOwnerId(value as string);
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!name.trim()}>
+              {area ? "Guardar" : "Crear"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

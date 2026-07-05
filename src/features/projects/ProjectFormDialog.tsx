@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import { PersonSelect, MultiPersonSelect } from "@/components/forms/PersonSelect";
+import { DateFieldPreview, DateRangeSummary } from "@/components/forms/DateFieldPreview";
 import { priorityLabel, projectStatusLabel } from "@/domain/labels";
 import type { Priority, Project, ProjectStatus, Stakeholder } from "@/domain/schemas";
 import { newProject } from "@/domain/factories";
@@ -37,11 +39,13 @@ export function ProjectFormDialog({
   const products = useDataStore((s) => s.products);
   const projectTypes = useDataStore((s) => s.projectTypes);
   const people = useDataStore((s) => s.people);
+  const quarters = useDataStore((s) => s.quarters);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [productId, setProductId] = useState<string>("");
   const [typeId, setTypeId] = useState<string>("");
+  const [quarterId, setQuarterId] = useState<string>("");
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [priority, setPriority] = useState<Priority>("medium");
   const [dueDate, setDueDate] = useState<string>("");
@@ -56,6 +60,7 @@ export function ProjectFormDialog({
       setDescription(project?.description ?? "");
       setProductId(project?.productId ?? defaultProductId ?? "");
       setTypeId(project?.typeId ?? "");
+      setQuarterId(project?.quarterId ?? "");
       setStatus(project?.status ?? "active");
       setPriority(project?.priority ?? "medium");
       setDueDate(project?.dueDate ?? "");
@@ -75,6 +80,7 @@ export function ProjectFormDialog({
       description,
       productId: productId || null,
       typeId: typeId || null,
+      quarterId: quarterId || null,
       status,
       priority,
       dueDate: dueDate || null,
@@ -151,8 +157,8 @@ export function ProjectFormDialog({
                   />
                   {typeId && !project && (
                     <p className="text-xs text-muted-foreground">
-                      Tip: para generar áreas automáticamente desde un tipo, usa "Crear desde tipo"
-                      en la lista de proyectos.
+                      Tip: para generar áreas automáticamente desde un tipo, usa "Crear desde
+                      tipo" en la lista de proyectos.
                     </p>
                   )}
                 </div>
@@ -187,25 +193,36 @@ export function ProjectFormDialog({
                     ))}
                   </Select>
                 </div>
+                {quarters.length > 0 && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="pr-quarter">Trimestre</Label>
+                    <EntitySelect
+                      id="pr-quarter"
+                      value={quarterId}
+                      onChange={setQuarterId}
+                      options={quarters}
+                      placeholder="— Sin trimestre —"
+                    />
+                  </div>
+                )}
                 <div className="grid gap-1.5">
                   <Label htmlFor="pr-start">Fecha de inicio</Label>
-                  <Input
+                  <DateFieldPreview
                     id="pr-start"
-                    type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                   />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="pr-due">Fecha límite</Label>
-                  <Input
+                  <DateFieldPreview
                     id="pr-due"
-                    type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                   />
                 </div>
               </div>
+              <DateRangeSummary start={startDate} end={dueDate} />
 
               <div className="grid gap-1.5">
                 <Label htmlFor="pr-owner">Responsable principal</Label>
@@ -240,13 +257,53 @@ export function ProjectFormDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={!name.trim()}>
-            {project ? "Guardar" : "Crear"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <AiImproveButton
+            entityType="project"
+            fields={{
+              name,
+              description,
+              status,
+              priority,
+              startDate,
+              dueDate,
+              ownerId,
+              stakeholders,
+            }}
+            onApply={(field, value) => {
+              switch (field) {
+                case "name":
+                  setName(value as string);
+                  break;
+                case "description":
+                  setDescription(value as string);
+                  break;
+                case "status":
+                  setStatus(value as ProjectStatus);
+                  break;
+                case "priority":
+                  setPriority(value as Priority);
+                  break;
+                case "startDate":
+                  setStartDate(value as string);
+                  break;
+                case "dueDate":
+                  setDueDate(value as string);
+                  break;
+                case "ownerId":
+                  setOwnerId(value as string);
+                  break;
+              }
+            }}
+          />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submit} disabled={!name.trim()}>
+              {project ? "Guardar" : "Crear"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
