@@ -31,7 +31,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       ),
       sections: [
         {
-          heading: "El costo oculto del "gratis"",
+          heading: 'El costo oculto del "gratis"',
           body: (
             <>
               <p>
