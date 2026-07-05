@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { daysBetween, formatDay, formatRange, relativeDay, todayKey } from "@/lib/dates";
+import { daysBetween, formatRange } from "@/lib/dates";
 
 interface DateFieldPreviewProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "value"> {
   value: string;
@@ -93,12 +93,25 @@ export function DateFieldPreview({
   const inputId = id ?? fallbackId;
   const [open, setOpen] = useState(false);
   const [inputText, setInputText] = useState(() => formatDisplay(value));
+  const [month, setMonth] = useState<Date | undefined>(value ? parseDayKey(value) : undefined);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSelecting = useRef(false);
 
   // Sincronizar el texto visible cuando el valor cambia desde fuera
   useEffect(() => {
     setInputText(formatDisplay(value));
-  }, [value]);
+    if (value && !month) {
+      setMonth(parseDayKey(value));
+    }
+  }, [value, month]);
+
+  function handleOpenChange(newOpen: boolean) {
+    if (isSelecting.current) {
+      isSelecting.current = false;
+      return;
+    }
+    setOpen(newOpen);
+  }
 
   function handleInputChange(raw: string) {
     setInputText(raw);
@@ -115,23 +128,22 @@ export function DateFieldPreview({
     }
   }
 
-  function handleCalendarSelect(date: Date | undefined) {
-    if (date) {
-      onChange(toDayKey(date));
-    }
-    setOpen(false);
-  }
-
   function clearDate() {
     onChange("");
+    setMonth(undefined);
     inputRef.current?.focus();
+  }
+
+  function goToToday() {
+    const today = new Date();
+    setMonth(today);
   }
 
   const selectedDate = value ? parseDayKey(value) : undefined;
 
   return (
     <div className="grid gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange} modal={false}>
         <div className="relative">
           <Input
             {...props}
@@ -159,42 +171,57 @@ export function DateFieldPreview({
             </Button>
           </PopoverTrigger>
         </div>
-        <PopoverContent className="w-auto p-0" align="start" onClick={(e) => e.stopPropagation()}>
+        <PopoverContent
+          className="w-auto p-0 min-w-[280px]"
+          align="start"
+          side="bottom"
+          sideOffset={8}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+          style={{ pointerEvents: "auto" }}
+        >
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={handleCalendarSelect}
-            defaultMonth={selectedDate}
+            onSelect={(date) => {
+              if (date) {
+                onChange(toDayKey(date));
+                setMonth(date);
+              }
+              isSelecting.current = true;
+              setOpen(false);
+            }}
+            month={month}
+            onMonthChange={setMonth}
           />
-          {value && (
-            <div className="border-t border-border p-2">
+          <div className="border-t border-border p-2 flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={goToToday}
+              className="flex-1 text-muted-foreground hover:text-foreground"
+            >
+              Hoy
+            </Button>
+            {value && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="w-full text-muted-foreground hover:text-foreground"
                 onClick={clearDate}
+                className="flex-1 text-muted-foreground hover:text-foreground"
               >
-                Limpiar fecha
+                Limpiar
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </PopoverContent>
       </Popover>
-      {value && (
-        <p id={`${inputId}-preview`} className={previewTone(value, warnWithinDays)}>
-          {formatDay(value)} · {relativeDay(value)}
-        </p>
-      )}
     </div>
   );
-}
-
-function previewTone(value: string, warnWithinDays: number) {
-  const diff = daysBetween(todayKey(new Date()), value);
-  const tone =
-    diff < 0 ? "text-destructive" : diff <= warnWithinDays ? "text-warning" : "text-muted-foreground";
-  return cn("text-xs", tone);
 }
 
 /**

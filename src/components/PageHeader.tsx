@@ -22,7 +22,7 @@ export function PageHeader({
   breadcrumb,
 }: PageHeaderProps) {
   return (
-    <div className="mb-10">
+    <div className="mb-6 sm:mb-10">
       {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} className="mb-3" />}
       {label && <SectionLabel className="mb-3 block">{label}</SectionLabel>}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

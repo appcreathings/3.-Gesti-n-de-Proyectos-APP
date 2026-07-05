@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -62,8 +63,8 @@ export function CreateFromTypeDialog({ open, onOpenChange }: Props) {
             Aún no hay tipos de proyecto. Crea uno en Biblioteca → Tipos de Proyecto.
           </p>
         ) : (
-          <div className="grid gap-4">
-            <div className="grid gap-1.5">
+          <DialogBody>
+            <div className="grid gap-2">
               <Label htmlFor="cf-type">Tipo de proyecto</Label>
               <Select id="cf-type" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
                 {types.map((t) => (
@@ -79,7 +80,7 @@ export function CreateFromTypeDialog({ open, onOpenChange }: Props) {
                 </p>
               )}
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="cf-name">Nombre del proyecto</Label>
               <Input
                 id="cf-name"
@@ -88,7 +89,7 @@ export function CreateFromTypeDialog({ open, onOpenChange }: Props) {
                 placeholder="Nombre del nuevo proyecto"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="cf-product">Producto</Label>
               <Select
                 id="cf-product"
@@ -103,7 +104,7 @@ export function CreateFromTypeDialog({ open, onOpenChange }: Props) {
                 ))}
               </Select>
             </div>
-          </div>
+          </DialogBody>
         )}
 
         <DialogFooter>

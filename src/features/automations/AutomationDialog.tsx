@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Zap } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -113,7 +114,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="md:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="size-5 text-primary" />
@@ -121,8 +122,8 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid max-h-[64vh] gap-5 overflow-y-auto pr-1">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="au-name">Nombre</Label>
             <Input
               id="au-name"
@@ -141,7 +142,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
           </div>
 
           {/* Ámbito */}
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label>Ámbito</Label>
             <div className="flex gap-2">
               <Select
@@ -189,7 +190,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
           </div>
 
           {/* Disparador */}
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label>Disparador</Label>
             <Select value={triggerType} onChange={(e) => setTriggerType(e.target.value)}>
               {EVENT_TRIGGERS.map((t) => (
@@ -323,7 +324,7 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
               ))}
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

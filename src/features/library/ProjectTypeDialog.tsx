@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -88,14 +89,14 @@ export function ProjectTypeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="md:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {type ? "Editar tipo de proyecto" : "Nuevo tipo de proyecto"}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[64vh] gap-4 overflow-y-auto pr-1">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="ty-name">Nombre</Label>
             <Input
               id="ty-name"
@@ -105,7 +106,7 @@ export function ProjectTypeDialog({
               placeholder="p. ej. Proyecto de Software"
             />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="ty-desc">Descripción</Label>
             <Textarea
               id="ty-desc"
@@ -188,7 +189,7 @@ export function ProjectTypeDialog({
               }
             }}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

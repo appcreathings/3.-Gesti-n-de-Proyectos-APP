@@ -202,7 +202,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto md:grid md:grid-cols-2 md:snap-none md:overflow-visible xl:grid-cols-4">
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto md:grid md:grid-cols-2 md:gap-2 xl:grid-cols-4 xl:gap-2 md:snap-none md:overflow-visible">
           {TASK_COLUMNS.map((col) => {
             const tasks = tasksInScope.filter((t) => t.status === col);
             return (

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, SlidersHorizontal, X } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -90,7 +91,7 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="md:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{task ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
           <DialogDescription>
@@ -100,10 +101,10 @@ export function TaskFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-5">
+        <DialogBody>
           {/* ── Información principal ── */}
-          <section className="grid gap-3">
-            <div className="grid gap-1.5">
+          <section className="grid gap-4">
+            <div className="grid gap-2">
               <Label htmlFor="t-title">
                 Título <span className="text-destructive">*</span>
               </Label>
@@ -121,7 +122,7 @@ export function TaskFormDialog({
                 }}
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="t-desc">Descripción</Label>
               <Textarea
                 id="t-desc"
@@ -154,7 +155,7 @@ export function TaskFormDialog({
           {showAdvanced && (
             <section className="grid gap-4 rounded-lg border bg-muted/30 p-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="t-status">Estado</Label>
                   <Select
                     id="t-status"
@@ -168,7 +169,7 @@ export function TaskFormDialog({
                     ))}
                   </Select>
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="t-priority">Prioridad</Label>
                   <Select
                     id="t-priority"
@@ -182,7 +183,7 @@ export function TaskFormDialog({
                     ))}
                   </Select>
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="t-area">Área</Label>
                   <EntitySelect
                     id="t-area"
@@ -192,7 +193,7 @@ export function TaskFormDialog({
                     placeholder="— Sin área —"
                   />
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="t-assignee">Responsable</Label>
                   <PersonSelect
                     id="t-assignee"
@@ -202,7 +203,7 @@ export function TaskFormDialog({
                   />
                 </div>
                 {sprints.length > 0 && (
-                  <div className="grid gap-1.5">
+            <div className="grid gap-2">
                     <Label htmlFor="t-sprint">Sprint</Label>
                     <Select
                       id="t-sprint"
@@ -218,7 +219,7 @@ export function TaskFormDialog({
                     </Select>
                   </div>
                 )}
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="t-due">Fecha límite</Label>
                   <DateFieldPreview id="t-due" value={dueDate} onChange={setDueDate} />
                 </div>
@@ -267,8 +268,7 @@ export function TaskFormDialog({
               }
             }}
           />
-        </div>
-
+        </DialogBody>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             <X className="mr-2 size-4" />

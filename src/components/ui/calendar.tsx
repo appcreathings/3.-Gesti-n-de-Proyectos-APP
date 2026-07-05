@@ -5,11 +5,21 @@ import { cn } from "@/lib/utils";
 
 export type CalendarProps = DayPickerProps;
 
-function Calendar({ className, classNames: userClassNames, locale: _locale, showOutsideDays = true, ...props }: CalendarProps) {
+function Calendar({
+  className,
+  classNames: userClassNames,
+  locale: _locale,
+  showOutsideDays = true,
+  captionLayout = "dropdown",
+  navLayout = "after",
+  ...props
+}: CalendarProps) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       locale={es}
+      captionLayout={captionLayout}
+      navLayout={navLayout}
       className={cn("p-3", className)}
       classNames={{
         root: "w-full",
@@ -17,6 +27,10 @@ function Calendar({ className, classNames: userClassNames, locale: _locale, show
         month: "space-y-4",
         month_caption: "flex justify-center items-center relative h-8",
         caption_label: "text-sm font-medium text-foreground",
+        dropdowns: "flex justify-center gap-1",
+        dropdown: "bg-background border border-input rounded-md px-2 py-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        months_dropdown: "text-sm font-medium",
+        years_dropdown: "text-sm font-medium",
         nav: "flex items-center gap-1 absolute inset-x-0 top-0 h-8 justify-between",
         button_previous: cn(
           "inline-flex h-7 w-7 items-center justify-center rounded-md border border-input bg-transparent p-0",

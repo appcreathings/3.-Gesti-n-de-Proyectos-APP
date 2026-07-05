@@ -55,7 +55,7 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-xl gap-0 p-0 sm:max-w-xl">
+      <DialogContent className="md:max-w-3xl gap-0 overflow-hidden p-0 sm:h-auto md:h-auto lg:h-auto">
       {/* cmdk requires these inner primitives */}
       <Command
         className="flex w-full flex-col overflow-hidden rounded-lg border-0 bg-popover text-popover-foreground shadow-none sm:rounded-lg sm:border"
@@ -65,7 +65,7 @@ export function CommandPalette() {
           placeholder="Buscar o ejecutar acción… (Cmd+K)"
           className="flex h-12 w-full border-b bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <CommandList className="max-h-[400px] overflow-y-auto p-2">
+        <CommandList className="max-h-[50vh] overflow-y-auto p-2 sm:max-h-[400px]">
           <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
             Sin resultados.
           </CommandEmpty>

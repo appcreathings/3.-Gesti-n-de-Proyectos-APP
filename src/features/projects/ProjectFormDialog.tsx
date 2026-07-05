@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -93,13 +94,13 @@ export function ProjectFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{project ? "Editar proyecto" : "Nuevo proyecto"}</DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
+        <DialogBody>
           {/* ── Nombre siempre visible ── */}
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="pr-name">Nombre</Label>
             <Input
               id="pr-name"
@@ -117,7 +118,7 @@ export function ProjectFormDialog({
           </div>
 
           {/* ── Producto: siempre visible (contexto esencial) ── */}
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="pr-product">Producto</Label>
             <EntitySelect
               id="pr-product"
@@ -149,7 +150,7 @@ export function ProjectFormDialog({
             <>
               {/* Tipo de proyecto (permite cambiar el tipo) */}
               {projectTypes.length > 0 && (
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="pr-type">Tipo de proyecto</Label>
                   <EntitySelect
                     id="pr-type"
@@ -168,7 +169,7 @@ export function ProjectFormDialog({
               )}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="pr-status">Estado</Label>
                   <Select
                     id="pr-status"
@@ -182,7 +183,7 @@ export function ProjectFormDialog({
                     ))}
                   </Select>
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="pr-priority">Prioridad</Label>
                   <Select
                     id="pr-priority"
@@ -197,7 +198,7 @@ export function ProjectFormDialog({
                   </Select>
                 </div>
                 {quarters.length > 0 && (
-                  <div className="grid gap-1.5">
+                  <div className="grid gap-2">
                     <Label htmlFor="pr-quarter">Trimestre</Label>
                     <EntitySelect
                       id="pr-quarter"
@@ -208,18 +209,18 @@ export function ProjectFormDialog({
                     />
                   </div>
                 )}
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="pr-start">Fecha de inicio</Label>
                   <DateFieldPreview id="pr-start" value={startDate} onChange={setStartDate} />
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label htmlFor="pr-due">Fecha límite</Label>
                   <DateFieldPreview id="pr-due" value={dueDate} onChange={setDueDate} />
                 </div>
               </div>
               <DateRangeSummary start={startDate} end={dueDate} />
 
-              <div className="grid gap-1.5">
+              <div className="grid gap-2">
                 <Label htmlFor="pr-owner">Responsable principal</Label>
                 <PersonSelect
                   id="pr-owner"
@@ -230,7 +231,7 @@ export function ProjectFormDialog({
               </div>
 
               {people.length > 0 && (
-                <div className="grid gap-1.5">
+                <div className="grid gap-2">
                   <Label>Equipo (RACI)</Label>
                   <MultiPersonSelect
                     people={people}
@@ -240,7 +241,7 @@ export function ProjectFormDialog({
                 </div>
               )}
 
-              <div className="grid gap-1.5">
+              <div className="grid gap-2">
                 <Label htmlFor="pr-desc">Descripción</Label>
                 <Textarea
                   id="pr-desc"
@@ -288,7 +289,7 @@ export function ProjectFormDialog({
               }
             }}
           />
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

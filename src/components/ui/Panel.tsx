@@ -46,7 +46,7 @@ export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(function Panel
       {...rest}
     >
       {hasHeader && (
-        <div className="flex items-start justify-between gap-4 border-b border-border/60 p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-border/60 p-4 sm:p-6">
           <div className="min-w-0">
             {label && (
               <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -63,7 +63,7 @@ export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(function Panel
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </div>
   );
 });

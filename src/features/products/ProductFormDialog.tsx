@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -58,12 +59,12 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{product ? "Editar producto" : "Nuevo producto"}</DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="p-name">Nombre</Label>
             <Input
               id="p-name"
@@ -74,7 +75,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
               placeholder="Nombre del producto"
             />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="p-vision">Visión</Label>
             <Textarea
               id="p-vision"
@@ -83,7 +84,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
               placeholder="¿Qué busca lograr este producto?"
             />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="p-desc">Descripción</Label>
             <Textarea
               id="p-desc"
@@ -92,7 +93,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="p-status">Estado</Label>
               <Select
                 id="p-status"
@@ -106,7 +107,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
                 ))}
               </Select>
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="p-owner">Responsable</Label>
               <PersonSelect
                 id="p-owner"
@@ -116,7 +117,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
               />
             </div>
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

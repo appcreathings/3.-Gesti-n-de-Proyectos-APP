@@ -1,11 +1,12 @@
 import { useState } from "react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -75,7 +76,7 @@ export function ApplyTemplateDialog({
         {options.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">{emptyMsg}</p>
         ) : (
-          <div className="flex flex-wrap gap-2 py-2">
+          <DialogBody className="flex flex-row flex-wrap gap-2">
             {options.map((o) => (
               <button
                 key={o.id}
@@ -91,7 +92,7 @@ export function ApplyTemplateDialog({
                 {o.name}
               </button>
             ))}
-          </div>
+          </DialogBody>
         )}
 
         <DialogFooter>

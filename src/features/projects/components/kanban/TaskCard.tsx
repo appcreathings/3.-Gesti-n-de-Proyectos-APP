@@ -56,73 +56,81 @@ export function TaskCard({
       }}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group rounded-lg border border-border/70 bg-background p-3 transition-colors hover:border-border",
+        "group flex flex-col rounded-lg border border-border/70 bg-background p-2.5 md:p-2 xl:p-3 transition-colors hover:border-border",
         focused && "ring-2 ring-foreground/60",
         isDragging && "z-10 opacity-80 shadow-lg ring-2 ring-foreground/30",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-1.5">
-          <button
-            className="mt-0.5 cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing"
-            aria-label={`Arrastrar tarea ${task.title}`}
-            {...listeners}
-            {...attributes}
-          >
-            <GripVertical className="size-3.5" />
-          </button>
-          <p className="text-sm font-medium">{task.title}</p>
-        </div>
-        <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6"
-            title="Mover al siguiente estado"
-            onClick={onMove}
-          >
-            <ArrowRight className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="size-6" onClick={onEdit}>
-            <Pencil className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="size-6" onClick={onDelete}>
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+      <div className="flex min-w-0 items-start gap-1.5 mb-1.5 md:mb-1 xl:mb-1.5">
+        <button
+          className="mt-0.5 cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing shrink-0"
+          aria-label={`Arrastrar tarea ${task.title}`}
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="size-3 md:size-2.5 xl:size-3" />
+        </button>
+        <p className="text-sm md:text-[8px] xl:text-sm font-medium leading-tight break-words line-clamp-2">{task.title}</p>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Badge variant={priorityVariant[task.priority]} className="text-[10px]">
+      <div className="mt-0 mb-1.5 md:mb-1 xl:mb-1.5 flex flex-wrap items-center gap-1">
+        <Badge variant={priorityVariant[task.priority]} className="text-[10px] md:text-[7px] xl:text-[10px] leading-tight px-1.5 py-0.5">
           {priorityLabel[task.priority]}
         </Badge>
         {area && (
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-[10px] md:text-[7px] xl:text-[10px] leading-tight px-1.5 py-0.5 truncate max-w-[100px]">
             {area.name}
           </Badge>
         )}
         {sprint && (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] md:text-[7px] xl:text-[10px] leading-tight px-1.5 py-0.5 truncate max-w-[100px]">
             {sprint.name}
           </Badge>
         )}
         {assignee && (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] md:text-[7px] xl:text-[10px] leading-tight px-1.5 py-0.5 truncate max-w-[100px]">
             {assignee.name}
           </Badge>
         )}
         {task.dueDate && (
           <Badge
             variant={overdue ? "destructive" : "outline"}
-            className="gap-1 text-[10px]"
+            className="gap-1 text-[10px] md:text-[7px] xl:text-[10px] leading-tight px-1.5 py-0.5"
           >
             {overdue ? (
-              <AlertCircle className="size-3" />
+              <AlertCircle className="size-3 md:size-2 xl:size-3" />
             ) : (
-              <CalendarClock className="size-3" />
+              <CalendarClock className="size-3 md:size-2 xl:size-3" />
             )}
             {task.dueDate}
           </Badge>
         )}
+      </div>
+      <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-1.5 md:pt-1 xl:pt-1.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 md:size-5 xl:size-7"
+          title="Mover al siguiente estado"
+          onClick={onMove}
+        >
+          <ArrowRight className="size-3.5 md:size-2.5 xl:size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 md:size-5 xl:size-7"
+          onClick={onEdit}
+        >
+          <Pencil className="size-3.5 md:size-2.5 xl:size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 md:size-5 xl:size-7"
+          onClick={onDelete}
+        >
+          <Trash2 className="size-3.5 md:size-2.5 xl:size-3.5" />
+        </Button>
       </div>
     </div>
   );

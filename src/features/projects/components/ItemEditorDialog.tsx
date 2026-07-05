@@ -3,6 +3,7 @@ import { ListChecks } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -71,8 +72,8 @@ export function ItemEditorDialog({
         <DialogHeader>
           <DialogTitle>Editar ítem</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="it-text">Texto</Label>
             <Input
               id="it-text"
@@ -88,11 +89,11 @@ export function ItemEditorDialog({
             </Label>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="it-due">Fecha límite</Label>
               <DateFieldPreview id="it-due" value={dueDate} onChange={setDueDate} />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="it-assignee">Responsable</Label>
               <PersonSelect
                 id="it-assignee"
@@ -102,7 +103,7 @@ export function ItemEditorDialog({
               />
             </div>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="it-notes">Notas</Label>
             <Textarea id="it-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
@@ -135,7 +136,7 @@ export function ItemEditorDialog({
               }
             }}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

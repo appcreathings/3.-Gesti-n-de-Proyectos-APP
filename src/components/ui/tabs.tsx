@@ -69,7 +69,7 @@ function TabsTrigger({ value, children }: { value: string; children: React.React
 function TabsContent({ value, className, children }: { value: string; className?: string; children: React.ReactNode }) {
   const ctx = React.useContext(TabsContext)!;
   if (ctx.value !== value) return null;
-  return <div className={cn("mt-6 focus-visible:outline-none", className)}>{children}</div>;
+  return <div className={cn("mt-4 focus-visible:outline-none sm:mt-6", className)}>{children}</div>;
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };

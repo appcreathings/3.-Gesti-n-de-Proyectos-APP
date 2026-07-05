@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -58,12 +59,12 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="md:max-w-lg sm:h-auto sm:min-h-[65vh] md:h-auto md:min-h-[65vh] lg:h-auto lg:min-h-[65vh]">
         <DialogHeader>
           <DialogTitle>{area ? "Editar área" : "Nueva área"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="ar-name">Nombre</Label>
             <Input
               id="ar-name"
@@ -79,7 +80,7 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
             <IconPicker icons={AREA_ICONS} value={icon} onChange={setIcon} />
           </div>
           {people.length > 0 && (
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="ar-owner">Responsable del área</Label>
               <PersonSelect
                 id="ar-owner"
@@ -106,7 +107,7 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
               }
             }}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

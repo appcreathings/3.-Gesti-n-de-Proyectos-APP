@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -56,12 +57,12 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{quarter ? "Editar trimestre" : "Nuevo trimestre"}</DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="q-name">Nombre</Label>
             <Input
               id="q-name"
@@ -78,17 +79,17 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="q-start">Fecha de inicio</Label>
               <DateFieldPreview id="q-start" value={startDate} onChange={setStartDate} />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="q-end">Fecha de fin</Label>
               <DateFieldPreview id="q-end" value={endDate} onChange={setEndDate} />
             </div>
           </div>
           <DateRangeSummary start={startDate} end={endDate} />
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="q-status">Estado</Label>
             <Select
               id="q-status"
@@ -102,7 +103,7 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
               ))}
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="q-goal">Meta</Label>
             <Textarea
               id="q-goal"
@@ -111,7 +112,7 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
               placeholder="¿Qué queremos lograr este trimestre?"
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

@@ -22,27 +22,24 @@ export function KanbanColumn({ status, count, taskIds, onAdd, children }: Props)
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-w-[80vw] shrink-0 snap-start flex-col rounded-xl border border-border/70 bg-background p-3 transition-colors sm:min-w-0 sm:shrink",
+        "flex min-w-[80vw] shrink-0 snap-start flex-col rounded-xl border border-border/70 bg-background p-3 md:p-2.5 xl:p-3 transition-colors sm:min-w-0 sm:shrink md:min-w-0",
         isOver && "bg-foreground/[0.04] ring-2 ring-foreground/30",
       )}
     >
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="flex items-baseline gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {taskStatusLabel[status]}
-          </span>
-          <span className="font-mono text-xs text-muted-foreground/70">{count}</span>
-        </div>
-        <Badge variant="outline" className="font-mono text-[10px]">
+      <div className="mb-3 md:mb-2 xl:mb-3 flex items-center justify-between px-0.5">
+        <span className="font-mono text-[10px] md:text-[8px] xl:text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+          {taskStatusLabel[status]}
+        </span>
+        <Badge variant="outline" className="font-mono text-[10px] md:text-[8px] xl:text-[10px] px-1.5 py-0.5">
           {count}
         </Badge>
       </div>
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-2.5 md:space-y-2 xl:space-y-2.5">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {children}
         </SortableContext>
         <button
-          className="w-full rounded-lg border border-dashed border-border/70 py-2 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+          className="w-full rounded-lg border border-dashed border-border/70 py-2.5 md:py-2 xl:py-2.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
           onClick={onAdd}
         >
           + Añadir

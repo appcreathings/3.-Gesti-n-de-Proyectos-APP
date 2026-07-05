@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -104,12 +105,12 @@ export function ProcessEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="md:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{process ? "Editar proceso" : "Nuevo proceso"}</DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
-          <div className="grid gap-1.5">
+        <DialogBody>
+          <div className="grid gap-2">
             <Label htmlFor="proc-name">Nombre del proceso (SOP)</Label>
             <Input
               id="proc-name"
@@ -127,7 +128,7 @@ export function ProcessEditorDialog({
           </div>
 
           {people.length > 0 && (
-            <div className="grid gap-1.5">
+          <div className="grid gap-2">
               <Label htmlFor="proc-owner">Responsable del proceso</Label>
               <PersonSelect
                 id="proc-owner"
@@ -138,7 +139,7 @@ export function ProcessEditorDialog({
             </div>
           )}
 
-          <div className="grid gap-1.5">
+          <div className="grid gap-2">
             <Label htmlFor="proc-desc">Descripción (Markdown)</Label>
             <Textarea
               id="proc-desc"
@@ -148,7 +149,7 @@ export function ProcessEditorDialog({
               placeholder="Documenta el proceso. Admite **negrita**, listas, `código`…"
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             <div className="flex items-center justify-between">
               <Label>Pasos</Label>
               <Button variant="ghost" size="sm" onClick={addStep}>
@@ -170,7 +171,7 @@ export function ProcessEditorDialog({
                 items={steps.map((s) => s.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <ol className="grid gap-2">
+                <ol className="grid gap-3">
                   {steps.map((s, i) => (
                     <SortableItem key={s.id} id={s.id}>
                       {({ setNodeRef, style, attributes, listeners, isDragging }) => (
@@ -240,7 +241,7 @@ export function ProcessEditorDialog({
               }
             }}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

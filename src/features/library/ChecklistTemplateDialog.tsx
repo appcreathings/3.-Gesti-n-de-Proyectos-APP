@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -85,15 +86,15 @@ export function ChecklistTemplateDialog({ open, onOpenChange, template, onSubmit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {template ? "Editar plantilla de checklist" : "Nueva plantilla de checklist"}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
+        <DialogBody>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="ct-name">Nombre</Label>
               <Input
                 id="ct-name"
@@ -103,7 +104,7 @@ export function ChecklistTemplateDialog({ open, onOpenChange, template, onSubmit
                 placeholder="p. ej. QA Release"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label htmlFor="ct-cat">Categoría</Label>
               <Input
                 id="ct-cat"
@@ -212,7 +213,7 @@ export function ChecklistTemplateDialog({ open, onOpenChange, template, onSubmit
               }
             }}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
