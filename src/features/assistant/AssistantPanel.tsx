@@ -9,6 +9,7 @@ import { useChatStore } from "@/store/useChatStore";
 import { AssistantEmptyState } from "./AssistantEmptyState";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
+import { ROUTES } from "@/routes/paths";
 
 /**
  * Global assistant side panel (Ctrl/Cmd+J). Lazy-mounted from AppLayout while
@@ -76,7 +77,7 @@ export function AssistantPanel() {
             </Button>
           )}
           <Link
-            to="/settings#ia"
+            to={ROUTES.settings("ia")}
             title="Ajustes del asistente"
             aria-label="Ajustes del asistente"
             className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

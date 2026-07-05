@@ -1,13 +1,16 @@
 import { Suspense, lazy, useEffect, type ReactNode } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AppGate } from "@/components/layout/AppGate";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ConnectScreen } from "@/features/connect/ConnectScreen";
 import { useAppStore } from "@/store/useAppStore";
 import { useDataStore } from "@/store/useDataStore";
 import { useAiConfigStore } from "@/store/useAiConfigStore";
 
 // Route-level code-splitting: each page ships in its own chunk.
+const LandingPage = lazy(() =>
+  import("@/features/landing/LandingPage").then((m) => ({ default: m.LandingPage })),
+);
 const DashboardPage = lazy(() =>
   import("@/features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })),
 );
@@ -44,18 +47,24 @@ function page(el: ReactNode) {
 }
 
 const router = createBrowserRouter([
+  { path: "/", element: page(<LandingPage />) },
   {
-    path: "/",
-    element: <AppLayout />,
+    path: "/app",
+    element: <AppGate />,
     children: [
-      { index: true, element: page(<DashboardPage />) },
-      { path: "products", element: page(<ProductsPage />) },
-      { path: "projects", element: page(<ProjectsPage />) },
-      { path: "projects/:id", element: page(<ProjectDetailPage />) },
-      { path: "library", element: page(<LibraryPage />) },
-      { path: "automations", element: page(<AutomationsPage />) },
-      { path: "notifications", element: page(<NotificationsPage />) },
-      { path: "settings", element: page(<SettingsPage />) },
+      {
+        element: <AppLayout />,
+        children: [
+          { index: true, element: page(<DashboardPage />) },
+          { path: "products", element: page(<ProductsPage />) },
+          { path: "projects", element: page(<ProjectsPage />) },
+          { path: "projects/:id", element: page(<ProjectDetailPage />) },
+          { path: "library", element: page(<LibraryPage />) },
+          { path: "automations", element: page(<AutomationsPage />) },
+          { path: "notifications", element: page(<NotificationsPage />) },
+          { path: "settings", element: page(<SettingsPage />) },
+        ],
+      },
     ],
   },
 ]);
@@ -87,17 +96,7 @@ export function App() {
 
   return (
     <ThemeProvider>
-      {connection === "initializing" ? (
-        <Loading />
-      ) : connection === "ready" ? (
-        hydrated ? (
-          <RouterProvider router={router} />
-        ) : (
-          <Loading />
-        )
-      ) : (
-        <ConnectScreen />
-      )}
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
 }

@@ -23,6 +23,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { projectStatusLabel } from "@/domain/labels";
 import { computePortfolio, type DueRow, type ProductRollup } from "./portfolio";
 import type { Health, Project, ProjectStatus } from "@/domain/schemas";
+import { ROUTES } from "@/routes/paths";
 
 const HEALTH_ORDER: Health[] = ["red", "amber", "green"];
 
@@ -52,13 +53,13 @@ export function DashboardPage() {
             description="El dashboard se llenará con salud, vencidos y estancados en cuanto crees tu primer proyecto."
             action={
               <div className="flex flex-wrap gap-2">
-                <Link to="/library?tab=checklists">
+                <Link to={ROUTES.library("checklists")}>
                   <Button variant="outline" size="sm">
                     <Library className="size-4" />
                     1. Ir a Biblioteca
                   </Button>
                 </Link>
-                <Link to="/projects">
+                <Link to={ROUTES.projects}>
                   <Button size="sm">
                     <FolderKanban className="size-4" />
                     2. Crear proyecto
@@ -257,7 +258,7 @@ function StalledCard({
               .map((p) => (
                 <li key={p.id}>
                   <Link
-                    to={`/projects/${p.id}`}
+                    to={ROUTES.project(p.id)}
                     className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-accent"
                   >
                     <span className="min-w-0 truncate">{p.name}</span>
@@ -348,7 +349,7 @@ function DueSection({
             return (
             <li key={`${r.ref.kind}-${r.ref.itemId ?? r.ref.taskId ?? r.ref.projectId}`}>
               <Link
-                to={`/projects/${r.projectId}?${params.toString()}`}
+                to={`${ROUTES.project(r.projectId)}?${params.toString()}`}
                 className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-accent"
               >
                 <span className="min-w-0 truncate">{r.label}</span>

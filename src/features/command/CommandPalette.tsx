@@ -21,6 +21,7 @@ import {
   Boxes,
 } from "lucide-react";
 import { useDataStore } from "@/store/useDataStore";
+import { ROUTES } from "@/routes/paths";
 
 // Re-export for AppLayout to mount
 export function CommandPalette() {
@@ -72,7 +73,7 @@ export function CommandPalette() {
           <CommandGroup heading="Crear">
             <CommandItem
               value="nuevo producto"
-              onSelect={() => go("/products")}
+              onSelect={() => go(ROUTES.products)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <Plus className="size-4 text-muted-foreground" />
@@ -80,7 +81,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               value="nuevo proyecto"
-              onSelect={() => go("/projects")}
+              onSelect={() => go(ROUTES.projects)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <Plus className="size-4 text-muted-foreground" />
@@ -88,7 +89,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               value="crear proyecto desde tipo"
-              onSelect={() => go("/projects")}
+              onSelect={() => go(ROUTES.projects)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <Boxes className="size-4 text-muted-foreground" />
@@ -102,7 +103,7 @@ export function CommandPalette() {
           <CommandGroup heading="Navegar">
             <CommandItem
               value="dashboard"
-              onSelect={() => go("/")}
+              onSelect={() => go(ROUTES.dashboard)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <LayoutGrid className="size-4 text-muted-foreground" />
@@ -110,7 +111,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               value="productos"
-              onSelect={() => go("/products")}
+              onSelect={() => go(ROUTES.products)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <Package className="size-4 text-muted-foreground" />
@@ -118,7 +119,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               value="proyectos"
-              onSelect={() => go("/projects")}
+              onSelect={() => go(ROUTES.projects)}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <FolderKanban className="size-4 text-muted-foreground" />
@@ -126,7 +127,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               value="biblioteca plantillas tipos"
-              onSelect={() => go("/library")}
+              onSelect={() => go(ROUTES.library())}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
             >
               <Library className="size-4 text-muted-foreground" />
@@ -142,7 +143,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={p.id}
                     value={`proyecto ${p.name} ${productMap[p.productId ?? ""] ?? ""}`}
-                    onSelect={() => go(`/projects/${p.id}`)}
+                    onSelect={() => go(ROUTES.project(p.id))}
                     className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
                   >
                     <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
@@ -166,7 +167,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={p.id}
                     value={`producto ${p.name}`}
-                    onSelect={() => go(`/projects?product=${p.id}`)}
+                    onSelect={() => go(ROUTES.projectsByProduct(p.id))}
                     className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
                   >
                     <Package className="size-4 shrink-0 text-muted-foreground" />
@@ -190,7 +191,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={t.id}
                     value={`tipo proyecto ${t.name}`}
-                    onSelect={() => go("/library?tab=types")}
+                    onSelect={() => go(ROUTES.library("types"))}
                     className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
                   >
                     <Boxes className="size-4 shrink-0 text-muted-foreground" />
@@ -202,7 +203,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={t.id}
                     value={`plantilla checklist ${t.name}`}
-                    onSelect={() => go("/library?tab=checklists")}
+                    onSelect={() => go(ROUTES.library("checklists"))}
                     className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
                   >
                     <CheckSquare className="size-4 shrink-0 text-muted-foreground" />
@@ -214,7 +215,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={t.id}
                     value={`plantilla proceso ${t.name}`}
-                    onSelect={() => go("/library?tab=processes")}
+                    onSelect={() => go(ROUTES.library("processes"))}
                     className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent"
                   >
                     <ListChecks className="size-4 shrink-0 text-muted-foreground" />

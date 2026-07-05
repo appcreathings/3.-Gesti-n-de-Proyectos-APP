@@ -18,6 +18,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useDataStore } from "@/store/useDataStore";
 import { useChatStore } from "@/store/useChatStore";
 import { CommandPalette } from "@/features/command/CommandPalette";
+import { ROUTES } from "@/routes/paths";
 
 // Lazy: solo se descarga la primera vez que se abre el panel (Ctrl/Cmd+J).
 const AssistantPanel = lazy(() =>
@@ -27,13 +28,13 @@ const AssistantPanel = lazy(() =>
 );
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/products", label: "Productos", icon: Package },
-  { to: "/projects", label: "Proyectos", icon: FolderKanban },
-  { to: "/library", label: "Biblioteca", icon: Library },
-  { to: "/automations", label: "Automatizaciones", icon: Workflow },
-  { to: "/notifications", label: "Notificaciones", icon: Bell },
-  { to: "/settings", label: "Ajustes", icon: Settings },
+  { to: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: ROUTES.products, label: "Productos", icon: Package },
+  { to: ROUTES.projects, label: "Proyectos", icon: FolderKanban },
+  { to: ROUTES.library(), label: "Biblioteca", icon: Library },
+  { to: ROUTES.automations, label: "Automatizaciones", icon: Workflow },
+  { to: ROUTES.notifications, label: "Notificaciones", icon: Bell },
+  { to: ROUTES.settings(), label: "Ajustes", icon: Settings },
 ];
 
 export function AppLayout() {
@@ -68,7 +69,7 @@ export function AppLayout() {
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <FolderKanban className="size-4" />
           </div>
-          <span className="text-sm font-semibold">Gestor de Proyectos</span>
+          <span className="text-sm font-semibold">Hito</span>
         </div>
         {/* Command palette trigger */}
         <button
@@ -100,7 +101,7 @@ export function AppLayout() {
             >
               <Icon className="size-4" />
               <span className="flex-1">{label}</span>
-              {to === "/notifications" && unread > 0 && (
+              {to === ROUTES.notifications && unread > 0 && (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                   {unread}
                 </span>

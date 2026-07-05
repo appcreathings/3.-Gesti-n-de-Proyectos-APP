@@ -16,6 +16,7 @@ import {
   projectTaskProgress,
 } from "@/domain/compute";
 import type { Health, Project } from "@/domain/schemas";
+import { ROUTES } from "@/routes/paths";
 
 interface Props {
   project: Project;
@@ -72,7 +73,7 @@ export function OverviewTab({ project, productName, productId, onChangeHealth }:
             value={
               productName && productId ? (
                 <Link
-                  to={`/projects?product=${productId}`}
+                  to={ROUTES.projectsByProduct(productId)}
                   className="font-medium text-primary hover:underline"
                 >
                   {productName}

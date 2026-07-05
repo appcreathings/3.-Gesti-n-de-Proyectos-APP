@@ -12,6 +12,7 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import type { ActivityEntry } from "@/domain/schemas";
+import { ROUTES } from "@/routes/paths";
 
 interface Props {
   projectId: string;
@@ -79,7 +80,7 @@ export function ActivityTab({ projectId, entries }: Props) {
     } else {
       params.set("tab", "overview");
     }
-    navigate(`/projects/${projectId}?${params.toString()}`);
+    navigate(`${ROUTES.project(projectId)}?${params.toString()}`);
   };
 
   return (

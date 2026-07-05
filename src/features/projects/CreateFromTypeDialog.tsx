@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useDataStore } from "@/store/useDataStore";
+import { ROUTES } from "@/routes/paths";
 
 interface Props {
   open: boolean;
@@ -43,7 +44,7 @@ export function CreateFromTypeDialog({ open, onOpenChange }: Props) {
     if (!typeId || !name.trim()) return;
     const id = await createProjectFromType(typeId, name.trim(), productId || null);
     onOpenChange(false);
-    if (id) navigate(`/projects/${id}`);
+    if (id) navigate(ROUTES.project(id));
   }
 
   return (

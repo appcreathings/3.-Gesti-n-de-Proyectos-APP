@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { KeyRound, Sparkles } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/routes/paths";
 
 const SUGGESTIONS = [
   "¿Qué proyectos están estancados o en riesgo?",
@@ -30,7 +31,7 @@ export function AssistantEmptyState({ hasKey, onSuggestion }: Props) {
           </p>
         </div>
         <Link
-          to="/settings#ia"
+          to={ROUTES.settings("ia")}
           className={cn(buttonVariants({ size: "sm" }))}
         >
           Ir a Ajustes → Asistente IA

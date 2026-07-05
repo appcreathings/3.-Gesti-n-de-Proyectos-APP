@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useDataStore } from "@/store/useDataStore";
 import type { Notification, Severity } from "@/domain/schemas";
+import { ROUTES } from "@/routes/paths";
 
 const SEVERITY: Record<Severity, { icon: LucideIcon; variant: BadgeProps["variant"]; label: string }> = {
   info: { icon: Info, variant: "secondary", label: "Info" },
@@ -61,7 +62,7 @@ export function NotificationsPage() {
     } else {
       params.set("tab", "overview");
     }
-    navigate(`/projects/${n.entityRef.projectId}?${params.toString()}`);
+    navigate(`${ROUTES.project(n.entityRef.projectId)}?${params.toString()}`);
   };
 
   return (

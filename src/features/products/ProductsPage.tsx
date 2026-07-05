@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProductFormDialog } from "./ProductFormDialog";
 import { useDataStore } from "@/store/useDataStore";
 import { productStatusLabel } from "@/domain/labels";
+import { ROUTES } from "@/routes/paths";
 import type { Product } from "@/domain/schemas";
 
 export function ProductsPage() {
@@ -74,7 +75,7 @@ export function ProductsPage() {
                 )}
                 {count > 0 ? (
                   <Link
-                    to={`/projects?product=${p.id}`}
+                    to={ROUTES.projectsByProduct(p.id)}
                     className="mt-3 block text-xs text-primary hover:underline"
                   >
                     {count} {count === 1 ? "proyecto" : "proyectos"} →

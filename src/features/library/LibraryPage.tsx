@@ -25,6 +25,7 @@ import type {
 import { ChecklistTemplateDialog } from "./ChecklistTemplateDialog";
 import { ProcessTemplateDialog } from "./ProcessTemplateDialog";
 import { ProjectTypeDialog } from "./ProjectTypeDialog";
+import { ROUTES } from "@/routes/paths";
 
 export function LibraryPage() {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export function LibraryPage() {
       </div>
       <Tabs
         value={activeTab}
-        onValueChange={(tab) => navigate(`/library?tab=${tab}`, { replace: true })}
+        onValueChange={(tab) => navigate(ROUTES.library(tab), { replace: true })}
       >
         {/* Tabs ordered by dependency: checklist templates → process templates → types */}
         <TabsList>
@@ -131,7 +132,7 @@ function ChecklistTemplatesTab() {
           </div>
           <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
             Con plantillas listas, ahora puedes asociarlas a un{" "}
-            <Link to="/library?tab=types" className="inline-flex items-center gap-0.5 text-primary hover:underline">
+            <Link to={ROUTES.library("types")} className="inline-flex items-center gap-0.5 text-primary hover:underline">
               Tipo de Proyecto <ArrowRight className="size-3" />
             </Link>
           </p>
@@ -220,7 +221,7 @@ function ProcessTemplatesTab() {
           </div>
           <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
             Con procesos listos, asócialos a un{" "}
-            <Link to="/library?tab=types" className="inline-flex items-center gap-0.5 text-primary hover:underline">
+            <Link to={ROUTES.library("types")} className="inline-flex items-center gap-0.5 text-primary hover:underline">
               Tipo de Proyecto <ArrowRight className="size-3" />
             </Link>
           </p>
@@ -286,7 +287,7 @@ function TypesTab() {
           description="Un tipo define áreas y plantillas por defecto. Al crear un proyecto desde un tipo, todo se genera automáticamente."
           action={
             !hasTemplates ? (
-              <Link to="/library?tab=checklists">
+              <Link to={ROUTES.library("checklists")}>
                 <Button variant="outline">
                   Crear plantilla de checklist primero
                   <ArrowRight className="size-4" />
@@ -336,7 +337,7 @@ function TypesTab() {
           </div>
           <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
             Tipos listos. Ahora ve a{" "}
-            <Link to="/projects" className="inline-flex items-center gap-0.5 text-primary hover:underline">
+            <Link to={ROUTES.projects} className="inline-flex items-center gap-0.5 text-primary hover:underline">
               Proyectos → "Desde tipo" <ArrowRight className="size-3" />
             </Link>{" "}
             para crear tu primer proyecto con estructura.

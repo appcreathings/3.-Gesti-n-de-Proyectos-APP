@@ -10,14 +10,15 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "Gestor de Proyectos",
-        short_name: "Proyectos",
+        name: "Hito",
+        short_name: "Hito",
         description:
-          "Gestor de proyectos local-first: productos, proyectos, procesos (SOPs), checklists, Kanban y automatizaciones.",
+          "Hito: gestor de proyectos local-first. Productos, proyectos, procesos (SOPs), checklists, Kanban y automatizaciones.",
         lang: "es",
         theme_color: "#2A4074",
         background_color: "#ffffff",
         display: "standalone",
+        start_url: "/app",
         icons: [
           { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           {

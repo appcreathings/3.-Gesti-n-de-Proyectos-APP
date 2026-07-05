@@ -18,6 +18,7 @@ import {
   projectStatusVariant,
 } from "@/domain/labels";
 import { projectChecklistProgress } from "@/domain/compute";
+import { ROUTES } from "@/routes/paths";
 
 export function ProjectsPage() {
   const projects = useDataStore((s) => s.projects);
@@ -115,7 +116,7 @@ export function ProjectsPage() {
               return (
                 <EntityCard
                   key={p.id}
-                  href={`/projects/${p.id}`}
+                  href={ROUTES.project(p.id)}
                   title={p.name}
                   meta={
                     <>

@@ -1,4 +1,4 @@
-# Gestor de Proyectos, Procesos y Checklists
+# Hito — Gestión de Proyectos, Procesos y Checklists
 
 Aplicación web **local-first** para gestionar múltiples **productos y proyectos**, con foco en
 **documentar procesos (SOPs) y checklists por área**, definir **Tipos de Proyecto** y **Plantillas

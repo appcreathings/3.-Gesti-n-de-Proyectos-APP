@@ -19,6 +19,7 @@ import { AreasTab } from "./components/AreasTab";
 import { TasksTab } from "./components/TasksTab";
 import { ProjectAutomationsTab } from "./components/ProjectAutomationsTab";
 import { ActivityTab } from "./components/ActivityTab";
+import { ROUTES } from "@/routes/paths";
 
 export function ProjectDetailPage() {
   const { id = "" } = useParams();
@@ -50,7 +51,7 @@ export function ProjectDetailPage() {
         title="Proyecto no encontrado"
         description="Puede que haya sido eliminado."
         action={
-          <Button onClick={() => navigate("/projects")}>
+          <Button onClick={() => navigate(ROUTES.projects)}>
             Volver a proyectos
           </Button>
         }
@@ -64,9 +65,9 @@ export function ProjectDetailPage() {
     <div>
       <PageHeader
         breadcrumb={[
-          { label: "Proyectos", href: "/projects" },
+          { label: "Proyectos", href: ROUTES.projects },
           ...(productName
-            ? [{ label: productName, href: `/projects?product=${project.productId}` }]
+            ? [{ label: productName, href: ROUTES.projectsByProduct(project.productId!) }]
             : []),
           { label: project.name },
         ]}
@@ -93,7 +94,7 @@ export function ProjectDetailPage() {
       <Tabs
         value={activeTab}
         onValueChange={(tab) => {
-          navigate(`/projects/${id}?tab=${tab}`, { replace: true });
+          navigate(`${ROUTES.project(id)}?tab=${tab}`, { replace: true });
         }}
       >
         <TabsList>
@@ -142,7 +143,7 @@ export function ProjectDetailPage() {
         description="Se eliminará el proyecto y todo su contenido (áreas, procesos, checklists y tareas)."
         onConfirm={() => {
           void deleteProject(project.id);
-          navigate("/projects");
+          navigate(ROUTES.projects);
         }}
       />
     </div>
