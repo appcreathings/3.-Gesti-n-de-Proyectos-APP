@@ -97,7 +97,7 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
           </DialogTitle>
         </DialogHeader>
         <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="pt-name">Nombre</Label>
               <Input

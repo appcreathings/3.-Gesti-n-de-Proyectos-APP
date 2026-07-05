@@ -25,7 +25,7 @@ export function PageHeader({
     <div className="mb-10">
       {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} className="mb-3" />}
       {label && <SectionLabel className="mb-3 block">{label}</SectionLabel>}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
@@ -35,7 +35,7 @@ export function PageHeader({
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </div>
   );

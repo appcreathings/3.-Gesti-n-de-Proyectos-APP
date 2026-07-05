@@ -13,6 +13,7 @@ import {
   Search,
   Sparkles,
   Menu,
+  MoreHorizontal,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,11 @@ const NAV = [
   { to: ROUTES.notifications, label: "Notificaciones", icon: Bell },
   { to: ROUTES.settings(), label: "Ajustes", icon: Settings },
 ];
+
+// Destinos primarios mostrados en la barra inferior móvil (alcanzables con el pulgar).
+// El resto de secciones (Automatizaciones, Notificaciones, Ajustes, Asistente) vive
+// detrás del botón "Más", que abre el drawer completo.
+const MOBILE_PRIMARY_NAV = NAV.slice(0, 4);
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const adapterKind = useAppStore((s) => s.adapter.kind);
@@ -97,7 +103,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             onClick={onNavClick}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-foreground/5 text-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -123,7 +129,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           }}
           aria-pressed={assistantOpen}
           className={cn(
-            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            "flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
             assistantOpen
               ? "bg-foreground/5 text-foreground"
               : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -152,6 +158,47 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         </div>
       </div>
     </>
+  );
+}
+
+function MobileBottomNav({ onMoreClick }: { onMoreClick: () => void }) {
+  const unread = useDataStore((s) => s.notifications.filter((n) => !n.read).length);
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border/70 bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+      aria-label="Navegación principal"
+    >
+      {MOBILE_PRIMARY_NAV.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          className={({ isActive }) =>
+            cn(
+              "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] transition-colors",
+              isActive ? "text-foreground" : "text-muted-foreground",
+            )
+          }
+        >
+          <Icon className="size-5" />
+          <span>{label}</span>
+        </NavLink>
+      ))}
+      <button
+        onClick={onMoreClick}
+        className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-muted-foreground"
+        aria-label="Más opciones"
+      >
+        <MoreHorizontal className="size-5" />
+        <span>Más</span>
+        {unread > 0 && (
+          <span className="absolute right-[calc(50%-20px)] top-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-[9px] font-semibold text-background">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+    </nav>
   );
 }
 
@@ -231,7 +278,7 @@ export function AppLayout() {
             <div className="flex h-14 items-center justify-end px-4">
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+                className="rounded-md p-2 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-5" />
               </button>
@@ -246,7 +293,7 @@ export function AppLayout() {
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-4 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+            className="rounded-md p-2 text-muted-foreground hover:text-foreground"
             aria-label="Abrir menú"
           >
             <Menu className="size-5" />
@@ -259,12 +306,15 @@ export function AppLayout() {
           </Link>
         </header>
 
-        <main id="main-content" className="flex-1 overflow-y-auto">
+        <main id="main-content" className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-16">
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* Mobile bottom nav — thumb-reachable primary destinations */}
+      {!isDesktop && <MobileBottomNav onMoreClick={() => setSidebarOpen(true)} />}
 
       {/* Global AI assistant — lazy-mounted while open; the chat lives in useChatStore */}
       {assistantOpen && (

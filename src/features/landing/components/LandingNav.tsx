@@ -61,7 +61,7 @@ export function LandingNav() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground md:hidden"
+            className="rounded-md p-2 text-muted-foreground hover:text-foreground md:hidden"
             aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}

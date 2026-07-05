@@ -29,7 +29,7 @@ export function FinalCta() {
             pasos. Tus datos, tu máquina, tus reglas.
         </p>
 
-        <dl className="mx-auto mt-12 grid max-w-md grid-cols-3 gap-6 text-left">
+        <dl className="mx-auto mt-12 grid max-w-md grid-cols-3 gap-4 text-left sm:gap-6">
           <div>
             <dt className="font-mono text-2xl font-semibold tracking-tight">~30s</dt>
             <dd className="mt-1 text-xs text-muted-foreground">para elegir carpeta</dd>
