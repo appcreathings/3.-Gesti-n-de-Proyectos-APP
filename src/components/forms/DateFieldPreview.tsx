@@ -152,9 +152,8 @@ export function DateFieldPreview({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
               disabled={disabled}
-              className="absolute right-0 top-0 h-full rounded-l-none px-3 text-muted-foreground hover:text-foreground"
+              className="absolute right-0 top-0 z-10 h-10 w-10 rounded-l-none p-0 text-foreground/80 hover:text-foreground"
               aria-label="Abrir calendario"
             >
               <CalendarIcon className="size-4" />
