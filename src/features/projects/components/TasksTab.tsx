@@ -38,6 +38,13 @@ const NEXT: Record<TaskStatus, TaskStatus> = {
   done: "todo",
 };
 
+const PREV: Record<TaskStatus, TaskStatus> = {
+  todo: "done",
+  doing: "todo",
+  blocked: "doing",
+  done: "doing",
+};
+
 const COLUMN_IDS = new Set<string>(TASK_COLUMNS);
 
 export function TasksTab({ project, people, mutate, focusId }: Props) {
@@ -202,7 +209,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto md:grid md:grid-cols-2 md:gap-2 xl:grid-cols-4 xl:gap-2 md:snap-none md:overflow-visible">
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto md:grid md:grid-cols-2 md:gap-4 xl:grid-cols-4 xl:gap-3 md:snap-none md:overflow-visible">
           {TASK_COLUMNS.map((col) => {
             const tasks = tasksInScope.filter((t) => t.status === col);
             return (
@@ -226,8 +233,19 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                     }
                     focused={t.id === focusId}
                     focusRef={focusRef}
+                    onMoveBack={() =>
+                      mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
+                    }
                     onMove={() =>
                       mutate((p) => ops.updateTask(p, { ...t, status: NEXT[t.status] }))
+                    }
+                    onToggleBlock={() =>
+                      mutate((p) =>
+                        ops.updateTask(p, {
+                          ...t,
+                          status: t.status === "blocked" ? "doing" : "blocked",
+                        })
+                      )
                     }
                     onEdit={() => setDialog({ open: true, task: t })}
                     onDelete={() => mutate((p) => ops.removeTask(p, t.id))}
