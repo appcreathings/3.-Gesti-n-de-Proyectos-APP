@@ -32,8 +32,10 @@ export default defineConfig({
       // Solo se precachea el app shell; los datos viven en la carpeta local /
       // IndexedDB del usuario, así que el SW nunca sirve datos obsoletos.
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg}"],
+        globPatterns: ["**/*.{js,css,svg}"],
         navigateFallback: "/index.html",
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
       },
     }),
   ],

@@ -5,34 +5,40 @@ import { ROUTES } from "@/routes/paths";
 
 export function LandingNav() {
   return (
-    <nav className="fixed inset-x-0 top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        {/* Logo */}
+    <nav className="fixed inset-x-0 top-0 z-50 bg-background/60 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <Link to={ROUTES.landing} className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Flag className="size-4" />
+          <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
+            <Flag className="size-3.5" />
           </div>
-          <span className="text-lg font-bold">Hito</span>
+          <span className="text-sm font-semibold tracking-tight">Hito</span>
         </Link>
 
-        {/* Links */}
         <div className="hidden items-center gap-8 md:flex">
-          <a href="#como-funciona" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <a
+            href="#como-funciona"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
             Cómo funciona
           </a>
-          <a href="#funciones" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-            Funciones
+          <a
+            href="#caracteristicas"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Características
           </a>
-          <a href="#privacidad" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-            Privacidad
+          <a
+            href="#uso"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Casos de uso
           </a>
         </div>
 
-        {/* CTA */}
         <Link to={ROUTES.dashboard}>
-          <Button size="sm" className="gap-2">
-            Empezar
-            <span className="text-lg">→</span>
+          <Button size="sm" variant="ghost" className="h-8 gap-2 px-3 text-sm">
+            Abrir Hito
+            <span aria-hidden>→</span>
           </Button>
         </Link>
       </div>

@@ -1,74 +1,66 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/routes/paths";
 
-const BENEFITS = [
-  "Sin tarjeta de crédito",
-  "Sin límite de proyectos",
-  "Actualizaciones gratuitas",
-  "Soporte por comunidad",
-];
-
 export function FinalCta() {
   return (
-    <section className="relative overflow-hidden px-6 py-24">
-      {/* Fondo con gradiente */}
-      <div className="absolute inset-0 bg-gradient-to-b from-muted/50 via-background to-background" />
-      
-      {/* Patrón decorativo */}
-      <div className="absolute inset-0 opacity-[0.03]" 
+    <section className="relative overflow-hidden border-b border-border/60">
+      <div
+        className="absolute inset-0 -z-10"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
-          backgroundSize: '24px 24px',
+          backgroundImage:
+            "radial-gradient(circle at 20% 0%, hsl(var(--primary)/0.10), transparent 50%), radial-gradient(circle at 80% 100%, hsl(var(--primary)/0.06), transparent 50%)",
         }}
       />
 
-      <div className="relative mx-auto max-w-2xl text-center">
-        {/* Badge decorativo */}
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex size-2 rounded-full bg-primary" />
-          </span>
-          <span>Empieza en menos de 2 minutos</span>
-        </div>
-
-        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Empieza gratis,{" "}
-          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            hoy mismo
-          </span>
-        </h2>
-
-        <p className="mx-auto mt-4 max-w-lg text-lg text-muted-foreground">
-          Elige una carpeta en tu equipo y ten tu primer proyecto organizado en minutos. 
-          Sin complicaciones, sin compromisos.
+      <div className="mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
+        <p className="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Empieza hoy
         </p>
 
-        {/* Lista de beneficios */}
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          {BENEFITS.map((benefit) => (
-            <div key={benefit} className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="size-4 text-emerald-500" />
-              <span>{benefit}</span>
-            </div>
-          ))}
-        </div>
+        <h2 className="mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+          Menos de 2 minutos hasta tu primer proyecto.
+        </h2>
 
-        {/* CTA principal */}
-        <div className="mt-10">
+        <p className="mx-auto mt-6 max-w-xl text-pretty text-muted-foreground sm:text-lg">
+          Elegís una carpeta, nombrás un producto, y Hito empieza a guardar.
+          Nada de formularios, verificaciones de email ni setup guiado de 17
+          pasos.
+        </p>
+
+        <dl className="mx-auto mt-12 grid max-w-md grid-cols-3 gap-6 text-left">
+          <div>
+            <dt className="font-mono text-2xl font-semibold tracking-tight">~30s</dt>
+            <dd className="mt-1 text-xs text-muted-foreground">para elegir carpeta</dd>
+          </div>
+          <div>
+            <dt className="font-mono text-2xl font-semibold tracking-tight">1</dt>
+            <dd className="mt-1 text-xs text-muted-foreground">proyecto creado</dd>
+          </div>
+          <div>
+            <dt className="font-mono text-2xl font-semibold tracking-tight">0</dt>
+            <dd className="mt-1 text-xs text-muted-foreground">datos enviados</dd>
+          </div>
+        </dl>
+
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
           <Link to={ROUTES.dashboard}>
-            <Button size="lg" className="gap-2 px-8 text-base shadow-xl shadow-primary/25 transition-all hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-0.5">
-              Empezar ahora
-              <ArrowRight className="size-5" />
+            <Button size="lg" className="h-11 gap-2 px-6">
+              Abrir Hito
+              <ArrowRight className="size-4" />
             </Button>
           </Link>
+          <a
+            href="#uso"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Ver casos de uso →
+          </a>
         </div>
 
-        {/* Testimonio sutil */}
-        <p className="mt-8 text-sm text-muted-foreground/60">
-          Únete a los equipos que ya gestionan sus proyectos con Hito
+        <p className="mt-12 font-mono text-xs text-muted-foreground/70">
+          github.com/hito/hito  ·  MIT
         </p>
       </div>
     </section>
