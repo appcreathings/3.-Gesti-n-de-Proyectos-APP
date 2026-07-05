@@ -1,3 +1,19 @@
+/**
+ * Comparison — Tabla comparativa vs competidores cloud.
+ *
+ * Compara Hito vs Trello vs Notion vs ClickUp en 6 dimensiones:
+ * - Dónde viven tus datos
+ * - Funciona 100% offline
+ * - Sin cuenta ni registro
+ * - Sin límite de usuarios
+ * - Formato de datos abierto (.json, versionable con Git)
+ * - Gratis, sin planes pagos
+ *
+ * Celdas: ✓ (verde) = sí, − (gris) = parcial, ✗ (gris claro) = no.
+ * Columna Hito destacada con fondo primario sutil.
+ *
+ * Nota: "Trello, Notion y ClickUp son marcas de sus respectivos dueños."
+ */
 import { Check, X, Minus } from "lucide-react";
 
 type Cell = true | false | "partial";

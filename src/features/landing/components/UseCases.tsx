@@ -1,3 +1,15 @@
+/**
+ * UseCases — 4 casos de uso por industria/tipo de equipo.
+ *
+ * Casos:
+ * - Consultora/agencia (5-15 personas): múltiples cuentas con SOPs versionados
+ * - Startup técnico: repo Git con carpeta /projects, 100% auditable
+ * - Estudio legal/contable (3-10): confidencialidad total, cero nubes
+ * - Freelancer/solopreneur (1-3): todo el negocio en una carpeta
+ *
+ * Cada card: icono, industria, team size, story y metric destacado.
+ * Layout: Grid 4 columnas en desktop, 2 en tablet, 1 en mobile.
+ */
 import { Building2, Code2, Scale, User } from "lucide-react";
 
 const CASES = [

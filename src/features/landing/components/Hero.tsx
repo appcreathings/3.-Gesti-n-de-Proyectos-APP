@@ -1,3 +1,16 @@
+/**
+ * Hero — Sección principal de la landing.
+ *
+ * Elementos:
+ * - Badge superior: "Local-first · Sin nube · Sin cuenta · MIT" con indicador verde
+ * - H1: Propuesta de valor centrada en privacidad y control de datos
+ * - Subtítulo: Explica el modelo local-first con archivos .json
+ * - CTAs: "Empezar ahora" (primario) + "Ver características" (ancla)
+ * - Trust signals: 3 bullets con check verde (Gratis, Sin límite, Offline)
+ * - Code snippet: Muestra visualmente el formato de datos (proyectos/*.json)
+ *
+ * Fondo: Gradiente radial + grid pattern con mask para fade en bordes.
+ */
 import { Link } from "react-router-dom";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";

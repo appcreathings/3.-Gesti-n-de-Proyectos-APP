@@ -1,3 +1,12 @@
+/**
+ * Faq — Acordeón de preguntas frecuentes con animación de expansión.
+ *
+ * Usa un estado controlado (openIndex) para permitir solo una pregunta
+ * abierta a la vez. Las respuestas se animan con grid-template-rows.
+ *
+ * Las mismas preguntas se duplican en el JSON-LD de LandingPage.tsx
+ * para habilitar rich snippets de FAQ en Google.
+ */
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
@@ -21,6 +30,14 @@ const FAQS = [
   {
     q: "¿Qué diferencia a Hito de Trello, Notion o ClickUp?",
     a: "La diferencia fundamental es la privacidad y el control de datos. Trello, Notion y ClickUp guardan tus datos en sus servidores. Hito es local-first: tus datos viven en tu equipo, son archivos .json legibles y versionables con Git. No necesitás cuenta, no hay límite de usuarios, funcionás offline, y si mañana querés migrar, tus datos ya están en un formato estándar.",
+  },
+  {
+    q: "¿Cómo funciona el asistente de IA sin comprometer mi privacidad?",
+    a: "El asistente usa Gemini (de Google) para entender tus preguntas y gestionar proyectos, pero con arquitectura MCP + RAG local. Tu API key se guarda en IndexedDB de tu navegador, nunca en el workspace exportable. Los embeddings se generan y almacenan localmente. El modelo solo recibe el contexto semántico de tu consulta específica, no todo tu workspace. Podés desactivar el asistente o el RAG en cualquier momento desde la configuración.",
+  },
+  {
+    q: "¿Qué es MCP y cómo lo usa el asistente?",
+    a: "MCP (Model Context Protocol) es un estándar para que modelos de IA interactúen con herramientas externas. En Hito, el asistente expone +20 herramientas MCP (get_project, create_task, mutate_project, etc.) con esquemas Zod validados. Esto permite al modelo leer y escribir datos reales de tu workspace de forma controlada. Las escrituras siempre requieren tu confirmación explícita.",
   },
   {
     q: "¿Qué pasa si pierdo la carpeta donde tengo los datos?",

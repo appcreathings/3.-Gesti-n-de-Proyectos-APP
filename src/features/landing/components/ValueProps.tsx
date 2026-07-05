@@ -1,3 +1,15 @@
+/**
+ * ValueProps — 4 pilares de valor centrados en privacidad.
+ *
+ * Stats:
+ * - 0 KB enviados a la nube → Privacidad total
+ * - .json abiertos → Datos legibles y versionables con Git
+ * - 1 carpeta → Todo el equipo trabaja sobre la misma carpeta local
+ * - Gratuito MIT → Sin suscripciones, open source auditable
+ *
+ * Layout: Grid 4 columnas en desktop, 2 en tablet, 1 en mobile.
+ * Cada card muestra: icono, valor grande (mono), label y descripción.
+ */
 import { FolderTree, Lock, FileCode2, Heart } from "lucide-react";
 
 const STATS = [

@@ -1,3 +1,15 @@
+/**
+ * HowItWorks — 4 pasos para empezar + explicación de jerarquía.
+ *
+ * Sección dividida en 2 partes:
+ * 1. Grid de 4 pasos: Elegí carpeta → Creá producto → Definí procesos → Gestioná tareas
+ *    Cada paso tiene: número, icono, label y descripción corta.
+ *    Flechas conectoras entre pasos en desktop.
+ *
+ * 2. Jerarquía de entidades con HierarchyLegend:
+ *    Producto → Proyecto → Área → Proceso/Checklist → Tarea
+ *    Layout 2 columnas: texto explicativo + componente visual.
+ */
 import { FolderOpen, Package, FileText, ListChecks, ArrowRight } from "lucide-react";
 import { HierarchyLegend } from "@/components/HierarchyLegend";
 

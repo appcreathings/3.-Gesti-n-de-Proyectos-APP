@@ -1,3 +1,12 @@
+/**
+ * FeatureHighlights — Grid 2×3 con las 6 características principales.
+ *
+ * Cada tarjeta muestra: icono (lucide-react), título y descripción corta.
+ * La primera tarjeta (Kanban) ocupa 2 columnas en desktop para dar énfasis.
+ *
+ * Nota sobre el Asistente IA: esta tarjeta es un resumen. El detalle técnico
+ * de MCP tools + RAG embeddings se desarrolla en AiAssistantSection.
+ */
 import { KanbanSquare, Workflow, Sparkles, HardDriveDownload, ClipboardCheck, LayoutDashboard } from "lucide-react";
 
 const FEATURES = [
@@ -23,8 +32,8 @@ const FEATURES = [
   },
   {
     icon: Sparkles,
-    title: "Asistente IA (Gemini)",
-    body: "Preguntale por el estado de tus proyectos, tareas bloqueadas o qué SOP le falta a un equipo. Sin enviar tus datos a la nube.",
+    title: "Asistente IA con MCP + RAG",
+    body: "Gemini gestiona tus proyectos vía MCP tools (lectura/escritura). El sistema RAG genera embeddings locales para dar contexto semántico sin enviar datos a la nube.",
   },
   {
     icon: HardDriveDownload,

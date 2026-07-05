@@ -15,8 +15,38 @@ import { LandingFooter } from "./components/LandingFooter";
 import { StickyCta } from "./components/StickyCta";
 import { TrustBadges } from "./components/TrustBadges";
 import { Reveal } from "./components/Reveal";
+import { AiAssistantSection } from "./components/AiAssistantSection";
 
-/** Public marketing/onboarding page at "/". No connection to a local folder required. */
+/**
+ * LandingPage — Página pública de marketing/onboarding en "/".
+ *
+ * Arquitectura de secciones (orden de aparición):
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ LandingNav          → Nav fijo con CTA y dark-mode      │
+ * │ StickyCta           → Barra sticky mobile con CTA       │
+ * │ Hero                → Propuesta de valor principal       │
+ * │ TrustBadges         → Badges de confianza (MIT, etc.)    │
+ * │ TrustBar            → Logos/señales de confianza         │
+ * │ ProductMockup       → Mockup visual del producto         │
+ * │ ValueProps          → 4 pilares: privacidad, JSON, etc.  │
+ * │ HowItWorks          → 4 pasos + jerarquía de entidades   │
+ * │ FeatureHighlights   → 6 features (Kanban, IA, SOPs…)    │
+ * │ AiAssistantSection  → Detalle IA: MCP, RAG, embeddings   │
+ * │ Comparison          → Tabla vs Trello/Notion/ClickUp     │
+ * │ UseCases            → 4 casos de uso por industria       │
+ * │ Faq                 → Acordeón con 8 preguntas           │
+ * │ FinalCta            → CTA final con métricas             │
+ * │ LandingFooter       → Footer con links y legal           │
+ * └─────────────────────────────────────────────────────────┘
+ *
+ * SEO: Helmet inyecta title, meta, OG, Twitter Cards y 3 bloques
+ * JSON-LD (Organization, WebSite, FAQPage) para rich snippets.
+ *
+ * El asistente IA (Gemini) se destaca en dos secciones:
+ * - FeatureHighlights: tarjeta resumen con icono Sparkles
+ * - AiAssistantSection: detalle técnico de MCP tools + RAG embeddings
+ *   que muestra cómo la IA gestiona proyectos sin enviar datos a la nube.
+ */
 export function LandingPage() {
   return (
     <>
@@ -108,6 +138,22 @@ export function LandingPage() {
                   "@type": "Answer",
                   "text": "La diferencia fundamental es la privacidad y el control de datos. Trello, Notion y ClickUp guardan tus datos en sus servidores. Hito es local-first: tus datos viven en tu equipo, son archivos .json legibles y versionables con Git. No necesitás cuenta, no hay límite de usuarios, y funcionás offline."
                 }
+              },
+              {
+                "@type": "Question",
+                "name": "¿Cómo funciona el asistente de IA sin comprometer mi privacidad?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "El asistente usa Gemini con arquitectura MCP + RAG local. Tu API key se guarda en IndexedDB, nunca en el workspace exportable. Los embeddings se generan y almacenan localmente. El modelo solo recibe el contexto semántico de tu consulta, no todo tu workspace. Podés desactivar el asistente o el RAG en cualquier momento."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "¿Qué es MCP y cómo lo usa el asistente?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "MCP (Model Context Protocol) es un estándar para que modelos de IA interactúen con herramientas externas. En Hito, el asistente expone más de 20 herramientas MCP con esquemas Zod validados para leer y escribir datos de tu workspace de forma controlada. Las escrituras siempre requieren confirmación explícita."
+                }
               }
             ]
           })}
@@ -129,10 +175,11 @@ export function LandingPage() {
         <Reveal delay={50}><ValueProps /></Reveal>
         <Reveal delay={100}><HowItWorks /></Reveal>
         <Reveal delay={150}><FeatureHighlights /></Reveal>
-        <Reveal delay={200}><Comparison /></Reveal>
-        <Reveal delay={250}><UseCases /></Reveal>
-        <Reveal delay={300}><Faq /></Reveal>
-        <Reveal delay={150}><FinalCta /></Reveal>
+        <Reveal delay={200}><AiAssistantSection /></Reveal>
+        <Reveal delay={250}><Comparison /></Reveal>
+        <Reveal delay={300}><UseCases /></Reveal>
+        <Reveal delay={350}><Faq /></Reveal>
+        <Reveal delay={200}><FinalCta /></Reveal>
       </main>
       <LandingFooter />
     </div>

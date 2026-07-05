@@ -1,3 +1,15 @@
+/**
+ * FinalCta — Call-to-action final antes del footer.
+ *
+ * Elementos:
+ * - Título: "¿Listo para tener el control de tus datos y proyectos?"
+ * - Subtítulo: Explica la simplicidad de empezar (elegir carpeta → operar)
+ * - Métricas: ~30s para elegir carpeta, 1 proyecto creado, ∞ posibilidades
+ * - CTAs: "Empezar gratis — sin registro" (primario) + "Preguntas frecuentes" (ancla)
+ * - Footer mono: "proyectos/*.json · MIT · Sin servidor"
+ *
+ * Fondo: Gradientes radiales con colores primarios sutiles.
+ */
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
