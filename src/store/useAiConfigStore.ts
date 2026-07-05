@@ -24,6 +24,8 @@ interface AiConfigState {
   clearKey: () => Promise<void>;
   setModel: (model: AiConfig["model"]) => Promise<void>;
   setConfirmWrites: (v: boolean) => Promise<void>;
+  setAutoFallback: (v: boolean) => Promise<void>;
+  setFallbackGroup: (group: string) => Promise<void>;
 }
 
 export const useAiConfigStore = create<AiConfigState>((set, get) => ({
@@ -68,6 +70,18 @@ export const useAiConfigStore = create<AiConfigState>((set, get) => ({
 
   async setConfirmWrites(confirmWrites) {
     const config = { ...get().config, confirmWrites };
+    await saveAiConfig(config);
+    set({ config });
+  },
+
+  async setAutoFallback(autoFallback) {
+    const config = { ...get().config, autoFallback };
+    await saveAiConfig(config);
+    set({ config });
+  },
+
+  async setFallbackGroup(fallbackGroup) {
+    const config = { ...get().config, fallbackGroup };
     await saveAiConfig(config);
     set({ config });
   },

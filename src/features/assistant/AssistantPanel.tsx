@@ -1,23 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, MessageSquarePlus, Settings, Sparkles, X } from "lucide-react";
+import { AlertTriangle, BarChart3, MessageSquarePlus, Settings, Sparkles, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AI_ERROR_MESSAGES } from "@/ai/gemini/errors";
+import { rateLimiter } from "@/ai/rateLimiter";
+import { getModelDef } from "@/ai/models";
 import { cn } from "@/lib/utils";
 import { useAiConfigStore } from "@/store/useAiConfigStore";
 import { useChatStore } from "@/store/useChatStore";
 import { AssistantEmptyState } from "./AssistantEmptyState";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
+import { RateLimitStatus } from "./RateLimitStatus";
 import { ROUTES } from "@/routes/paths";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 
-/**
- * Global assistant side panel (Ctrl/Cmd+J). Lazy-mounted from AppLayout while
- * open; the conversation lives in useChatStore, so it survives route changes
- * and panel unmounts. The Ctrl/Cmd+J shortcut is registered in AppLayout.
- */
 export function AssistantPanel() {
   const open = useChatStore((s) => s.open);
   const toggleOpen = useChatStore((s) => s.toggleOpen);
@@ -34,12 +32,12 @@ export function AssistantPanel() {
   const hasKey = Boolean(config.apiKey);
 
   const panelRef = useRef<HTMLElement>(null);
+  const [showRateLimit, setShowRateLimit] = useState(false);
 
   useEffect(() => {
     if (!hydrated) void hydrateFromIdb();
   }, [hydrated, hydrateFromIdb]);
 
-  // Move focus into the panel when it opens.
   useEffect(() => {
     if (open) {
       panelRef.current
@@ -53,9 +51,21 @@ export function AssistantPanel() {
   const streaming = status === "streaming" || status === "awaiting-confirmation";
   const isDesktop = useBreakpoint("lg");
 
+  const activeDef = getModelDef(config.model);
+  const canUsePreferred = hasKey ? rateLimiter.canMakeRequest(config.model) : false;
+  const isOnFallback = hasKey && config.autoFallback && !canUsePreferred;
+
+  const isExhausted = hasKey && !canUsePreferred;
+  const modelBadgeVariant = !hasKey
+    ? "outline"
+    : isOnFallback
+      ? "warning"
+      : isExhausted
+        ? "destructive"
+        : "success";
+
   return (
     <>
-      {/* Mobile backdrop */}
       {!isDesktop && (
         <div
           className="fixed inset-0 z-40 bg-black/50"
@@ -76,11 +86,24 @@ export function AssistantPanel() {
         <Sparkles className="size-4 text-primary" />
         <h2 className="text-sm font-semibold">Asistente</h2>
         {hasKey && (
-          <Badge variant="outline" className="font-mono text-[10px]">
+          <Badge variant={modelBadgeVariant} className="font-mono text-[10px] gap-1">
             {config.model.replace("gemini-", "")}
+            {isOnFallback && <AlertTriangle className="size-3" />}
           </Badge>
         )}
         <div className="ml-auto flex items-center gap-0.5">
+          {hasKey && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Estado de límites"
+              aria-label="Estado de límites"
+              onClick={() => setShowRateLimit((v) => !v)}
+              className={showRateLimit ? "bg-accent" : ""}
+            >
+              <BarChart3 className="size-4" />
+            </Button>
+          )}
           {messages.length > 0 && (
             <Button
               variant="ghost"
@@ -112,6 +135,12 @@ export function AssistantPanel() {
         </div>
       </header>
 
+      {showRateLimit && hasKey && (
+        <div className="border-b px-3 py-2">
+          <RateLimitStatus />
+        </div>
+      )}
+
       {messages.length === 0 ? (
         <AssistantEmptyState hasKey={hasKey} onSuggestion={(t) => void send(t)} />
       ) : (
@@ -124,7 +153,21 @@ export function AssistantPanel() {
           className="mx-3 mb-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs"
         >
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-          <span>{AI_ERROR_MESSAGES[error]}</span>
+          <div className="grid gap-0.5">
+            <span>{AI_ERROR_MESSAGES[error]}</span>
+            {error === "rate-limit" && config.autoFallback && (
+              <span className="text-muted-foreground">
+                Fallback automático activado. El sistema intentó cambiar a otro modelo disponible.
+                {activeDef && ` Grupo actual: ${config.fallbackGroup}.`}
+              </span>
+            )}
+            {error === "all-models-exhausted" && (
+              <span className="text-muted-foreground">
+                Todos los modelos del grupo {config.fallbackGroup} están sin cuota.
+                Espera un momento o cambia el grupo de fallback en Ajustes.
+              </span>
+            )}
+          </div>
         </div>
       )}
 

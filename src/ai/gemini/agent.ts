@@ -2,8 +2,9 @@ import type { Content, FunctionCall, Part, PartListUnion } from "@google/genai";
 import { callTool, getFunctionDeclarations, findTool, type AiTool } from "@/ai/tools";
 import { createClient } from "./client";
 import { classifyAiError, type AiErrorKind } from "./errors";
+import { rateLimiter } from "@/ai/rateLimiter";
+import { modelSelector, type FallbackEvent } from "@/ai/modelSelector";
 
-/** Safety valve: max function-calling rounds per user message. */
 const MAX_ROUNDS = 8;
 
 export interface ToolCallView {
@@ -13,29 +14,24 @@ export interface ToolCallView {
 }
 
 export interface AgentCallbacks {
-  /** Streaming text chunk from the model. */
   onTextDelta: (text: string) => void;
-  /** A tool call is about to execute (render the chip as "running"). */
   onToolCallStart: (call: ToolCallView) => void;
-  /** A tool call finished. */
   onToolCallEnd: (
     call: ToolCallView,
     outcome: { status: "ok" | "error" | "cancelled"; result?: unknown; error?: string },
   ) => void;
-  /**
-   * Ask the user to approve a write. Resolve `true` to execute, `false` to
-   * cancel (the model receives a cancellation functionResponse).
-   */
   onConfirmWrite: (call: ToolCallView, description: string) => Promise<boolean>;
+  onModelSwitch?: (event: FallbackEvent) => void;
 }
 
 export interface AgentTurnOptions {
   apiKey: string;
-  model: string;
+  preferredModel: string;
+  autoFallback?: boolean;
+  fallbackGroup?: string;
   confirmWrites: boolean;
   tools: AiTool[];
   systemInstruction: string;
-  /** Prior conversation in Gemini Content format. */
   history: Content[];
   userMessage: string;
   signal?: AbortSignal;
@@ -43,46 +39,109 @@ export interface AgentTurnOptions {
 }
 
 export interface AgentTurnResult {
-  /** Updated curated history (to persist for the next turn). */
   history: Content[];
-  /** Set when the turn ended by hitting MAX_ROUNDS. */
   roundsExceeded: boolean;
-  /** Set when the turn failed; partial text may have streamed already. */
   error?: AiErrorKind;
+  modelSwitch?: FallbackEvent;
 }
 
-/**
- * One user turn: stream the model's answer, executing function calls in
- * multiple rounds until the model produces a final text response.
- */
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
-  const { callbacks, tools, signal } = opts;
+  const { callbacks, tools, signal, preferredModel, autoFallback = true, fallbackGroup } = opts;
   const ai = await createClient(opts.apiKey);
-  const chat = ai.chats.create({
-    model: opts.model,
-    history: opts.history,
-    config: {
-      systemInstruction: opts.systemInstruction,
-      tools: [{ functionDeclarations: getFunctionDeclarations(tools) }],
-      abortSignal: signal,
-    },
-  });
+
+  let currentModelId: string | null = null;
+  let lastFallbackEvent: FallbackEvent | undefined;
+
+  async function resolveInitialModel(): Promise<string | null> {
+    if (!autoFallback) {
+      return rateLimiter.canMakeRequest(preferredModel) ? preferredModel : null;
+    }
+    const selection = modelSelector.select(preferredModel, fallbackGroup);
+    if (selection.fallbackEvent) {
+      lastFallbackEvent = selection.fallbackEvent;
+      callbacks.onModelSwitch?.(selection.fallbackEvent);
+    }
+    return selection.modelId;
+  }
+
+  async function handleRateLimit(excludedId: string): Promise<string | null> {
+    rateLimiter.markSaturated(excludedId);
+    if (!autoFallback) return null;
+    const selection = modelSelector.selectAfterRateLimit(preferredModel, fallbackGroup);
+    if (selection.fallbackEvent) {
+      lastFallbackEvent = selection.fallbackEvent;
+      callbacks.onModelSwitch?.(selection.fallbackEvent);
+    }
+    return selection.modelId;
+  }
+
+  function createChatWithModel(modelId: string, history: Content[]) {
+    return ai.chats.create({
+      model: modelId,
+      history,
+      config: {
+        systemInstruction: opts.systemInstruction,
+        tools: [{ functionDeclarations: getFunctionDeclarations(tools) }],
+        abortSignal: signal,
+      },
+    });
+  }
+
+  const resolved = await resolveInitialModel();
+  if (!resolved) {
+    return {
+      history: opts.history,
+      roundsExceeded: false,
+      error: autoFallback ? "all-models-exhausted" : "rate-limit",
+    };
+  }
+  currentModelId = resolved;
+  let chat = createChatWithModel(currentModelId, opts.history);
 
   let message: PartListUnion = opts.userMessage;
   let roundsExceeded = false;
 
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const stream = await chat.sendMessageStream({ message });
-      const calls: FunctionCall[] = [];
-      for await (const chunk of stream) {
-        if (signal?.aborted) throw new DOMException("aborted", "AbortError");
-        if (chunk.text) callbacks.onTextDelta(chunk.text);
-        if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
+      let calls: FunctionCall[] = [];
+
+      try {
+        const stream = await chat.sendMessageStream({ message });
+        for await (const chunk of stream) {
+          if (signal?.aborted) throw new DOMException("aborted", "AbortError");
+          if (chunk.text) callbacks.onTextDelta(chunk.text);
+          if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
+        }
+      } catch (e) {
+        const kind = classifyAiError(e);
+        if (kind === "rate-limit" && currentModelId) {
+          const fallbackId = await handleRateLimit(currentModelId);
+          if (fallbackId) {
+            currentModelId = fallbackId;
+            chat = createChatWithModel(currentModelId, chat.getHistory(true));
+            const stream = await chat.sendMessageStream({ message });
+            calls = [];
+            for await (const chunk of stream) {
+              if (signal?.aborted) throw new DOMException("aborted", "AbortError");
+              if (chunk.text) callbacks.onTextDelta(chunk.text);
+              if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
+            }
+          } else {
+            return {
+              history: chat.getHistory(true),
+              roundsExceeded,
+              error: "all-models-exhausted",
+              modelSwitch: lastFallbackEvent,
+            };
+          }
+        } else {
+          throw e;
+        }
       }
 
       if (calls.length === 0) {
-        return { history: chat.getHistory(true), roundsExceeded: false };
+        rateLimiter.recordRequest(currentModelId ?? preferredModel);
+        return { history: chat.getHistory(true), roundsExceeded: false, modelSwitch: lastFallbackEvent };
       }
 
       const parts: Part[] = [];
@@ -94,22 +153,20 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         };
         const response = await executeCall(call, opts);
         parts.push({
-          functionResponse: {
-            id: raw.id,
-            name: call.name,
-            response,
-          },
+          functionResponse: { id: raw.id, name: call.name, response },
         });
       }
       message = parts;
     }
     roundsExceeded = true;
-    return { history: chat.getHistory(true), roundsExceeded };
+    rateLimiter.recordRequest(currentModelId ?? preferredModel);
+    return { history: chat.getHistory(true), roundsExceeded, modelSwitch: lastFallbackEvent };
   } catch (e) {
     return {
       history: chat.getHistory(true),
       roundsExceeded,
       error: classifyAiError(e),
+      modelSwitch: lastFallbackEvent,
     };
   }
 }
@@ -121,7 +178,6 @@ async function executeCall(
   const { callbacks, tools } = opts;
   const tool = findTool(tools, call.name);
 
-  // Writes may need explicit user approval before touching data.
   if (tool?.mode === "write" && opts.confirmWrites) {
     const description = safeDescribe(tool, call.args) ?? `Ejecutar ${call.name}`;
     const approved = await callbacks.onConfirmWrite(call, description);
@@ -148,7 +204,6 @@ async function executeCall(
 
 function safeDescribe(tool: AiTool, args: Record<string, unknown>): string | null {
   try {
-    // describeCall may read from state; validate args first so it sees clean input.
     const parsed = tool.input.safeParse(args);
     if (!parsed.success || !tool.describeCall) return null;
     return tool.describeCall(parsed.data);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idbDel, idbGet, idbSet } from "@/storage/idb";
+import { MODEL_REGISTRY, isModelAvailable } from "./models";
 
 /**
  * Device-local AI configuration. Lives in IndexedDB, NEVER in workspace.json:
@@ -7,23 +8,21 @@ import { idbDel, idbGet, idbSet } from "@/storage/idb";
  * (constitución, principio I — nada a la nube sin acción explícita).
  */
 
-export const AI_MODELS = [
-  {
-    value: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-    hint: "Rápido y económico (recomendado)",
-  },
-  {
-    value: "gemini-2.5-pro",
-    label: "Gemini 2.5 Pro",
-    hint: "Razonamiento más profundo, más lento",
-  },
-] as const;
+export const AI_MODELS = MODEL_REGISTRY.map((m) => ({
+  value: m.id,
+  label: m.label,
+  hint: isModelAvailable(m)
+    ? `${m.limits.rpm > 0 ? `${m.limits.rpm} req/min` : ""}${m.limits.tpm > 0 ? ` · ${(m.limits.tpm / 1000).toFixed(0)}K tok/min` : ""}${m.unlimitedTpm ? " · tok ilimitado" : ""}`
+    : `sin cuota disponible`,
+  available: isModelAvailable(m),
+}));
 
 export const AiConfigSchema = z.object({
   apiKey: z.string().default(""),
-  model: z.enum(["gemini-2.5-flash", "gemini-2.5-pro"]).default("gemini-2.5-flash"),
+  model: z.string().default("gemini-2.5-flash"),
   confirmWrites: z.boolean().default(true),
+  autoFallback: z.boolean().default(true),
+  fallbackGroup: z.string().default("flash"),
 });
 export type AiConfig = z.infer<typeof AiConfigSchema>;
 

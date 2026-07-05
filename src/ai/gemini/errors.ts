@@ -1,6 +1,7 @@
 export type AiErrorKind =
   | "invalid-key"
   | "rate-limit"
+  | "all-models-exhausted"
   | "offline"
   | "aborted"
   | "unknown";
@@ -10,6 +11,8 @@ export const AI_ERROR_MESSAGES: Record<AiErrorKind, string> = {
     "La API key no es válida o fue revocada. Revísala en Ajustes → Asistente IA.",
   "rate-limit":
     "Límite de peticiones alcanzado. Espera unos segundos y vuelve a intentarlo.",
+  "all-models-exhausted":
+    "Todos los modelos disponibles alcanzaron su límite. Espera un minuto y vuelve a intentarlo, o cambia el grupo de fallback en Ajustes.",
   offline: "Sin conexión a internet. El asistente necesita red para hablar con Gemini.",
   aborted: "Respuesta detenida.",
   unknown: "Error inesperado al hablar con Gemini. Inténtalo de nuevo.",

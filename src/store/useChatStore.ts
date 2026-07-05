@@ -120,7 +120,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const result = await runAgentTurn({
       apiKey: config.apiKey,
-      model: config.model,
+      preferredModel: config.model,
+      autoFallback: config.autoFallback,
+      fallbackGroup: config.autoFallback ? config.fallbackGroup : undefined,
       confirmWrites: config.confirmWrites,
       tools: createBoundTools(),
       systemInstruction: buildSystemPrompt(useAppStore.getState().workspace),
@@ -152,7 +154,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
             .messages.find((m) => m.id === assistantId)
             ?.parts.some((p) => p.kind === "toolCall" && p.id === call.id);
           if (!exists) {
-            // Cancelled writes never reached onToolCallStart: add the chip directly.
             patchAssistant((parts) => [
               ...parts,
               {
@@ -182,6 +183,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
               { kind: "pendingWrite", id: call.id, name: call.name, description },
             ]);
           }),
+        onModelSwitch: (event) => {
+          const from = event.from.replace("gemini-", "");
+          const to = event.to.replace("gemini-", "");
+          patchAssistant((parts) => [
+            ...parts,
+            {
+              kind: "text",
+              text: `\n\n_🤖 Cambio automático: ${from} → ${to} (${event.reason === "saturated" ? "saturado" : "límite alcanzado"})_`,
+            },
+          ]);
+        },
       },
     });
 
