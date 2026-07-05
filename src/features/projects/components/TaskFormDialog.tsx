@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, SlidersHorizontal, X } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -89,35 +90,56 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{task ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
+          <DialogDescription>
+            {task
+              ? "Actualiza los datos de la tarea. Los cambios se guardan al hacer clic en Guardar."
+              : "Completa la información para crear una nueva tarea en el proyecto."}
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4">
-          {/* ── Campo principal siempre visible ── */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="t-title">Título</Label>
-            <Input
-              id="t-title"
-              value={title}
-              autoFocus
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !showAdvanced) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-            />
-          </div>
+
+        <div className="grid gap-5">
+          {/* ── Información principal ── */}
+          <section className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="t-title">
+                Título <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="t-title"
+                value={title}
+                autoFocus
+                placeholder="Ej: Revisar propuesta de diseño"
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !showAdvanced) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="t-desc">Descripción</Label>
+              <Textarea
+                id="t-desc"
+                value={description}
+                placeholder="Añade contexto, criterios de aceptación o notas relevantes..."
+                className="min-h-[100px] resize-y"
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          </section>
 
           {/* ── Toggle "Más opciones" ── */}
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="w-fit justify-start px-2 text-muted-foreground hover:text-foreground"
+            className="w-fit justify-start gap-2"
           >
             {showAdvanced ? (
               <ChevronUp className="size-4" />
@@ -125,12 +147,12 @@ export function TaskFormDialog({
               <ChevronDown className="size-4" />
             )}
             <SlidersHorizontal className="size-3.5" />
-            {showAdvanced ? "Menos opciones" : "Más opciones"}
+            {showAdvanced ? "Ocultar opciones avanzadas" : "Mostrar opciones avanzadas"}
           </Button>
 
           {/* ── Opciones avanzadas ── */}
           {showAdvanced && (
-            <>
+            <section className="grid gap-4 rounded-lg border bg-muted/30 p-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label htmlFor="t-status">Estado</Label>
@@ -196,21 +218,14 @@ export function TaskFormDialog({
                     </Select>
                   </div>
                 )}
+                <div className="grid gap-1.5">
+                  <Label htmlFor="t-due">Fecha límite</Label>
+                  <DateFieldPreview id="t-due" value={dueDate} onChange={setDueDate} />
+                </div>
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="t-due">Fecha límite</Label>
-                <DateFieldPreview id="t-due" value={dueDate} onChange={setDueDate} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="t-desc">Descripción</Label>
-                <Textarea
-                  id="t-desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-            </>
+            </section>
           )}
+
           <AiImproveButton
             entityType="task"
             fields={{
@@ -253,12 +268,14 @@ export function TaskFormDialog({
             }}
           />
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+            <X className="mr-2 size-4" />
+            Cerrar
           </Button>
           <Button onClick={submit} disabled={!title.trim()}>
-            {task ? "Guardar" : "Crear"}
+            {task ? "Guardar cambios" : "Crear tarea"}
           </Button>
         </DialogFooter>
       </DialogContent>
