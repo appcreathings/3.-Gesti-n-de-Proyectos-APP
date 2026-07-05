@@ -83,7 +83,7 @@ function parseDisplay(text: string): string | null {
 export function DateFieldPreview({
   value,
   onChange,
-  warnWithinDays = 3,
+  warnWithinDays: _warnWithinDays = 3,
   className,
   id,
   disabled,
@@ -177,9 +177,7 @@ export function DateFieldPreview({
           side="bottom"
           sideOffset={8}
           onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onFocusOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
           style={{ pointerEvents: "auto" }}
         >
           <Calendar
