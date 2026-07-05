@@ -93,7 +93,7 @@ export function TaskFormDialog({
         <DialogHeader>
           <DialogTitle>{task ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
         </DialogHeader>
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
+        <div className="grid gap-4">
           {/* ── Campo principal siempre visible ── */}
           <div className="grid gap-1.5">
             <Label htmlFor="t-title">Título</Label>
