@@ -3,7 +3,9 @@ import { computePortfolio } from "@/features/dashboard/portfolio";
 import { Health, ProductStatus, ProjectStatus, TaskStatus } from "@/domain/schemas";
 import { daysUntil } from "@/domain/compute";
 import {
+  automationView,
   notificationView,
+  personView,
   productView,
   projectDetail,
   projectSummary,
@@ -183,13 +185,7 @@ export function createReadTools(ctx: ToolContext): AiTool[] {
       description: "Lista las personas del workspace (para asignaciones y RACI).",
       mode: "read",
       input: z.object({}),
-      execute: () =>
-        getData().people.map((p) => ({
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          roleTitle: p.roleTitle,
-        })),
+      execute: () => getData().people.map(personView),
     }),
 
     defineTool({
@@ -217,14 +213,7 @@ export function createReadTools(ctx: ToolContext): AiTool[] {
                 return r.scope.id === project.typeId;
             }
           })
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            enabled: r.enabled,
-            scope: r.scope,
-            trigger: r.trigger.type,
-            actions: r.actions.map((a) => a.type),
-          }));
+          .map(automationView);
       },
     }),
 

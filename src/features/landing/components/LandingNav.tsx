@@ -8,7 +8,7 @@ export function LandingNav() {
     <nav className="fixed inset-x-0 top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         {/* Logo */}
-        <Link to={ROUTES.home} className="flex items-center gap-2">
+        <Link to={ROUTES.landing} className="flex items-center gap-2">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Flag className="size-4" />
           </div>

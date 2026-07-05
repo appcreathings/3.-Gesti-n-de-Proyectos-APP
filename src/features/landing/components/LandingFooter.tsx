@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Flag, Github, Twitter } from "lucide-react";
 import { ROUTES } from "@/routes/paths";
 
@@ -25,7 +26,7 @@ export function LandingFooter() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-4">
-            <Link to={ROUTES.home} className="flex items-center gap-2">
+            <Link to={ROUTES.landing} className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Flag className="size-4" />
               </div>

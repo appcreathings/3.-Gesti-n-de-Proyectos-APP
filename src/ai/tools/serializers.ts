@@ -4,7 +4,14 @@ import {
   projectChecklistProgress,
   projectTaskProgress,
 } from "@/domain/compute";
-import type { Notification, Person, Product, Project, Task } from "@/domain/schemas";
+import type {
+  AutomationRule,
+  Notification,
+  Person,
+  Product,
+  Project,
+  Task,
+} from "@/domain/schemas";
 
 /**
  * Token-budget-aware views of the domain entities. Projects embed areas,
@@ -98,6 +105,26 @@ export function productView(p: Product) {
     objectives: p.objectives,
     status: p.status,
     tags: p.tags,
+  };
+}
+
+export function personView(p: Person) {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    roleTitle: p.roleTitle,
+  };
+}
+
+export function automationView(r: AutomationRule) {
+  return {
+    id: r.id,
+    name: r.name,
+    enabled: r.enabled,
+    scope: r.scope,
+    trigger: r.trigger.type,
+    actions: r.actions.map((a) => a.type),
   };
 }
 

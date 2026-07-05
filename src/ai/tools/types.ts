@@ -43,10 +43,36 @@ export interface ToolActions {
     name: string,
     productId: string | null,
   ) => Promise<string | null>;
+  deleteProject: (id: string) => Promise<void>;
+
   createProduct: (p: Product) => Promise<void>;
+  updateProduct: (p: Product) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+
   createChecklistTemplate: (t: ChecklistTemplate) => Promise<void>;
+  updateChecklistTemplate: (t: ChecklistTemplate) => Promise<void>;
+  deleteChecklistTemplate: (id: string) => Promise<void>;
+
   createProcessTemplate: (t: ProcessTemplate) => Promise<void>;
+  updateProcessTemplate: (t: ProcessTemplate) => Promise<void>;
+  deleteProcessTemplate: (id: string) => Promise<void>;
+
   createProjectType: (t: ProjectType) => Promise<void>;
+  updateProjectType: (t: ProjectType) => Promise<void>;
+  deleteProjectType: (id: string) => Promise<void>;
+
+  createAutomation: (r: AutomationRule) => Promise<void>;
+  updateAutomation: (r: AutomationRule) => Promise<void>;
+  deleteAutomation: (id: string) => Promise<void>;
+
+  createPerson: (p: Person) => Promise<void>;
+  updatePerson: (p: Person) => Promise<void>;
+  deletePerson: (id: string) => Promise<void>;
+
+  addNotifications: (list: Notification[]) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  clearNotifications: () => Promise<void>;
 }
 
 export interface ToolContext {

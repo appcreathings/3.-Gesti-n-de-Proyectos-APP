@@ -1,7 +1,10 @@
 import { z } from "zod";
 import {
   newArea,
+  newAutomation,
   newChecklistTemplate,
+  newItem,
+  newPerson,
   newProcessTemplate,
   newProduct,
   newProject,
@@ -9,10 +12,29 @@ import {
   newTask,
 } from "@/domain/factories";
 import * as ops from "@/domain/projectOps";
-import { uuid } from "@/lib/utils";
-import { Health, Priority, ProjectStatus, TaskStatus } from "@/domain/schemas";
-import type { Project } from "@/domain/schemas";
-import { projectSummary, taskView } from "./serializers";
+import { nowIso, uuid } from "@/lib/utils";
+import {
+  ActionSchema,
+  ConditionSchema,
+  EntityRefSchema,
+  Health,
+  Priority,
+  ProductStatus,
+  ProjectStatus,
+  ScopeSchema,
+  Severity,
+  TaskStatus,
+  TriggerSchema,
+} from "@/domain/schemas";
+import type { AutomationRule, Notification, Project } from "@/domain/schemas";
+import {
+  automationView,
+  notificationView,
+  personView,
+  productView,
+  projectSummary,
+  taskView,
+} from "./serializers";
 import { defineTool, type AiTool, type ToolContext } from "./types";
 
 const DayDateInput = z
@@ -35,6 +57,61 @@ export function createWriteTools(ctx: ToolContext): AiTool[] {
 
   const projectName = (id: string) =>
     getData().projects.find((p) => p.id === id)?.name ?? id;
+
+  function requireProduct(productId: string) {
+    const p = getData().products.find((x) => x.id === productId);
+    if (!p) throw new Error(`Producto no encontrado: ${productId}`);
+    return p;
+  }
+  const productName = (id: string) =>
+    getData().products.find((p) => p.id === id)?.name ?? id;
+
+  function areaLabel(projectId: string, areaId: string) {
+    return (
+      getData()
+        .projects.find((p) => p.id === projectId)
+        ?.areas.find((a) => a.id === areaId)?.name ?? areaId
+    );
+  }
+
+  function requireChecklistTemplate(templateId: string) {
+    const t = getData().checklistTemplates.find((x) => x.id === templateId);
+    if (!t) throw new Error(`Plantilla de checklist no encontrada: ${templateId}`);
+    return t;
+  }
+  function requireProcessTemplate(templateId: string) {
+    const t = getData().processTemplates.find((x) => x.id === templateId);
+    if (!t) throw new Error(`Plantilla de proceso no encontrada: ${templateId}`);
+    return t;
+  }
+  const checklistTemplateName = (id: string) =>
+    getData().checklistTemplates.find((t) => t.id === id)?.name ?? id;
+  const processTemplateName = (id: string) =>
+    getData().processTemplates.find((t) => t.id === id)?.name ?? id;
+
+  function requireProjectType(typeId: string) {
+    const t = getData().projectTypes.find((x) => x.id === typeId);
+    if (!t) throw new Error(`Tipo de proyecto no encontrado: ${typeId}`);
+    return t;
+  }
+  const typeName = (id: string) =>
+    getData().projectTypes.find((t) => t.id === id)?.name ?? id;
+
+  function requirePerson(personId: string) {
+    const p = getData().people.find((x) => x.id === personId);
+    if (!p) throw new Error(`Persona no encontrada: ${personId}`);
+    return p;
+  }
+  const personLabel = (id: string) =>
+    getData().people.find((p) => p.id === id)?.name ?? id;
+
+  function requireAutomation(automationId: string) {
+    const r = getData().automations.find((x) => x.id === automationId);
+    if (!r) throw new Error(`Automatización no encontrada: ${automationId}`);
+    return r;
+  }
+  const automationName = (id: string) =>
+    getData().automations.find((r) => r.id === id)?.name ?? id;
 
   return [
     defineTool({
@@ -420,6 +497,593 @@ export function createWriteTools(ctx: ToolContext): AiTool[] {
             defaultAreas: type.defaultAreas.map((x) => x.name),
           },
         };
+      },
+    }),
+
+    // --- Producto: update/delete ---
+
+    defineTool({
+      name: "update_product",
+      description: "Actualiza campos de un producto (nombre, descripción, visión, estado).",
+      mode: "write",
+      input: z.object({
+        productId: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        vision: z.string().optional(),
+        status: ProductStatus.optional(),
+      }),
+      describeCall: (a) => {
+        const changes = [a.name && `nombre → "${a.name}"`, a.status && `estado → ${a.status}`]
+          .filter(Boolean)
+          .join(", ");
+        return `Actualizar producto "${productName(a.productId)}" (${changes || "cambios"})`;
+      },
+      execute: async (a) => {
+        const product = requireProduct(a.productId);
+        const next = {
+          ...product,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.description !== undefined && { description: a.description }),
+          ...(a.vision !== undefined && { vision: a.vision }),
+          ...(a.status !== undefined && { status: a.status }),
+        };
+        await actions.updateProduct(next);
+        return productView(next);
+      },
+    }),
+
+    defineTool({
+      name: "delete_product",
+      description:
+        "Elimina un producto. Los proyectos asociados no se eliminan, quedan sin producto asignado. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ productId: z.string() }),
+      describeCall: (a) =>
+        `Eliminar el producto "${productName(a.productId)}" (los proyectos asociados quedarán sin producto)`,
+      execute: async (a) => {
+        requireProduct(a.productId);
+        await actions.deleteProduct(a.productId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Proyecto: delete ---
+
+    defineTool({
+      name: "delete_project",
+      description:
+        "Elimina un proyecto completo, incluidas sus áreas, procesos, checklists y tareas. Acción irreversible; requiere confirmación explícita del usuario, nunca la asumas.",
+      mode: "write",
+      input: z.object({ projectId: z.string() }),
+      describeCall: (a) =>
+        `Eliminar el proyecto "${projectName(a.projectId)}" y todo su contenido (áreas, checklists, tareas)`,
+      execute: async (a) => {
+        requireProject(a.projectId);
+        await actions.deleteProject(a.projectId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Área: update/delete ---
+
+    defineTool({
+      name: "update_area",
+      description:
+        "Actualiza campos de un área (nombre, icono, responsable, completada). Usa get_project para obtener areaId.",
+      mode: "write",
+      input: z.object({
+        projectId: z.string(),
+        areaId: z.string(),
+        name: z.string().optional(),
+        icon: z.string().optional(),
+        ownerId: z.string().nullable().optional(),
+        completed: z.boolean().optional(),
+      }),
+      describeCall: (a) =>
+        `Actualizar área "${areaLabel(a.projectId, a.areaId)}" en "${projectName(a.projectId)}"`,
+      execute: async (a) => {
+        const project = requireProject(a.projectId);
+        const area = project.areas.find((x) => x.id === a.areaId);
+        if (!area) throw new Error(`Área no encontrada: ${a.areaId}`);
+        const next = {
+          ...area,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.icon !== undefined && { icon: a.icon }),
+          ...(a.ownerId !== undefined && { ownerId: a.ownerId }),
+          ...(a.completed !== undefined && { completed: a.completed }),
+        };
+        await actions.mutateProject(a.projectId, (p) => ops.updateArea(p, next));
+        return { ok: true, area: { id: next.id, name: next.name, completed: next.completed } };
+      },
+    }),
+
+    defineTool({
+      name: "delete_area",
+      description:
+        "Elimina un área de un proyecto junto con sus procesos y checklists. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ projectId: z.string(), areaId: z.string() }),
+      describeCall: (a) =>
+        `Eliminar el área "${areaLabel(a.projectId, a.areaId)}" (y sus procesos/checklists) de "${projectName(a.projectId)}"`,
+      execute: async (a) => {
+        requireProject(a.projectId);
+        await actions.mutateProject(a.projectId, (p) => ops.removeArea(p, a.areaId));
+        return { ok: true };
+      },
+    }),
+
+    // --- Ítem de checklist: edición completa (set_checklist_item solo togglea done) ---
+
+    defineTool({
+      name: "add_checklist_item",
+      description:
+        "Añade un ítem a un checklist existente. Usa get_project para obtener areaId y checklistId.",
+      mode: "write",
+      input: z.object({
+        projectId: z.string(),
+        areaId: z.string(),
+        checklistId: z.string(),
+        text: z.string().min(1),
+        required: z.boolean().optional(),
+      }),
+      describeCall: (a) => `Añadir ítem "${a.text}" al checklist en "${projectName(a.projectId)}"`,
+      execute: async (a) => {
+        requireProject(a.projectId);
+        const item = newItem(a.text, a.required ?? false);
+        await actions.mutateProject(a.projectId, (p) =>
+          ops.addItem(p, a.areaId, a.checklistId, item),
+        );
+        return { ok: true, item: { id: item.id, text: item.text } };
+      },
+    }),
+
+    defineTool({
+      name: "update_checklist_item",
+      description:
+        "Actualiza un ítem de checklist (texto, obligatoriedad, estado, fecha, responsable, notas). Usa get_project para los ids.",
+      mode: "write",
+      input: z.object({
+        projectId: z.string(),
+        areaId: z.string(),
+        checklistId: z.string(),
+        itemId: z.string(),
+        text: z.string().optional(),
+        required: z.boolean().optional(),
+        done: z.boolean().optional(),
+        dueDate: DayDateInput.nullable().optional(),
+        assigneeId: z.string().nullable().optional(),
+        notes: z.string().optional(),
+      }),
+      describeCall: (a) => {
+        const item = getData()
+          .projects.find((p) => p.id === a.projectId)
+          ?.areas.find((x) => x.id === a.areaId)
+          ?.checklists.find((c) => c.id === a.checklistId)
+          ?.items.find((i) => i.id === a.itemId);
+        return `Actualizar ítem "${item?.text ?? a.itemId}" en "${projectName(a.projectId)}"`;
+      },
+      execute: async (a) => {
+        const project = requireProject(a.projectId);
+        const item = project.areas
+          .find((x) => x.id === a.areaId)
+          ?.checklists.find((c) => c.id === a.checklistId)
+          ?.items.find((i) => i.id === a.itemId);
+        if (!item) throw new Error(`Ítem no encontrado: ${a.itemId}`);
+        const next = {
+          ...item,
+          ...(a.text !== undefined && { text: a.text }),
+          ...(a.required !== undefined && { required: a.required }),
+          ...(a.done !== undefined && { done: a.done }),
+          ...(a.dueDate !== undefined && { dueDate: a.dueDate }),
+          ...(a.assigneeId !== undefined && { assigneeId: a.assigneeId }),
+          ...(a.notes !== undefined && { notes: a.notes }),
+        };
+        await actions.mutateProject(a.projectId, (p) =>
+          ops.updateItem(p, a.areaId, a.checklistId, next),
+        );
+        return { ok: true, item: { id: next.id, text: next.text, done: next.done } };
+      },
+    }),
+
+    defineTool({
+      name: "remove_checklist_item",
+      description: "Elimina un ítem de checklist. Requiere confirmación.",
+      mode: "write",
+      input: z.object({
+        projectId: z.string(),
+        areaId: z.string(),
+        checklistId: z.string(),
+        itemId: z.string(),
+      }),
+      describeCall: (a) => `Eliminar el ítem del checklist en "${projectName(a.projectId)}"`,
+      execute: async (a) => {
+        requireProject(a.projectId);
+        await actions.mutateProject(a.projectId, (p) =>
+          ops.removeItem(p, a.areaId, a.checklistId, a.itemId),
+        );
+        return { ok: true };
+      },
+    }),
+
+    // --- Plantilla de checklist: update/delete ---
+
+    defineTool({
+      name: "update_checklist_template",
+      description:
+        "Actualiza una plantilla de checklist (nombre, categoría, tags). Si se provee items, reemplaza la lista completa.",
+      mode: "write",
+      input: z.object({
+        templateId: z.string(),
+        name: z.string().optional(),
+        category: z.string().optional(),
+        items: z
+          .array(z.object({ text: z.string().min(1), required: z.boolean().optional() }))
+          .optional(),
+        tags: z.array(z.string()).optional(),
+      }),
+      describeCall: (a) =>
+        `Actualizar plantilla de checklist "${checklistTemplateName(a.templateId)}"`,
+      execute: async (a) => {
+        const tpl = requireChecklistTemplate(a.templateId);
+        const next = {
+          ...tpl,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.category !== undefined && { category: a.category }),
+          ...(a.tags !== undefined && { tags: a.tags }),
+          ...(a.items !== undefined && {
+            items: a.items.map((i) => ({
+              id: uuid(),
+              text: i.text,
+              required: i.required ?? false,
+            })),
+          }),
+        };
+        await actions.updateChecklistTemplate(next);
+        return {
+          ok: true,
+          template: { id: next.id, name: next.name, itemCount: next.items.length },
+        };
+      },
+    }),
+
+    defineTool({
+      name: "delete_checklist_template",
+      description:
+        "Elimina una plantilla de checklist. No afecta checklists ya instanciados en proyectos existentes. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ templateId: z.string() }),
+      describeCall: (a) =>
+        `Eliminar la plantilla de checklist "${checklistTemplateName(a.templateId)}"`,
+      execute: async (a) => {
+        requireChecklistTemplate(a.templateId);
+        await actions.deleteChecklistTemplate(a.templateId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Plantilla de proceso: update/delete ---
+
+    defineTool({
+      name: "update_process_template",
+      description:
+        "Actualiza una plantilla de proceso (nombre, descripción, categoría). Si se provee steps, reemplaza la lista completa de pasos.",
+      mode: "write",
+      input: z.object({
+        templateId: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        steps: z
+          .array(z.object({ text: z.string().min(1), details: z.string().optional() }))
+          .optional(),
+      }),
+      describeCall: (a) =>
+        `Actualizar plantilla de proceso "${processTemplateName(a.templateId)}"`,
+      execute: async (a) => {
+        const tpl = requireProcessTemplate(a.templateId);
+        const next = {
+          ...tpl,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.description !== undefined && { description: a.description }),
+          ...(a.category !== undefined && { category: a.category }),
+          ...(a.steps !== undefined && {
+            steps: a.steps.map((s) => ({
+              id: uuid(),
+              text: s.text,
+              details: s.details ?? "",
+            })),
+          }),
+        };
+        await actions.updateProcessTemplate(next);
+        return {
+          ok: true,
+          template: { id: next.id, name: next.name, stepCount: next.steps.length },
+        };
+      },
+    }),
+
+    defineTool({
+      name: "delete_process_template",
+      description:
+        "Elimina una plantilla de proceso. No afecta procesos ya instanciados en proyectos existentes. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ templateId: z.string() }),
+      describeCall: (a) => `Eliminar la plantilla de proceso "${processTemplateName(a.templateId)}"`,
+      execute: async (a) => {
+        requireProcessTemplate(a.templateId);
+        await actions.deleteProcessTemplate(a.templateId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Tipo de proyecto: update/delete ---
+
+    defineTool({
+      name: "update_project_type",
+      description:
+        "Actualiza un Tipo de Proyecto (nombre, descripción, flujo de estados, áreas por defecto). Si se provee defaultAreas, revalida que las plantillas referenciadas existan y reemplaza la lista completa.",
+      mode: "write",
+      input: z.object({
+        typeId: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        statusWorkflow: z.array(ProjectStatus).min(1).optional(),
+        defaultAreas: z
+          .array(
+            z.object({
+              name: z.string().min(1),
+              icon: z.string().optional(),
+              checklistTemplateIds: z.array(z.string()).optional(),
+              processTemplateIds: z.array(z.string()).optional(),
+            }),
+          )
+          .min(1)
+          .optional(),
+      }),
+      describeCall: (a) => `Actualizar tipo de proyecto "${typeName(a.typeId)}"`,
+      execute: async (a) => {
+        const type = requireProjectType(a.typeId);
+        if (a.defaultAreas) {
+          const data = getData();
+          const clIds = new Set(data.checklistTemplates.map((t) => t.id));
+          const prIds = new Set(data.processTemplates.map((t) => t.id));
+          for (const area of a.defaultAreas) {
+            for (const id of area.checklistTemplateIds ?? [])
+              if (!clIds.has(id))
+                throw new Error(
+                  `Plantilla de checklist no encontrada: ${id} (área "${area.name}")`,
+                );
+            for (const id of area.processTemplateIds ?? [])
+              if (!prIds.has(id))
+                throw new Error(
+                  `Plantilla de proceso no encontrada: ${id} (área "${area.name}")`,
+                );
+          }
+        }
+        const next = {
+          ...type,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.description !== undefined && { description: a.description }),
+          ...(a.statusWorkflow !== undefined && { statusWorkflow: a.statusWorkflow }),
+          ...(a.defaultAreas !== undefined && {
+            defaultAreas: a.defaultAreas.map((area) => ({
+              name: area.name,
+              icon: area.icon ?? "folder",
+              checklistTemplateIds: area.checklistTemplateIds ?? [],
+              processTemplateIds: area.processTemplateIds ?? [],
+            })),
+          }),
+        };
+        await actions.updateProjectType(next);
+        return {
+          ok: true,
+          projectType: {
+            id: next.id,
+            name: next.name,
+            defaultAreas: next.defaultAreas.map((x) => x.name),
+          },
+        };
+      },
+    }),
+
+    defineTool({
+      name: "delete_project_type",
+      description:
+        "Elimina un Tipo de Proyecto. No afecta proyectos ya creados a partir de él. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ typeId: z.string() }),
+      describeCall: (a) => `Eliminar el tipo de proyecto "${typeName(a.typeId)}"`,
+      execute: async (a) => {
+        requireProjectType(a.typeId);
+        await actions.deleteProjectType(a.typeId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Persona: create/update/delete ---
+
+    defineTool({
+      name: "create_person",
+      description: "Crea una persona para asignaciones de tareas y roles RACI.",
+      mode: "write",
+      input: z.object({
+        name: z.string().min(1),
+        email: z.string().optional(),
+        roleTitle: z.string().optional(),
+      }),
+      describeCall: (a) => `Crear persona "${a.name}"`,
+      execute: async (a) => {
+        const person = newPerson(a.name);
+        if (a.email) person.email = a.email;
+        if (a.roleTitle) person.roleTitle = a.roleTitle;
+        await actions.createPerson(person);
+        return personView(person);
+      },
+    }),
+
+    defineTool({
+      name: "update_person",
+      description: "Actualiza los datos de una persona (nombre, email, rol).",
+      mode: "write",
+      input: z.object({
+        personId: z.string(),
+        name: z.string().optional(),
+        email: z.string().optional(),
+        roleTitle: z.string().optional(),
+      }),
+      describeCall: (a) => `Actualizar persona "${personLabel(a.personId)}"`,
+      execute: async (a) => {
+        const person = requirePerson(a.personId);
+        const next = {
+          ...person,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.email !== undefined && { email: a.email }),
+          ...(a.roleTitle !== undefined && { roleTitle: a.roleTitle }),
+        };
+        await actions.updatePerson(next);
+        return personView(next);
+      },
+    }),
+
+    defineTool({
+      name: "delete_person",
+      description:
+        "Elimina una persona. No reasigna automáticamente sus tareas o roles RACI existentes. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ personId: z.string() }),
+      describeCall: (a) => `Eliminar la persona "${personLabel(a.personId)}"`,
+      execute: async (a) => {
+        requirePerson(a.personId);
+        await actions.deletePerson(a.personId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Automatización: create/update/delete ---
+
+    defineTool({
+      name: "create_automation",
+      description:
+        "Crea una regla de automatización (disparador → condiciones → acciones). Usa list_automations para revisar reglas existentes y evitar duplicados.",
+      mode: "write",
+      input: z.object({
+        name: z.string().min(1),
+        enabled: z.boolean().optional(),
+        scope: ScopeSchema.optional().describe("Por defecto ámbito global"),
+        trigger: TriggerSchema,
+        conditions: z.array(ConditionSchema).optional(),
+        actions: z.array(ActionSchema).min(1),
+      }),
+      describeCall: (a) => `Crear automatización "${a.name}" (disparador: ${a.trigger.type})`,
+      execute: async (a) => {
+        const rule: AutomationRule = newAutomation(a.name);
+        if (a.enabled !== undefined) rule.enabled = a.enabled;
+        if (a.scope) rule.scope = a.scope;
+        rule.trigger = a.trigger;
+        if (a.conditions) rule.conditions = a.conditions;
+        rule.actions = a.actions;
+        await actions.createAutomation(rule);
+        return automationView(rule);
+      },
+    }),
+
+    defineTool({
+      name: "update_automation",
+      description:
+        "Actualiza una regla de automatización existente (nombre, activa/inactiva, ámbito, disparador, condiciones, acciones).",
+      mode: "write",
+      input: z.object({
+        automationId: z.string(),
+        name: z.string().optional(),
+        enabled: z.boolean().optional(),
+        scope: ScopeSchema.optional(),
+        trigger: TriggerSchema.optional(),
+        conditions: z.array(ConditionSchema).optional(),
+        actions: z.array(ActionSchema).min(1).optional(),
+      }),
+      describeCall: (a) => `Actualizar automatización "${automationName(a.automationId)}"`,
+      execute: async (a) => {
+        const rule = requireAutomation(a.automationId);
+        const next = {
+          ...rule,
+          ...(a.name !== undefined && { name: a.name }),
+          ...(a.enabled !== undefined && { enabled: a.enabled }),
+          ...(a.scope !== undefined && { scope: a.scope }),
+          ...(a.trigger !== undefined && { trigger: a.trigger }),
+          ...(a.conditions !== undefined && { conditions: a.conditions }),
+          ...(a.actions !== undefined && { actions: a.actions }),
+        };
+        await actions.updateAutomation(next);
+        return automationView(next);
+      },
+    }),
+
+    defineTool({
+      name: "delete_automation",
+      description: "Elimina una regla de automatización. Requiere confirmación.",
+      mode: "write",
+      input: z.object({ automationId: z.string() }),
+      describeCall: (a) => `Eliminar la automatización "${automationName(a.automationId)}"`,
+      execute: async (a) => {
+        requireAutomation(a.automationId);
+        await actions.deleteAutomation(a.automationId);
+        return { ok: true };
+      },
+    }),
+
+    // --- Notificaciones ---
+
+    defineTool({
+      name: "create_notification",
+      description:
+        "Crea una notificación manual (p. ej. para registrar una recomendación o alerta accionable). Usa list_notifications antes para evitar duplicados.",
+      mode: "write",
+      input: z.object({
+        type: z.string().min(1),
+        message: z.string().min(1),
+        severity: Severity.optional(),
+        entityRef: EntityRefSchema.optional(),
+      }),
+      describeCall: (a) => `Crear notificación: "${a.message}"`,
+      execute: async (a) => {
+        const notification: Notification = {
+          id: uuid(),
+          type: a.type,
+          severity: a.severity ?? "info",
+          message: a.message,
+          entityRef: a.entityRef ?? null,
+          read: false,
+          createdAt: nowIso(),
+        };
+        await actions.addNotifications([notification]);
+        return notificationView(notification);
+      },
+    }),
+
+    defineTool({
+      name: "mark_notification_read",
+      description: "Marca una notificación como leída.",
+      mode: "write",
+      input: z.object({ notificationId: z.string() }),
+      describeCall: (a) => `Marcar como leída la notificación ${a.notificationId}`,
+      execute: async (a) => {
+        const exists = getData().notifications.some((n) => n.id === a.notificationId);
+        if (!exists) throw new Error(`Notificación no encontrada: ${a.notificationId}`);
+        await actions.markNotificationRead(a.notificationId);
+        return { ok: true };
+      },
+    }),
+
+    defineTool({
+      name: "clear_notifications",
+      description: "Elimina todas las notificaciones del workspace. Requiere confirmación.",
+      mode: "write",
+      input: z.object({}),
+      describeCall: () => `Eliminar todas las notificaciones`,
+      execute: async () => {
+        await actions.clearNotifications();
+        return { ok: true };
       },
     }),
   ];

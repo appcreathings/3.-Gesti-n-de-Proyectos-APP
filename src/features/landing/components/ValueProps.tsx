@@ -1,70 +1,61 @@
-import { ShieldCheck, FolderCog, FileJson } from "lucide-react";
+import { FolderTree, Lock, FileCode2 } from "lucide-react";
 
-const ITEMS = [
+const STATS = [
   {
-    icon: ShieldCheck,
-    title: "Tus datos nunca salen de tu equipo",
+    icon: Lock,
+    value: "0 KB",
+    label: "enviados a la nube",
     description:
-      "Sin backend ni cuenta: todo se guarda en una carpeta local que tú eliges. Nadie más tiene acceso.",
-    highlight: "Privacidad total",
+      "Tus datos viven en una carpeta local. No hay backend procesándolos.",
   },
   {
-    icon: FolderCog,
-    title: "Archivos .json, no una caja negra",
+    icon: FileCode2,
+    value: ".json",
+    label: "no cajas negras",
     description:
-      "Tus proyectos son archivos legibles que puedes versionar con git, respaldar o editar con cualquier herramienta.",
-    highlight: "Transparencia total",
+      "Cada proyecto es un archivo legible. Versionable con git, editable con cualquier herramienta.",
   },
   {
-    icon: FileJson,
-    title: "Exporta e importa cuando quieras",
+    icon: FolderTree,
+    value: "1 carpeta",
+    label: "para todo tu equipo",
     description:
-      "Sin candados: descarga un respaldo completo o cambia de equipo sin perder nada.",
-    highlight: "Libertad total",
+      "Compartila por la red, por Dropbox, por Git, como prefieras. Sale del laboratorio, queda en tu casa.",
   },
 ];
 
 export function ValueProps() {
   return (
-    <section className="border-y bg-gradient-to-b from-muted/20 to-muted/5 py-20">
-      <div className="mx-auto max-w-5xl px-6">
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Tu privacidad es nuestra prioridad
+    <section className="border-y border-border/60 bg-muted/30">
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <div className="mx-auto mb-16 max-w-2xl text-center sm:mb-20">
+          <p className="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            Privacidad por defecto
+          </p>
+          <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            Local-first no es un añadido. Es la arquitectura.
           </h2>
-          <p className="mt-3 text-lg text-muted-foreground">
-            Tres razones por las que miles de equipos confían en Hito
+          <p className="mt-4 text-pretty text-muted-foreground">
+            La mayoría de las herramientas te piden sus datos para funcionar.
+            Hito funciona con los tuyos.
           </p>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-3">
-          {ITEMS.map((item, index) => {
-            const Icon = item.icon;
+        <div className="grid gap-px overflow-hidden rounded-2xl border border-border/60 bg-border sm:grid-cols-3">
+          {STATS.map((s) => {
+            const Icon = s.icon;
             return (
-              <div 
-                key={item.title} 
-                className="group relative rounded-2xl border bg-background/50 p-6 text-center transition-all duration-300 hover:bg-background hover:shadow-lg hover:-translate-y-1"
+              <div
+                key={s.label}
+                className="flex flex-col gap-3 bg-background p-8"
               >
-                {/* Número decorativo */}
-                <span className="absolute right-4 top-4 text-6xl font-bold text-muted/10 select-none">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-
-                {/* Badge superior */}
-                <div className="mb-4 inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  {item.highlight}
+                <Icon className="size-5 text-muted-foreground" />
+                <div className="font-mono text-3xl font-semibold tracking-tight sm:text-4xl">
+                  {s.value}
                 </div>
-
-                {/* Ícono con animación */}
-                <div className="relative mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 transition-transform duration-300 group-hover:scale-110 group-hover:from-primary/30 group-hover:to-primary/10">
-                  <Icon className="size-7 text-primary" />
-                </div>
-
-                <h3 className="mb-2 text-lg font-semibold leading-tight">
-                  {item.title}
-                </h3>
+                <div className="text-sm font-medium">{s.label}</div>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {item.description}
+                  {s.description}
                 </p>
               </div>
             );
