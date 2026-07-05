@@ -70,6 +70,9 @@ export function AutomationDialog({ open, onOpenChange, rule, onSubmit, defaultSc
       setConditions(rule?.conditions ?? []);
       setActions(rule?.actions ?? []);
     }
+    // defaultScope queda fuera a propósito: es un literal del padre y añadirlo
+    // resetearía el formulario en cada re-render mientras el diálogo está abierto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, rule]);
 
   function defaultAction(type: string): Action {
