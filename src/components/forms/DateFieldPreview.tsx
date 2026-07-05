@@ -120,7 +120,6 @@ export function DateFieldPreview({
       onChange(toDayKey(date));
     }
     setOpen(false);
-    inputRef.current?.focus();
   }
 
   function clearDate() {
@@ -160,13 +159,12 @@ export function DateFieldPreview({
             </Button>
           </PopoverTrigger>
         </div>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0" align="start" onClick={(e) => e.stopPropagation()}>
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={handleCalendarSelect}
             defaultMonth={selectedDate}
-            autoFocus
           />
           {value && (
             <div className="border-t border-border p-2">
