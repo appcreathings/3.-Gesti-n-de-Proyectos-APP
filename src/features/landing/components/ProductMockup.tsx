@@ -18,7 +18,7 @@ export function ProductMockup() {
           </div>
           <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-0.5 font-mono text-[10px] text-muted-foreground">
             hito / Proyectos / Q3 Lanzamiento
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">.json</span>
+            <span className="rounded bg-brand-accent/15 px-1.5 py-0.5 font-medium text-brand-accent">.json</span>
           </div>
           <div className="w-12" />
         </div>
@@ -67,7 +67,7 @@ export function ProductMockup() {
                 <span className="rounded-md bg-muted px-2 py-1 font-mono text-[10px] text-muted-foreground">
                   7 tareas
                 </span>
-                <span className="rounded-md bg-foreground px-2 py-1 font-mono text-[10px] text-background">
+                <span className="rounded-md bg-brand-accent px-2 py-1 font-mono text-[10px] font-medium text-brand-accent-foreground">
                   + nueva
                 </span>
               </div>

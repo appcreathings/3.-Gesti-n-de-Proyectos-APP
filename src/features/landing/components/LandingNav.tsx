@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Flag, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HitoMark } from "@/components/brand/HitoMark";
 import { ROUTES } from "@/routes/paths";
 
 const NAV_LINKS = [
@@ -31,10 +32,8 @@ export function LandingNav() {
       }`}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <Link to={ROUTES.landing} className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
-            <Flag className="size-3.5" />
-          </div>
+        <Link to={ROUTES.landing} className="flex items-center gap-2" aria-label="Hito — inicio">
+          <HitoMark variant="inverted" className="size-7" />
           <span className="text-sm font-semibold tracking-tight">Hito</span>
         </Link>
 

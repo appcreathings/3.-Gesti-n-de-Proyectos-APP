@@ -112,9 +112,15 @@ export function Comparison() {
         </div>
 
         <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-muted-foreground/70">
-          Comparación basada en los planes gratuitos/estándar de cada
-          herramienta al momento de escribir esto. Trello, Notion y ClickUp
-          son marcas de sus respectivos dueños.
+          Comparación basada en los planes gratuitos/estándar de cada herramienta al momento
+          de escribir esto. Trello, Notion y ClickUp son marcas de sus respectivos dueños.
+          {" "}
+          <a
+            href="/alternativa-trello"
+            className="text-foreground/80 underline-offset-2 hover:underline"
+          >
+            Comparativa detallada con Trello →
+          </a>
         </p>
       </div>
     </section>

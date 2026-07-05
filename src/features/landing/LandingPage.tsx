@@ -11,6 +11,8 @@ import { Faq } from "./components/Faq";
 import { FinalCta } from "./components/FinalCta";
 import { LandingNav } from "./components/LandingNav";
 import { LandingFooter } from "./components/LandingFooter";
+import { StickyCta } from "./components/StickyCta";
+import { TrustBadges } from "./components/TrustBadges";
 import { Reveal } from "./components/Reveal";
 
 /** Public marketing/onboarding page at "/". No connection to a local folder required. */
@@ -37,6 +39,30 @@ export function LandingPage() {
         <meta name="twitter:image" content="https://hito.autos/og-image.png" />
         <meta name="application-name" content="Hito" />
         <link rel="canonical" href="https://hito.autos/" />
+        <meta name="og:image:alt" content="Hito — gestor de proyectos local-first. Vista del Kanban con árbol de proyectos." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Hito",
+            "url": "https://hito.autos/",
+            "logo": "https://hito.autos/icon.svg",
+            "description": "Gestor de proyectos, procesos y checklists local-first y open source.",
+            "sameAs": [
+              "https://github.com/hito-app/hito"
+            ]
+          })}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Hito",
+            "url": "https://hito.autos/",
+            "inLanguage": "es-AR",
+            "publisher": { "@type": "Organization", "name": "Hito" }
+          })}
+        </script>
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
@@ -88,8 +114,14 @@ export function LandingPage() {
       </Helmet>
       <div className="min-h-screen flex flex-col">
       <LandingNav />
+      <StickyCta />
       <main className="flex-1">
         <Hero />
+        <Reveal>
+          <div className="mx-auto -mt-12 max-w-3xl px-6 pb-2">
+            <TrustBadges />
+          </div>
+        </Reveal>
         <Reveal><TrustBar /></Reveal>
         <Reveal delay={100}><ProductMockup /></Reveal>
         <Reveal delay={50}><ValueProps /></Reveal>

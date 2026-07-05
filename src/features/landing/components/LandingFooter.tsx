@@ -1,8 +1,13 @@
-import { Flag } from "lucide-react";
 import { Link } from "react-router-dom";
+import { HitoMark } from "@/components/brand/HitoMark";
 import { ROUTES } from "@/routes/paths";
 
-const COLUMNS = [
+type FooterLink = { label: string; href: string; external?: boolean };
+
+const GITHUB_URL = "https://github.com/hito-app/hito";
+const DOCS_URL = "https://hito.autos/docs";
+
+const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Producto",
     links: [
@@ -15,16 +20,16 @@ const COLUMNS = [
   {
     title: "Recursos",
     links: [
-      { label: "Documentación", href: "https://hito.autos/" },
-      { label: "Código fuente", href: "https://hito.autos/" },
-      { label: "Reportar issue", href: "https://hito.autos/" },
+      { label: "Documentación", href: DOCS_URL, external: true },
+      { label: "Código fuente", href: GITHUB_URL, external: true },
+      { label: "Reportar issue", href: `${GITHUB_URL}/issues/new`, external: true },
     ],
   },
   {
     title: "Legal",
     links: [
-      { label: "Licencia MIT", href: "https://hito.autos/" },
-      { label: "Privacidad", href: "https://hito.autos/" },
+      { label: "Licencia MIT", href: `${GITHUB_URL}/blob/main/LICENSE`, external: true },
+      { label: "Privacidad", href: `${DOCS_URL}/privacidad`, external: true },
     ],
   },
 ];
@@ -37,10 +42,8 @@ export function LandingFooter() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
-            <Link to={ROUTES.landing} className="inline-flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
-                <Flag className="size-3.5" />
-              </div>
+            <Link to={ROUTES.landing} className="inline-flex items-center gap-2" aria-label="Hito — inicio">
+              <HitoMark variant="inverted" className="size-7" />
               <span className="text-sm font-semibold tracking-tight">Hito</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -57,12 +60,23 @@ export function LandingFooter() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-foreground/80 transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </a>
+                <a
+                  href={link.href}
+                  className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                  {...(link.external
+                    ? {
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                      }
+                    : {})}
+                >
+                  {link.label}
+                  {link.external ? (
+                    <span aria-hidden="true" className="ml-1 text-muted-foreground/60">
+                      ↗
+                    </span>
+                  ) : null}
+                </a>
                   </li>
                 ))}
               </ul>

@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hito">
   <rect width="512" height="512" rx="112" fill="#2A4074"/>
-  <rect x="196" y="380" width="120" height="40" rx="8" fill="#fff" opacity=".55"/>
-  <rect x="240" y="120" width="20" height="280" rx="10" fill="#fff" opacity=".95"/>
-  <path d="M260 132 L372 168 L260 204 Z" fill="#fff" opacity=".95"/>
+  <rect x="220" y="140" width="14" height="260" rx="6" fill="#fff" opacity=".95"/>
+  <path d="M234 152 L394 196 L234 240 Z" fill="#2BB673"/>
+  <rect x="196" y="394" width="148" height="32" rx="6" fill="#fff" opacity=".9"/>
+  <rect x="186" y="416" width="168" height="14" rx="6" fill="#fff" opacity=".4"/>
 </svg>

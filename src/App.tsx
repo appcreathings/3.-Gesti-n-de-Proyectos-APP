@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AppGate } from "@/components/layout/AppGate";
+import { ProjectsLayout } from "@/features/projects/ProjectsLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAppStore } from "@/store/useAppStore";
 import { useDataStore } from "@/store/useDataStore";
@@ -26,6 +27,9 @@ const ProjectDetailPage = lazy(() =>
     default: m.ProjectDetailPage,
   })),
 );
+const QuartersPage = lazy(() =>
+  import("@/features/quarters/QuartersPage").then((m) => ({ default: m.QuartersPage })),
+);
 const LibraryPage = lazy(() =>
   import("@/features/library/LibraryPage").then((m) => ({ default: m.LibraryPage })),
 );
@@ -45,6 +49,27 @@ const SettingsPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/features/not-found/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
+const AlternativaTrelloPage = lazy(() =>
+  import("@/features/seo/AlternativaTrelloPage").then((m) => ({
+    default: m.AlternativaTrelloPage,
+  })),
+);
+const AlternativaNotionPage = lazy(() =>
+  import("@/features/seo/AlternativaNotionPage").then((m) => ({
+    default: m.AlternativaNotionPage,
+  })),
+);
+const GestorOfflinePage = lazy(() =>
+  import("@/features/seo/GestorOfflinePage").then((m) => ({
+    default: m.GestorOfflinePage,
+  })),
+);
+const ChangelogPage = lazy(() =>
+  import("@/features/seo/ChangelogPage").then((m) => ({ default: m.ChangelogPage })),
+);
+const DocsPage = lazy(() =>
+  import("@/features/seo/DocsPage").then((m) => ({ default: m.DocsPage })),
+);
 
 function page(el: ReactNode) {
   return <Suspense fallback={<Loading />}>{el}</Suspense>;
@@ -52,6 +77,11 @@ function page(el: ReactNode) {
 
 const router = createBrowserRouter([
   { path: "/", element: page(<LandingPage />) },
+  { path: "/alternativa-trello", element: page(<AlternativaTrelloPage />) },
+  { path: "/alternativa-notion-local", element: page(<AlternativaNotionPage />) },
+  { path: "/gestor-proyectos-offline", element: page(<GestorOfflinePage />) },
+  { path: "/changelog", element: page(<ChangelogPage />) },
+  { path: "/docs", element: page(<DocsPage />) },
   {
     path: "/app",
     element: <AppGate />,
@@ -61,8 +91,15 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: page(<DashboardPage />) },
           { path: "products", element: page(<ProductsPage />) },
-          { path: "projects", element: page(<ProjectsPage />) },
-          { path: "projects/:id", element: page(<ProjectDetailPage />) },
+          {
+            path: "projects",
+            element: <ProjectsLayout />,
+            children: [
+              { index: true, element: page(<ProjectsPage />) },
+              { path: ":id", element: page(<ProjectDetailPage />) },
+            ],
+          },
+          { path: "quarters", element: page(<QuartersPage />) },
           { path: "library", element: page(<LibraryPage />) },
           { path: "automations", element: page(<AutomationsPage />) },
           { path: "notifications", element: page(<NotificationsPage />) },
