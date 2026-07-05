@@ -131,6 +131,57 @@ export function removeTask(p: Project, taskId: string): Project {
   return { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) };
 }
 
+/**
+ * Reorder the elements whose ids appear in `orderedIds` into that sequence,
+ * keeping every other element in its original slot. Ids not present in the
+ * array (or duplicated) are ignored. Returns the input array untouched when
+ * nothing effectively changes.
+ */
+function reorderByIds<T extends { id: string }>(arr: T[], orderedIds: string[]): T[] {
+  const byId = new Map(arr.map((x) => [x.id, x] as const));
+  const seen = new Set<string>();
+  const validIds = orderedIds.filter((id) => {
+    if (!byId.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  if (validIds.length < 2) return arr;
+  const slots: number[] = [];
+  arr.forEach((x, i) => {
+    if (seen.has(x.id)) slots.push(i);
+  });
+  const next = [...arr];
+  let changed = false;
+  slots.forEach((slot, k) => {
+    const el = byId.get(validIds[k])!;
+    if (next[slot] !== el) {
+      next[slot] = el;
+      changed = true;
+    }
+  });
+  return changed ? next : arr;
+}
+
+export function reorderChecklistItems(
+  p: Project,
+  areaId: string,
+  clId: string,
+  orderedIds: string[],
+): Project {
+  return mapChecklist(p, areaId, clId, (c) => ({
+    ...c,
+    items: reorderByIds(c.items, orderedIds),
+  }));
+}
+
+export function reorderAreas(p: Project, orderedIds: string[]): Project {
+  return { ...p, areas: reorderByIds(p.areas, orderedIds) };
+}
+
+export function reorderTasks(p: Project, orderedIds: string[]): Project {
+  return { ...p, tasks: reorderByIds(p.tasks, orderedIds) };
+}
+
 /** Apply a checklist to an existing area (non-destructive: always adds). */
 export function applyChecklistToArea(
   p: Project,

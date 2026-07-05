@@ -4,10 +4,12 @@ import {
   DndContext,
   KeyboardSensor,
   PointerSensor,
+  closestCorners,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +58,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
   // Distance constraint keeps the card buttons clickable; keyboard sensor for a11y.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   // Scroll focused task into view on first render (deep-link)
@@ -75,11 +77,48 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
   }
 
   function onDragEnd(event: DragEndEvent) {
-    const overId = event.over?.id;
-    if (typeof overId !== "string" || !COLUMN_IDS.has(overId)) return;
-    const task = project.tasks.find((t) => t.id === event.active.id);
-    if (!task || task.status === overId) return;
-    mutate((p) => ops.updateTask(p, { ...task, status: overId as TaskStatus }));
+    const { active, over } = event;
+    if (!over) return;
+    const activeTask = project.tasks.find((t) => t.id === active.id);
+    if (!activeTask) return;
+    const overId = String(over.id);
+
+    // Dropped over a column's empty space → move to end of that column.
+    if (COLUMN_IDS.has(overId)) {
+      if (activeTask.status !== overId) {
+        mutate((p) => ops.updateTask(p, { ...activeTask, status: overId as TaskStatus }));
+      }
+      return;
+    }
+
+    const overTask = project.tasks.find((t) => t.id === overId);
+    if (!overTask || overTask.id === activeTask.id) return;
+
+    // Dropped over a card in the same column → reorder the visible subset only,
+    // so tasks hidden by the ?area= filter keep their relative positions.
+    if (overTask.status === activeTask.status) {
+      const columnIds = tasksInScope
+        .filter((t) => t.status === activeTask.status)
+        .map((t) => t.id);
+      const oldIndex = columnIds.indexOf(activeTask.id);
+      const newIndex = columnIds.indexOf(overTask.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const ordered = arrayMove(columnIds, oldIndex, newIndex);
+      mutate((p) => ops.reorderTasks(p, ordered));
+      return;
+    }
+
+    // Dropped over a card in another column → change status and insert at that position.
+    const targetIds = tasksInScope
+      .filter((t) => t.status === overTask.status && t.id !== activeTask.id)
+      .map((t) => t.id);
+    const insertAt = targetIds.indexOf(overTask.id);
+    const ordered = [...targetIds];
+    ordered.splice(insertAt === -1 ? ordered.length : insertAt, 0, activeTask.id);
+    mutate((p) => {
+      const moved = ops.updateTask(p, { ...activeTask, status: overTask.status });
+      return ops.reorderTasks(moved, ordered);
+    });
   }
 
   return (
@@ -103,7 +142,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         </Button>
       </div>
 
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {TASK_COLUMNS.map((col) => {
             const tasks = tasksInScope.filter((t) => t.status === col);
@@ -112,6 +151,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                 key={col}
                 status={col}
                 count={tasks.length}
+                taskIds={tasks.map((t) => t.id)}
                 onAdd={() => setDialog({ open: true, status: col })}
               >
                 {tasks.map((t) => (

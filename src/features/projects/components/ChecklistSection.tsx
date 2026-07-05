@@ -1,6 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, CalendarClock, AlertCircle, ArrowRight, ListChecks } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  CalendarClock,
+  AlertCircle,
+  ArrowRight,
+  GripVertical,
+  ListChecks,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableItem } from "@/components/dnd/SortableItem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +45,7 @@ interface Props {
   onRemoveItem: (itemId: string) => void;
   onRemove: () => void;
   onConvertItemToTask: (item: ChecklistItem) => void;
+  onReorderItems: (orderedIds: string[]) => void;
   /** Item id to highlight and scroll into view (from deep-link ?focus=). */
   focusId?: string;
 }
@@ -32,6 +58,7 @@ export function ChecklistSection({
   onRemoveItem,
   onRemove,
   onConvertItemToTask,
+  onReorderItems,
   focusId,
 }: Props) {
   const navigate = useNavigate();
@@ -39,6 +66,21 @@ export function ChecklistSection({
   const [editing, setEditing] = useState<ChecklistItem | undefined>();
   const prog = checklistProgress(checklist);
   const focusRef = useRef<HTMLLIElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = checklist.items.map((i) => i.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    onReorderItems(arrayMove(ids, oldIndex, newIndex));
+  }
 
   // Scroll focused item into view
   useEffect(() => {
@@ -69,21 +111,44 @@ export function ChecklistSection({
 
       <Progress value={prog.pct} className="mb-3" />
 
-      <ul className="space-y-1">
-        {checklist.items.map((item) => {
-          const d = daysUntil(item.dueDate);
-          const overdue = !item.done && d !== null && d < 0;
-          const assignee = people.find((p) => p.id === item.assigneeId);
-          return (
-            <li
-              key={item.id}
-              ref={item.id === focusId ? focusRef : undefined}
-              className={cn(
-                "group flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent",
-                item.id === focusId && "ring-2 ring-primary",
-              )}
-            >
-              <Checkbox
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext
+          items={checklist.items.map((i) => i.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-1">
+            {checklist.items.map((item) => {
+              const d = daysUntil(item.dueDate);
+              const overdue = !item.done && d !== null && d < 0;
+              const assignee = people.find((p) => p.id === item.assigneeId);
+              return (
+                <SortableItem key={item.id} id={item.id}>
+                  {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                    <li
+                      ref={(node) => {
+                        setNodeRef(node);
+                        if (item.id === focusId) {
+                          (focusRef as React.MutableRefObject<HTMLLIElement | null>).current =
+                            node;
+                        }
+                      }}
+                      style={style}
+                      className={cn(
+                        "group flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent",
+                        item.id === focusId && "ring-2 ring-primary",
+                        isDragging && "z-10 bg-accent opacity-80",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing"
+                        aria-label={`Arrastrar ítem ${item.text}`}
+                        {...listeners}
+                        {...attributes}
+                      >
+                        <GripVertical className="size-3.5 shrink-0" />
+                      </button>
+                      <Checkbox
                 checked={item.done}
                 onCheckedChange={(c) => onUpdateItem({ ...item, done: c })}
                 aria-label={item.text}
@@ -167,10 +232,14 @@ export function ChecklistSection({
                   <Trash2 className="size-3.5" />
                 </Button>
               </div>
-            </li>
-          );
-        })}
-      </ul>
+                    </li>
+                  )}
+                </SortableItem>
+              );
+            })}
+          </ul>
+        </SortableContext>
+      </DndContext>
 
       <div className="mt-2 flex gap-2">
         <Input

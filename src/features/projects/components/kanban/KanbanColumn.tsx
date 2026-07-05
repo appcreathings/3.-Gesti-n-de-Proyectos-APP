@@ -1,4 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { taskStatusLabel } from "@/domain/labels";
@@ -7,12 +8,14 @@ import type { TaskStatus } from "@/domain/schemas";
 interface Props {
   status: TaskStatus;
   count: number;
+  /** Ids of the visible tasks in this column, in display order (for intra-column sorting). */
+  taskIds: string[];
   onAdd: () => void;
   children: React.ReactNode;
 }
 
-/** Droppable Kanban column; highlights while a card hovers over it. */
-export function KanbanColumn({ status, count, onAdd, children }: Props) {
+/** Droppable Kanban column with sortable cards; highlights while a card hovers over it. */
+export function KanbanColumn({ status, count, taskIds, onAdd, children }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -28,7 +31,9 @@ export function KanbanColumn({ status, count, onAdd, children }: Props) {
         <Badge variant="outline">{count}</Badge>
       </div>
       <div className="flex-1 space-y-2">
-        {children}
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          {children}
+        </SortableContext>
         <button
           className="w-full rounded-lg border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
           onClick={onAdd}

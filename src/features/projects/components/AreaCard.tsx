@@ -43,9 +43,20 @@ interface Props {
   tasks: Task[];
   /** Item id to highlight (from deep-link ?focus=). */
   focusId?: string;
+  /** Drag handle rendered in the header when the card lives in a sortable list. */
+  dragHandle?: React.ReactNode;
 }
 
-export function AreaCard({ area, people, mutate, onEdit, onRemove, tasks, focusId }: Props) {
+export function AreaCard({
+  area,
+  people,
+  mutate,
+  onEdit,
+  onRemove,
+  tasks,
+  focusId,
+  dragHandle,
+}: Props) {
   const Icon = areaIcon(area.icon);
   const prog = areaProgress(area);
   const tasksDone = tasks.filter((t) => t.status === "done").length;
@@ -94,6 +105,7 @@ export function AreaCard({ area, people, mutate, onEdit, onRemove, tasks, focusI
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <div className="flex items-center gap-2.5">
+          {dragHandle}
           <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Icon className="size-4" />
           </div>
@@ -298,6 +310,9 @@ export function AreaCard({ area, people, mutate, onEdit, onRemove, tasks, focusI
                 }
                 onRemove={() => mutate((p) => ops.removeChecklist(p, area.id, cl.id))}
                 onConvertItemToTask={(item) => convertItemToTask(cl.id, item)}
+                onReorderItems={(ids) =>
+                  mutate((p) => ops.reorderChecklistItems(p, area.id, cl.id, ids))
+                }
               />
             ))}
             <div className="flex gap-2">

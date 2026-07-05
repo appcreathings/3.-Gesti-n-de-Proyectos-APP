@@ -1,4 +1,4 @@
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   Pencil,
@@ -26,7 +26,7 @@ interface Props {
   onDelete: () => void;
 }
 
-/** Draggable Kanban card. The "Mover" button remains as keyboard fallback. */
+/** Sortable Kanban card (reorder + cross-column). The "Mover" button remains as keyboard fallback. */
 export function TaskCard({
   task,
   area,
@@ -37,8 +37,8 @@ export function TaskCard({
   onEdit,
   onDelete,
 }: Props) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: task.id, data: { status: task.status } });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id, data: { status: task.status } });
 
   const d = daysUntil(task.dueDate);
   const overdue = task.status !== "done" && d !== null && d < 0;
@@ -51,7 +51,7 @@ export function TaskCard({
           (focusRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }
       }}
-      style={{ transform: CSS.Translate.toString(transform) }}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         "group rounded-lg border bg-background p-3 shadow-sm transition-colors",
         focused && "ring-2 ring-primary",

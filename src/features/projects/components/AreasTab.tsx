@@ -1,8 +1,24 @@
 import { useState } from "react";
-import { LayoutGrid, Plus } from "lucide-react";
+import { GripVertical, LayoutGrid, Plus } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { HierarchyLegend } from "@/components/HierarchyLegend";
+import { SortableItem } from "@/components/dnd/SortableItem";
 import * as ops from "@/domain/projectOps";
 import type { Area, Person, Project } from "@/domain/schemas";
 import { AreaCard } from "./AreaCard";
@@ -25,6 +41,22 @@ export function AreasTab({ project, people, mutate, focusId }: Props) {
     } else {
       mutate((p) => ops.addArea(p, area));
     }
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = project.areas.map((a) => a.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const ordered = arrayMove(ids, oldIndex, newIndex);
+    mutate((p) => ops.reorderAreas(p, ordered));
   }
 
   return (
@@ -60,23 +92,50 @@ export function AreasTab({ project, people, mutate, focusId }: Props) {
           }
         />
       ) : (
-        <div className="space-y-4">
-          {project.areas.map((area) => (
-            <AreaCard
-              key={area.id}
-              area={area}
-              people={people}
-              mutate={mutate}
-              tasks={project.tasks.filter((t) => t.areaId === area.id)}
-              focusId={focusId}
-              onEdit={() => {
-                setEditing(area);
-                setFormOpen(true);
-              }}
-              onRemove={() => mutate((p) => ops.removeArea(p, area.id))}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext
+            items={project.areas.map((a) => a.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-4">
+              {project.areas.map((area) => (
+                <SortableItem key={area.id} id={area.id}>
+                  {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                    <div
+                      ref={setNodeRef}
+                      style={style}
+                      className={isDragging ? "z-10 opacity-80" : undefined}
+                    >
+                      <AreaCard
+                        area={area}
+                        people={people}
+                        mutate={mutate}
+                        tasks={project.tasks.filter((t) => t.areaId === area.id)}
+                        focusId={focusId}
+                        dragHandle={
+                          <button
+                            type="button"
+                            className="cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing"
+                            aria-label={`Arrastrar área ${area.name}`}
+                            {...listeners}
+                            {...attributes}
+                          >
+                            <GripVertical className="size-4 shrink-0" />
+                          </button>
+                        }
+                        onEdit={() => {
+                          setEditing(area);
+                          setFormOpen(true);
+                        }}
+                        onRemove={() => mutate((p) => ops.removeArea(p, area.id))}
+                      />
+                    </div>
+                  )}
+                </SortableItem>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <AreaFormDialog

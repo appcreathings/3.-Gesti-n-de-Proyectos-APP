@@ -20,32 +20,34 @@ manual confirmado antes de avanzar.
   Verificado: `tsc --noEmit` limpio, 56/56 tests Vitest, `vite build` OK (~66 kB gzip bundle
   principal, sin cambio). Pendiente smoke visual en navegador.
 
-## Fase 3 — Listas respaldadas por el store
-- [ ] T320 `projectOps.reorderChecklistItems(p, areaId, checklistId, orderedIds)` + tests en
+## Fase 3 — Listas respaldadas por el store ✅
+- [x] T320 `projectOps.reorderChecklistItems(p, areaId, checklistId, orderedIds)` + tests en
   `projectOps.test.ts` (nuevo archivo: reorden correcto, ids inexistentes ignorados, inmutabilidad
-  del `Project` de entrada).
-- [ ] T321 `projectOps.reorderAreas(p, orderedIds)` + tests (mismos casos que T320).
-- [ ] T322 `ChecklistSection`: handle de arrastre en cada `<li>` (hoy no tiene ninguno); conecta a
-  `reorderChecklistItems` vía `mutate`.
-- [ ] T323 `AreasTab`/`AreaCard`: handle de arrastre en el header de `AreaCard`; conecta a
-  `reorderAreas` vía `mutate`.
+  del `Project` de entrada). Implementado sobre helper genérico `reorderByIds` (reordena el
+  subconjunto en sus mismas posiciones del array).
+- [x] T321 `projectOps.reorderAreas(p, orderedIds)` + tests (mismos casos que T320).
+- [x] T322 `ChecklistSection`: handle de arrastre en cada `<li>`; conecta a
+  `reorderChecklistItems` vía nueva prop `onReorderItems` cableada en `AreaCard`.
+- [x] T323 `AreasTab`/`AreaCard`: handle de arrastre en el header de `AreaCard` (prop
+  `dragHandle`); conecta a `reorderAreas` vía `mutate`.
 
-  Verificar: `tsc --noEmit`, `npm run test`, smoke visual reordenando ítems de checklist y áreas.
+  Verificado: `tsc --noEmit` limpio, 64/64 tests. Pendiente smoke visual en navegador.
 
-## Fase 4 — Kanban intra-columna
-- [ ] T330 `projectOps.reorderTasks(p, orderedIds)` + tests (incluye caso con filtro de área activo:
+## Fase 4 — Kanban intra-columna ✅
+- [x] T330 `projectOps.reorderTasks(p, orderedIds)` + tests (incluye caso con filtro de área activo:
   las tareas fuera del subconjunto reordenado no cambian de posición relativa).
-- [ ] T331 `KanbanColumn`: además de `useDroppable`, envuelve sus tarjetas en `SortableContext`
-  (`verticalListSortingStrategy`) con los ids de las tareas visibles de esa columna.
-- [ ] T332 `TaskCard`: `useDraggable` → `useSortable` (mantiene el mismo handle `GripVertical` ya
-  existente en el componente).
-- [ ] T333 `TasksTab.onDragEnd`: distingue soltar sobre tarjeta de la misma columna (reorder vía
+- [x] T331 `KanbanColumn`: además de `useDroppable`, envuelve sus tarjetas en `SortableContext`
+  (`verticalListSortingStrategy`) con los ids de las tareas visibles de esa columna (prop `taskIds`).
+- [x] T332 `TaskCard`: `useDraggable` → `useSortable` (mismo handle `GripVertical`; añade
+  `transition` al style).
+- [x] T333 `TasksTab.onDragEnd`: distingue soltar sobre tarjeta de la misma columna (reorder vía
   T330), sobre tarjeta de otra columna (cambia `status` + inserta en esa posición) y sobre área
   vacía de otra columna (cambia `status` al final — comportamiento actual, sin regresión).
+  `collisionDetection` pasa a `closestCorners`.
 
-  Verificar: `tsc --noEmit`, `npm run test`, smoke visual: (a) cambiar status arrastrando entre
-  columnas sigue funcionando igual que hoy, (b) reorder dentro de la misma columna, (c) reorder con
-  `?area=` activo no descoloca tareas fuera del filtro.
+  Verificado: `tsc --noEmit` limpio, 64/64 tests. Pendiente smoke visual: (a) cambiar status
+  arrastrando entre columnas, (b) reorder dentro de la misma columna, (c) reorder con `?area=`
+  activo no descoloca tareas fuera del filtro.
 
 ## Explícitamente fuera de este tasks.md
 - Reordenar columnas del Kanban (estados fijos).
