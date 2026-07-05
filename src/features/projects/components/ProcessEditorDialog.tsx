@@ -178,7 +178,7 @@ export function ProcessEditorDialog({
                           ref={setNodeRef}
                           style={style}
                           className={cn(
-                            "flex items-center gap-2",
+                            "flex items-center gap-2 rounded-md border bg-background p-2 shadow-sm",
                             isDragging && "z-10 opacity-80",
                           )}
                         >
@@ -191,7 +191,7 @@ export function ProcessEditorDialog({
                           >
                             <GripVertical className="size-4 shrink-0" />
                           </button>
-                          <span className="w-5 shrink-0 text-xs text-muted-foreground">
+                          <span className="w-5 shrink-0 text-xs tabular-nums text-muted-foreground">
                             {i + 1}.
                           </span>
                           <Input
@@ -205,8 +205,14 @@ export function ProcessEditorDialog({
                               }
                             }}
                             placeholder="Describe el paso"
+                            className="h-9 border-0 bg-transparent shadow-none focus-visible:ring-0"
                           />
-                          <Button variant="ghost" size="icon" onClick={() => delStep(s.id)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => delStep(s.id)}
+                          >
                             <Trash2 className="size-4" />
                           </Button>
                         </li>
@@ -217,8 +223,6 @@ export function ProcessEditorDialog({
               </SortableContext>
             </DndContext>
           </div>
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="process"
             fields={{ name, description, steps, ownerId }}
@@ -236,14 +240,14 @@ export function ProcessEditorDialog({
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              {process ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {process ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

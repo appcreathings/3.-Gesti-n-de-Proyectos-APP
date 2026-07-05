@@ -90,11 +90,7 @@ export function ItemEditorDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="it-due">Fecha límite</Label>
-              <DateFieldPreview
-                id="it-due"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
+              <DateFieldPreview id="it-due" value={dueDate} onChange={setDueDate} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="it-assignee">Responsable</Label>
@@ -116,8 +112,6 @@ export function ItemEditorDialog({
               {hasTask ? "Ya tiene tarea" : "Convertir en tarea"}
             </Button>
           </div>
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="checklist-item"
             fields={{ text, required, dueDate, assigneeId, notes }}
@@ -141,14 +135,14 @@ export function ItemEditorDialog({
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!text.trim()}>
-              Guardar
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!text.trim()}>
+            Guardar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

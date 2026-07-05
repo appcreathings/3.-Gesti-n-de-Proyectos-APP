@@ -157,7 +157,7 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
                           ref={setNodeRef}
                           style={style}
                           className={cn(
-                            "flex items-center gap-2",
+                            "flex items-center gap-2 rounded-md border bg-background p-2 shadow-sm",
                             isDragging && "z-10 opacity-80",
                           )}
                         >
@@ -170,7 +170,7 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
                           >
                             <GripVertical className="size-4" />
                           </button>
-                          <span className="w-5 shrink-0 text-xs text-muted-foreground">
+                          <span className="w-5 shrink-0 text-xs tabular-nums text-muted-foreground">
                             {i + 1}.
                           </span>
                           <Input
@@ -183,10 +183,12 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
                               )
                             }
                             placeholder="Describe el paso"
+                            className="h-9 border-0 bg-transparent shadow-none focus-visible:ring-0"
                           />
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="size-8"
                             onClick={() => setSteps((arr) => arr.filter((x) => x.id !== s.id))}
                           >
                             <Trash2 className="size-4" />
@@ -199,8 +201,6 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
               </SortableContext>
             </DndContext>
           </div>
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="process-template"
             fields={{ name, category, description, steps }}
@@ -218,14 +218,14 @@ export function ProcessTemplateDialog({ open, onOpenChange, template, onSubmit }
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              {template ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {template ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

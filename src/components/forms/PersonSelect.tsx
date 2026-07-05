@@ -1,5 +1,7 @@
-import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import { EntitySelect } from "./EntitySelect";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import type { Person, RaciRole } from "@/domain/schemas";
 import { raciRoleLabel } from "@/domain/labels";
 
@@ -83,37 +85,32 @@ export function MultiPersonSelect({ people, value, onChange }: MultiPersonSelect
               required
               className="flex-1"
             />
-            <select
+            <Select
               value={row.role}
               onChange={(e) => updateRow(idx, { role: e.target.value as RaciRole })}
-              className={cn(
-                "flex h-9 w-full sm:w-36 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background",
-                "focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-              )}
+              className="w-full sm:w-36"
             >
               {RACI_OPTIONS.map((r) => (
                 <option key={r} value={r}>
                   {raciRoleLabel[r]}
                 </option>
               ))}
-            </select>
-            <button
+            </Select>
+            <Button
               type="button"
-              onClick={() => removeRow(idx)}
-              className="text-muted-foreground hover:text-destructive"
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
               title={`Quitar a ${person?.name ?? "persona"}`}
+              onClick={() => removeRow(idx)}
             >
-              ✕
-            </button>
+              <X className="size-4" />
+            </Button>
           </div>
         );
       })}
       {people.length > 0 && (
-        <button
-          type="button"
-          onClick={addRow}
-          className="text-xs text-primary hover:underline"
-        >
+        <button type="button" onClick={addRow} className="text-xs text-primary hover:underline">
           + Añadir persona al equipo
         </button>
       )}

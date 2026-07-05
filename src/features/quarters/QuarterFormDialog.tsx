@@ -56,11 +56,11 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{quarter ? "Editar trimestre" : "Nuevo trimestre"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
           <div className="grid gap-1.5">
             <Label htmlFor="q-name">Nombre</Label>
             <Input
@@ -80,19 +80,11 @@ export function QuarterFormDialog({ open, onOpenChange, quarter, onSubmit }: Pro
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="q-start">Fecha de inicio</Label>
-              <DateFieldPreview
-                id="q-start"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <DateFieldPreview id="q-start" value={startDate} onChange={setStartDate} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="q-end">Fecha de fin</Label>
-              <DateFieldPreview
-                id="q-end"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <DateFieldPreview id="q-end" value={endDate} onChange={setEndDate} />
             </div>
           </div>
           <DateRangeSummary start={startDate} end={endDate} />

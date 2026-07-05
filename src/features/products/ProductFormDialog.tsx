@@ -58,11 +58,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSubmit }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{product ? "Editar producto" : "Nuevo producto"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
           <div className="grid gap-1.5">
             <Label htmlFor="p-name">Nombre</Label>
             <Input

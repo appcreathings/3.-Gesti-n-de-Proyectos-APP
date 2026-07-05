@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
@@ -89,11 +89,11 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{task ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
           {/* ── Campo principal siempre visible ── */}
           <div className="grid gap-1.5">
             <Label htmlFor="t-title">Título</Label>
@@ -112,18 +112,21 @@ export function TaskFormDialog({
           </div>
 
           {/* ── Toggle "Más opciones" ── */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="w-fit justify-start px-2 text-muted-foreground hover:text-foreground"
           >
             {showAdvanced ? (
-              <ChevronUp className="size-3.5" />
+              <ChevronUp className="size-4" />
             ) : (
-              <ChevronDown className="size-3.5" />
+              <ChevronDown className="size-4" />
             )}
+            <SlidersHorizontal className="size-3.5" />
             {showAdvanced ? "Menos opciones" : "Más opciones"}
-          </button>
+          </Button>
 
           {/* ── Opciones avanzadas ── */}
           {showAdvanced && (
@@ -196,11 +199,7 @@ export function TaskFormDialog({
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="t-due">Fecha límite</Label>
-                <DateFieldPreview
-                  id="t-due"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
+                <DateFieldPreview id="t-due" value={dueDate} onChange={setDueDate} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="t-desc">Descripción</Label>
@@ -212,8 +211,6 @@ export function TaskFormDialog({
               </div>
             </>
           )}
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="task"
             fields={{
@@ -255,14 +252,14 @@ export function TaskFormDialog({
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!title.trim()}>
-              {task ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!title.trim()}>
+            {task ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -56,11 +56,11 @@ export function SprintFormDialog({ open, onOpenChange, sprint, onSubmit }: Props
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{sprint ? "Editar sprint" : "Nuevo sprint"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
           <div className="grid gap-1.5">
             <Label htmlFor="sp-name">Nombre</Label>
             <Input
@@ -80,19 +80,11 @@ export function SprintFormDialog({ open, onOpenChange, sprint, onSubmit }: Props
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="sp-start">Fecha de inicio</Label>
-              <DateFieldPreview
-                id="sp-start"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <DateFieldPreview id="sp-start" value={startDate} onChange={setStartDate} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="sp-end">Fecha de fin</Label>
-              <DateFieldPreview
-                id="sp-end"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <DateFieldPreview id="sp-end" value={endDate} onChange={setEndDate} />
             </div>
           </div>
           <DateRangeSummary start={startDate} end={endDate} />

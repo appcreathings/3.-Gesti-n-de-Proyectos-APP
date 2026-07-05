@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { AiImproveButton } from "@/components/ai/AiImproveButton";
 import {
   Dialog,
@@ -93,11 +93,11 @@ export function ProjectFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{project ? "Editar proyecto" : "Nuevo proyecto"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
           {/* ── Nombre siempre visible ── */}
           <div className="grid gap-1.5">
             <Label htmlFor="pr-name">Nombre</Label>
@@ -129,18 +129,21 @@ export function ProjectFormDialog({
           </div>
 
           {/* ── Toggle Más opciones ── */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="w-fit justify-start px-2 text-muted-foreground hover:text-foreground"
           >
             {showAdvanced ? (
-              <ChevronUp className="size-3.5" />
+              <ChevronUp className="size-4" />
             ) : (
-              <ChevronDown className="size-3.5" />
+              <ChevronDown className="size-4" />
             )}
+            <SlidersHorizontal className="size-3.5" />
             {showAdvanced ? "Menos opciones" : "Más opciones"}
-          </button>
+          </Button>
 
           {showAdvanced && (
             <>
@@ -207,19 +210,11 @@ export function ProjectFormDialog({
                 )}
                 <div className="grid gap-1.5">
                   <Label htmlFor="pr-start">Fecha de inicio</Label>
-                  <DateFieldPreview
-                    id="pr-start"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                  <DateFieldPreview id="pr-start" value={startDate} onChange={setStartDate} />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="pr-due">Fecha límite</Label>
-                  <DateFieldPreview
-                    id="pr-due"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
+                  <DateFieldPreview id="pr-due" value={dueDate} onChange={setDueDate} />
                 </div>
               </div>
               <DateRangeSummary start={startDate} end={dueDate} />
@@ -255,9 +250,6 @@ export function ProjectFormDialog({
               </div>
             </>
           )}
-        </div>
-
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="project"
             fields={{
@@ -296,14 +288,15 @@ export function ProjectFormDialog({
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              {project ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {project ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

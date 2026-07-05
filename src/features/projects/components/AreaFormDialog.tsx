@@ -10,9 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { PersonSelect } from "@/components/forms/PersonSelect";
-import { areaIcon } from "@/lib/icons";
+import { IconPicker } from "@/components/forms/IconPicker";
 import type { Area, Person } from "@/domain/schemas";
 import { newArea } from "@/domain/factories";
 
@@ -75,22 +74,9 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
               placeholder="p. ej. Desarrollo, Diseño, Legal"
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="ar-icon">Icono</Label>
-            {/* Show icon preview alongside the text name */}
-            <div className="flex items-center gap-2">
-              {(() => {
-                const Icon = areaIcon(icon);
-                return <Icon className="size-4 shrink-0 text-muted-foreground" />;
-              })()}
-              <Select id="ar-icon" value={icon} onChange={(e) => setIcon(e.target.value)}>
-                {AREA_ICONS.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label>Icono</Label>
+            <IconPicker icons={AREA_ICONS} value={icon} onChange={setIcon} />
           </div>
           {people.length > 0 && (
             <div className="grid gap-1.5">
@@ -103,8 +89,6 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
               />
             </div>
           )}
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="area"
             fields={{ name, icon, ownerId }}
@@ -122,14 +106,14 @@ export function AreaFormDialog({ open, onOpenChange, area, people = [], onSubmit
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              {area ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {area ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

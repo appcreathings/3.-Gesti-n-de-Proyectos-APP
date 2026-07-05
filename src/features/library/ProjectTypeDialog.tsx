@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { IconPicker } from "@/components/forms/IconPicker";
 import { AREA_ICONS } from "@/features/projects/components/AreaFormDialog";
 import type {
   ChecklistTemplate,
@@ -131,18 +131,15 @@ export function ProjectTypeDialog({
             <div className="space-y-3">
               {areas.map((area, idx) => (
                 <div key={idx} className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2">
-                    <Select
+                  <div className="mb-3">
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">Icono</p>
+                    <IconPicker
+                      icons={AREA_ICONS}
                       value={area.icon}
-                      onChange={(e) => patchArea(idx, { icon: e.target.value })}
-                      className="h-9 w-full sm:w-32"
-                    >
-                      {AREA_ICONS.map((i) => (
-                        <option key={i} value={i}>
-                          {i}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(icon) => patchArea(idx, { icon })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Input
                       value={area.name}
                       onChange={(e) => patchArea(idx, { name: e.target.value })}
@@ -177,8 +174,6 @@ export function ProjectTypeDialog({
               ))}
             </div>
           </div>
-        </div>
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <AiImproveButton
             entityType="project-type"
             fields={{ name, description, defaultAreas: areas }}
@@ -193,14 +188,14 @@ export function ProjectTypeDialog({
               }
             }}
           />
-          <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              {type ? "Guardar" : "Crear"}
-            </Button>
-          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
+            {type ? "Guardar" : "Crear"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
