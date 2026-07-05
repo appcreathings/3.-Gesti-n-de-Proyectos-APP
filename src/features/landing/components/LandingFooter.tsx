@@ -16,10 +16,10 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Producto",
     links: [
-      { label: "Cómo funciona", href: "#como-funciona" },
-      { label: "Características", href: "#caracteristicas" },
-      { label: "Casos de uso", href: "#uso" },
-      { label: "FAQ", href: "#faq" },
+      { label: "Cómo funciona", to: "/#como-funciona" },
+      { label: "Características", to: "/#caracteristicas" },
+      { label: "Casos de uso", to: "/#uso" },
+      { label: "FAQ", to: "/#faq" },
     ],
   },
   {

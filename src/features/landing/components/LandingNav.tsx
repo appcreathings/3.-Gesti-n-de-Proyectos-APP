@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { HitoMark } from "@/components/brand/HitoMark";
 import { ROUTES } from "@/routes/paths";
 
-const NAV_LINKS: { label: string; href?: string; to?: string }[] = [
-  { href: "#como-funciona", label: "Cómo funciona" },
-  { href: "#caracteristicas", label: "Características" },
-  { href: "#uso", label: "Casos de uso" },
-  { href: "#faq", label: "FAQ" },
+const NAV_LINKS: { label: string; to: string }[] = [
+  { to: "/#como-funciona", label: "Cómo funciona" },
+  { to: "/#caracteristicas", label: "Características" },
+  { to: "/#uso", label: "Casos de uso" },
+  { to: "/#faq", label: "FAQ" },
   { to: "/blogs", label: "Blog" },
 ];
 
@@ -40,25 +40,15 @@ export function LandingNav() {
 
         {/* Desktop nav links */}
         <div className="hidden items-center gap-8 md:flex">
-          {NAV_LINKS.map((link) =>
-            link.to ? (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {link.label}
-              </Link>
-            ) : (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {link.label}
-              </a>
-            ),
-          )}
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
         <div className="flex items-center gap-2">
@@ -83,27 +73,16 @@ export function LandingNav() {
       {menuOpen && (
         <div className="border-t border-border/60 bg-background/95 backdrop-blur-md md:hidden">
           <div className="mx-auto max-w-6xl space-y-1 px-6 py-4">
-            {NAV_LINKS.map((link) =>
-              link.to ? (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  onClick={() => setMenuOpen(false)}
-                  className="block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ) : (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  {link.label}
-                </a>
-              ),
-            )}
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         </div>
       )}

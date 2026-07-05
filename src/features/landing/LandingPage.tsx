@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { ScrollToHash } from "@/components/ScrollToHash";
 import { Hero } from "./components/Hero";
 import { TrustBar } from "./components/TrustBar";
 import { ProductMockup } from "./components/ProductMockup";
@@ -112,6 +113,7 @@ export function LandingPage() {
           })}
         </script>
       </Helmet>
+      <ScrollToHash />
       <div className="min-h-screen flex flex-col">
       <LandingNav />
       <StickyCta />

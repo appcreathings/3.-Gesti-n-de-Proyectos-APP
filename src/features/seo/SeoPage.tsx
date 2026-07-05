@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { ScrollToHash } from "@/components/ScrollToHash";
 import { LandingNav } from "@/features/landing/components/LandingNav";
 import { LandingFooter } from "@/features/landing/components/LandingFooter";
 import { StickyCta } from "@/features/landing/components/StickyCta";
@@ -50,6 +51,7 @@ export function SeoPage({
           <script type="application/ld+json">{JSON.stringify(schemaJson)}</script>
         ) : null}
       </Helmet>
+      <ScrollToHash />
       <div className="min-h-screen flex flex-col">
         <LandingNav />
         <StickyCta />
