@@ -111,12 +111,16 @@ nativo para el preview de fechas (sin librería de fechas nueva).
 ## Estrategia de verificación
 
 Después de cada fase: `npx tsc --noEmit` + `npx vitest run`. Las 5 fases quedaron en verde
-(147/147 tests; los 2 errores de tsc restantes en `AiImproveButton.tsx`/`ProjectTypeDialog.tsx`
+(147/147 tests en su momento; los 2 errores de tsc restantes en `AiImproveButton.tsx`/`ProjectTypeDialog.tsx`
 pertenecen a la sesión concurrente `007-rag-semantico`, no a este feature). Tests nuevos:
 `src/lib/dates.test.ts` (10), `assignTaskToSprint`/`removeSprint` en `projectOps.test.ts` (+3), y
 actualización de `migrations.test.ts` para reflejar la migración real `projects v1→v2` registrada.
-**Pendiente**: smoke visual manual end-to-end (crear sprint, crear trimestre, navegar por el
-árbol) con la skill `run`.
+
+**Verificación final end-to-end:** smoke visual real con Playwright — crear producto, proyecto,
+sprint con fechas, tarea con campo Sprint, filtrar el tablero por Backlog/Sprint, crear trimestre,
+alternar vistas de Proyectos, expandir el árbol en rail y columna dedicada. **0 errores de consola.**
+`npx tsc --noEmit` limpio para el código de este feature; `npx vitest run` en verde (154/154 tests
+tras integrar los tests del spec 007).
 
 ## Gates de la constitución (revisión)
 
