@@ -9,7 +9,16 @@ export default defineConfig({
     react(),
     ViteSitemapPlugin({
       hostname: "https://hito.autos",
-      routes: ["/"],
+      dynamicRoutes: [
+        "/app",
+        "/app/products",
+        "/app/projects",
+        "/app/library",
+        "/app/automations",
+        "/app/notifications",
+        "/app/settings",
+      ],
+      generateRobotsTxt: false,
     }),
     VitePWA({
       registerType: "autoUpdate",
