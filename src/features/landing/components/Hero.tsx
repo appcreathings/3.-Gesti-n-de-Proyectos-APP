@@ -26,7 +26,7 @@ export function Hero() {
         }}
       />
 
-      <div className="mx-auto max-w-6xl px-6 pb-24 pt-32 sm:pt-40">
+      <div className="mx-auto max-w-6xl px-6 pb-28 pt-32 sm:pb-32 sm:pt-40">
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary backdrop-blur">
             <span className="relative flex size-1.5">

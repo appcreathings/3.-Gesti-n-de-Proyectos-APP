@@ -5,7 +5,7 @@
  */
 export function ProductMockup() {
   return (
-    <div className="relative mx-auto -mt-8 w-full max-w-5xl px-6 sm:-mt-16">
+    <div className="relative mx-auto -mt-6 w-full max-w-5xl px-6 sm:-mt-12">
       <div className="pointer-events-none absolute inset-x-12 top-8 -z-10 h-24 rounded-full bg-foreground/5 blur-3xl" />
 
       <div className="rounded-2xl border border-border/70 bg-background shadow-2xl shadow-foreground/5">
@@ -23,9 +23,9 @@ export function ProductMockup() {
           <div className="w-12" />
         </div>
 
-        <div className="grid grid-cols-12 gap-px bg-border/60 text-xs">
+        <div className="grid grid-cols-1 gap-px bg-border/60 text-xs sm:grid-cols-12">
           {/* Sidebar */}
-          <div className="col-span-3 space-y-2 bg-background p-3">
+          <div className="space-y-2 bg-background p-3 sm:col-span-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               Árbol
             </p>
@@ -55,7 +55,7 @@ export function ProductMockup() {
           </div>
 
           {/* Main area: Kanban */}
-          <div className="col-span-9 space-y-3 bg-background p-4">
+          <div className="space-y-3 border-t border-border/60 bg-background p-4 sm:col-span-9 sm:border-t-0">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
