@@ -33,6 +33,18 @@ export default defineConfig({
         navigateFallback: "/index.html",
         cleanupOutdatedCaches: true,
         clientsClaim: true,
+        skipWaiting: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/hito\.autos\/assets\/.*\.js$/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "js-runtime",
+              expiration: { maxEntries: 50, maxAgeSeconds: 7 * 24 * 60 * 60 },
+              networkTimeoutSeconds: 5,
+            },
+          },
+        ],
       },
     }),
   ],

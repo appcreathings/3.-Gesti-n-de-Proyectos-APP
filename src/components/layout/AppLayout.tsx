@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Search,
   Sparkles,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -19,13 +21,26 @@ import { useDataStore } from "@/store/useDataStore";
 import { useChatStore } from "@/store/useChatStore";
 import { CommandPalette } from "@/features/command/CommandPalette";
 import { ROUTES } from "@/routes/paths";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 // Lazy: solo se descarga la primera vez que se abre el panel (Ctrl/Cmd+J).
-const AssistantPanel = lazy(() =>
-  import("@/features/assistant/AssistantPanel").then((m) => ({
+// Si falla el import (chunk desactualizado tras deploy), recarga la página una vez.
+const AssistantPanel = lazy(() => {
+  const RELOAD_KEY = "hito:assistant-reload";
+
+  const doImport = import("@/features/assistant/AssistantPanel").then((m) => ({
     default: m.AssistantPanel,
-  })),
-);
+  }));
+
+  doImport.catch(() => {
+    if (!sessionStorage.getItem(RELOAD_KEY)) {
+      sessionStorage.setItem(RELOAD_KEY, "1");
+      window.location.reload();
+    }
+  });
+
+  return doImport;
+});
 
 const NAV = [
   { to: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -37,14 +52,126 @@ const NAV = [
   { to: ROUTES.settings(), label: "Ajustes", icon: Settings },
 ];
 
-export function AppLayout() {
+function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const adapterKind = useAppStore((s) => s.adapter.kind);
   const unread = useDataStore((s) => s.notifications.filter((n) => !n.read).length);
   const assistantOpen = useChatStore((s) => s.open);
   const toggleAssistant = useChatStore((s) => s.toggleOpen);
 
+  return (
+    <>
+      <Link
+        to={ROUTES.landing}
+        onClick={onNavClick}
+        className="flex h-14 items-center gap-2 px-5"
+      >
+        <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
+          <FolderKanban className="size-3.5" />
+        </div>
+        <span className="text-sm font-semibold tracking-tight">Hito</span>
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+          v0.1
+        </span>
+      </Link>
+      {/* Command palette trigger */}
+      <button
+        onClick={() => {
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
+          );
+        }}
+        className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Search className="size-3.5" />
+        <span className="flex-1 text-left">Buscar…</span>
+        <kbd className="rounded border border-border/70 bg-muted px-1.5 text-[10px] font-mono">
+          ⌘K
+        </kbd>
+      </button>
+      <nav className="flex-1 space-y-0.5 px-3 py-2">
+        {NAV.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={onNavClick}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                isActive
+                  ? "bg-foreground/5 text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )
+            }
+          >
+            <Icon className="size-4" />
+            <span className="flex-1">{label}</span>
+            {to === ROUTES.notifications && unread > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-semibold text-background">
+                {unread}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+      {/* Assistant toggle (treated as a nav row) */}
+      <div className="px-3 pb-3">
+        <button
+          onClick={() => {
+            toggleAssistant();
+            onNavClick?.();
+          }}
+          aria-pressed={assistantOpen}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            assistantOpen
+              ? "bg-foreground/5 text-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          <Sparkles className="size-4" />
+          <span className="flex-1 text-left">Asistente</span>
+          <kbd className="rounded border border-border/70 bg-muted px-1.5 text-[10px] font-mono">
+            ⌘J
+          </kbd>
+        </button>
+      </div>
+      <div className="border-t border-border/70 px-5 py-3 font-mono text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-2">
+          {adapterKind === "filesystem" ? (
+            <>
+              <CheckCircle2 className="size-3.5 text-success" />
+              sincronizado · carpeta local
+            </>
+          ) : (
+            <>
+              <HardDriveDownload className="size-3.5 text-warning" />
+              modo export/import
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function AppLayout() {
+  const assistantOpen = useChatStore((s) => s.open);
+  const toggleAssistant = useChatStore((s) => s.toggleOpen);
+  const isDesktop = useBreakpoint("lg");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar on Escape
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   // Ctrl/Cmd+J toggles the assistant (same pattern as the Cmd+K palette).
-  // Registered here (not in AssistantPanel) so it works while the panel is unmounted.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "j" && (e.metaKey || e.ctrlKey)) {
@@ -64,86 +191,53 @@ export function AppLayout() {
       >
         Saltar al contenido
       </a>
-      <aside className="flex w-60 shrink-0 flex-col border-r bg-card/40">
-        <Link to={ROUTES.landing} className="flex h-16 items-center gap-2 px-5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <FolderKanban className="size-4" />
-          </div>
-          <span className="text-sm font-semibold">Hito</span>
-        </Link>
-        {/* Command palette trigger */}
-        <button
-          onClick={() => {
-            document.dispatchEvent(
-              new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
-            );
-          }}
-          className="mx-3 mb-1 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Search className="size-3.5" />
-          <span className="flex-1 text-left">Buscar…</span>
-          <kbd className="rounded border bg-background px-1.5 text-[10px] font-mono">⌘K</kbd>
-        </button>
-        <nav className="flex-1 space-y-1 px-3 py-2">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )
-              }
-            >
-              <Icon className="size-4" />
-              <span className="flex-1">{label}</span>
-              {to === ROUTES.notifications && unread > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
-                  {unread}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        {/* Assistant toggle */}
-        <button
-          onClick={() => toggleAssistant()}
-          aria-pressed={assistantOpen}
-          className={cn(
-            "mx-3 mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            assistantOpen
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-          )}
-        >
-          <Sparkles className="size-4" />
-          <span className="flex-1 text-left">Asistente</span>
-          <kbd className="rounded border bg-background px-1.5 text-[10px] font-mono">⌘J</kbd>
-        </button>
-        <div className="border-t p-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            {adapterKind === "filesystem" ? (
-              <>
-                <CheckCircle2 className="size-3.5 text-success" />
-                Guardado en carpeta local
-              </>
-            ) : (
-              <>
-                <HardDriveDownload className="size-3.5 text-warning" />
-                Modo export/import
-              </>
-            )}
-          </div>
-        </div>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-border/70 bg-background lg:flex">
+        <SidebarContent />
       </aside>
 
+      {/* Mobile drawer overlay */}
+      {!isDesktop && sidebarOpen && (
+        <div className="fixed inset-0 z-40">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-border/70 bg-background">
+            <div className="flex h-14 items-center justify-end px-4">
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <SidebarContent onNavClick={() => setSidebarOpen(false)} />
+          </aside>
+        </div>
+      )}
+
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-4 lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Abrir menú"
+          >
+            <Menu className="size-5" />
+          </button>
+          <Link to={ROUTES.landing} className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
+              <FolderKanban className="size-3.5" />
+            </div>
+            <span className="text-sm font-semibold tracking-tight">Hito</span>
+          </Link>
+        </header>
+
         <main id="main-content" className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl px-8 py-8">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-16">
             <Outlet />
           </div>
         </main>
