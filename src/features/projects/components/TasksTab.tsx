@@ -2,12 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  pointerWithin,
+  rectIntersection,
   closestCorners,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Plus, X } from "lucide-react";
@@ -55,6 +62,14 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     open: false,
   });
   const [deleteSprint, setDeleteSprint] = useState<Sprint | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  // Ephemeral drag preview: mirrors board-by-column while a drag is in progress so cards reflow
+  // live (onDragOver) instead of "jumping" only on drop. Null when no drag is active — render then
+  // falls back to `boardFromScope` derived straight from props.
+  const [dragBoard, setDragBoard] = useState<Record<TaskStatus, string[]> | null>(null);
+  // Touch drags are restricted to intra-column reorder (see spec 010) — cross-column moves on
+  // touch happen via the existing move buttons instead, to avoid fighting the column snap-scroll.
+  const isTouchDragRef = useRef(false);
   const focusRef = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const areaFilterId = searchParams.get("area");
@@ -84,6 +99,18 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     return areaScoped.filter((t) => t.sprintId === sprintScope);
   }, [areaScoped, sprintScope]);
 
+  // Visible task ids per column, derived from props. The single source of truth outside a drag.
+  const boardFromScope = useMemo(() => {
+    const board = {} as Record<TaskStatus, string[]>;
+    for (const col of TASK_COLUMNS) {
+      board[col] = tasksInScope.filter((t) => t.status === col).map((t) => t.id);
+    }
+    return board;
+  }, [tasksInScope]);
+
+  // While dragging, render from the ephemeral preview; otherwise from the derived scope.
+  const board = dragBoard ?? boardFromScope;
+
   function clearAreaFilter() {
     const next = new URLSearchParams(searchParams);
     next.delete("area");
@@ -91,10 +118,23 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
   }
 
   // Distance constraint keeps the card buttons clickable; keyboard sensor for a11y.
+  // Mouse + Touch (not the generic Pointer sensor) so each activates independently — mixing
+  // Pointer and Touch caused double-activation on touch devices.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  // Resolves the column empty-space droppable first (fixes dropping on an empty column), then
+  // falls back to rect/corner-based resolution for dropping over a specific card.
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) return rectCollisions;
+    return closestCorners(args);
+  };
 
   // Scroll focused task into view on first render (deep-link)
   useEffect(() => {
@@ -125,50 +165,90 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     setDeleteSprint(null);
   }
 
-  function onDragEnd(event: DragEndEvent) {
+  function columnOf(b: Record<TaskStatus, string[]>, taskId: string): TaskStatus | undefined {
+    return TASK_COLUMNS.find((col) => b[col].includes(taskId));
+  }
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+    // Touch drags are restricted to intra-column reorder (onDragOver below) — column changes on
+    // touch go through the existing move buttons instead.
+    isTouchDragRef.current = event.activatorEvent.type.startsWith("touch");
+    setDragBoard(boardFromScope);
+    if ("vibrate" in navigator) {
+      navigator.vibrate(50);
+    }
+  }
+
+  // Live preview: reflows `dragBoard` on every hover so the drop position is visible before the
+  // user lets go — this is what removes the "jump" at drop time.
+  function onDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over) return;
-    const activeTask = project.tasks.find((t) => t.id === active.id);
-    if (!activeTask) return;
+    const activeTaskId = String(active.id);
     const overId = String(over.id);
 
-    // Dropped over a column's empty space → move to end of that column.
-    if (COLUMN_IDS.has(overId)) {
-      if (activeTask.status !== overId) {
-        mutate((p) => ops.updateTask(p, { ...activeTask, status: overId as TaskStatus }));
+    setDragBoard((prev) => {
+      if (!prev) return prev;
+      const fromCol = columnOf(prev, activeTaskId);
+      const toCol = COLUMN_IDS.has(overId) ? (overId as TaskStatus) : columnOf(prev, overId);
+      if (!fromCol || !toCol) return prev;
+      // Touch: ignore hovers that would move the card to a different column.
+      if (isTouchDragRef.current && toCol !== fromCol) return prev;
+
+      if (toCol === fromCol) {
+        const ids = prev[fromCol];
+        const oldIndex = ids.indexOf(activeTaskId);
+        const newIndex = COLUMN_IDS.has(overId) ? ids.length - 1 : ids.indexOf(overId);
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return prev;
+        return { ...prev, [fromCol]: arrayMove(ids, oldIndex, newIndex) };
       }
-      return;
-    }
 
-    const overTask = project.tasks.find((t) => t.id === overId);
-    if (!overTask || overTask.id === activeTask.id) return;
-
-    // Dropped over a card in the same column → reorder the visible subset only,
-    // so tasks hidden by the ?area=/?sprint= filters keep their relative positions.
-    if (overTask.status === activeTask.status) {
-      const columnIds = tasksInScope
-        .filter((t) => t.status === activeTask.status)
-        .map((t) => t.id);
-      const oldIndex = columnIds.indexOf(activeTask.id);
-      const newIndex = columnIds.indexOf(overTask.id);
-      if (oldIndex === -1 || newIndex === -1) return;
-      const ordered = arrayMove(columnIds, oldIndex, newIndex);
-      mutate((p) => ops.reorderTasks(p, ordered));
-      return;
-    }
-
-    // Dropped over a card in another column → change status and insert at that position.
-    const targetIds = tasksInScope
-      .filter((t) => t.status === overTask.status && t.id !== activeTask.id)
-      .map((t) => t.id);
-    const insertAt = targetIds.indexOf(overTask.id);
-    const ordered = [...targetIds];
-    ordered.splice(insertAt === -1 ? ordered.length : insertAt, 0, activeTask.id);
-    mutate((p) => {
-      const moved = ops.updateTask(p, { ...activeTask, status: overTask.status });
-      return ops.reorderTasks(moved, ordered);
+      const fromIds = prev[fromCol].filter((id) => id !== activeTaskId);
+      const toIds = prev[toCol].filter((id) => id !== activeTaskId);
+      const insertAt = COLUMN_IDS.has(overId) ? toIds.length : toIds.indexOf(overId);
+      const nextToIds = [...toIds];
+      nextToIds.splice(insertAt === -1 ? nextToIds.length : insertAt, 0, activeTaskId);
+      return { ...prev, [fromCol]: fromIds, [toCol]: nextToIds };
     });
   }
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    const finalBoard = dragBoard;
+    setActiveId(null);
+    setDragBoard(null);
+    if (!over || !finalBoard) return;
+
+    const activeTaskId = String(active.id);
+    const activeTask = project.tasks.find((t) => t.id === activeTaskId);
+    if (!activeTask) return;
+    const finalCol = columnOf(finalBoard, activeTaskId);
+    if (!finalCol) return;
+
+    const orderedIds = finalBoard[finalCol];
+    const unchanged =
+      finalCol === activeTask.status &&
+      orderedIds.length === boardFromScope[finalCol].length &&
+      orderedIds.every((id, i) => id === boardFromScope[finalCol][i]);
+    if (unchanged) return;
+
+    // Single persistence for the whole gesture: status change (if any) + final column order.
+    mutate((p) => {
+      const next =
+        finalCol === activeTask.status ? p : ops.updateTask(p, { ...activeTask, status: finalCol });
+      return ops.reorderTasks(next, orderedIds);
+    });
+  }
+
+  function onDragCancel() {
+    setActiveId(null);
+    setDragBoard(null);
+  }
+
+  // Safe lookup for the DragOverlay — avoids a non-null assertion that could crash on a stray
+  // re-render mid-drag if the active task were ever removed.
+  const activeTask = activeId ? project.tasks.find((t) => t.id === activeId) : undefined;
 
   return (
     <div>
@@ -208,16 +288,26 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         </Button>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
+      >
         <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto md:grid md:grid-cols-2 md:gap-4 xl:grid-cols-4 xl:gap-3 md:snap-none md:overflow-visible">
           {TASK_COLUMNS.map((col) => {
-            const tasks = tasksInScope.filter((t) => t.status === col);
+            const ids = board[col];
+            const tasks = ids
+              .map((id) => project.tasks.find((t) => t.id === id))
+              .filter((t): t is Task => !!t);
             return (
               <KanbanColumn
                 key={col}
                 status={col}
                 count={tasks.length}
-                taskIds={tasks.map((t) => t.id)}
+                taskIds={ids}
                 onAdd={() => setDialog({ open: true, status: col })}
               >
                 {tasks.map((t) => (
@@ -255,6 +345,27 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
             );
           })}
         </div>
+        <DragOverlay
+          dropAnimation={{
+            duration: 200,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
+          }}
+        >
+          {activeTask ? (
+            <TaskCard
+              task={activeTask}
+              area={project.areas.find((a) => a.id === activeTask.areaId)}
+              assignee={people.find((p) => p.id === activeTask.assigneeId)}
+              focused={false}
+              isOverlay
+              onMoveBack={() => {}}
+              onMove={() => {}}
+              onToggleBlock={() => {}}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       <TaskFormDialog
