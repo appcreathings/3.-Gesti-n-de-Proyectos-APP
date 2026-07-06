@@ -33,9 +33,18 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
   const [dueDate, setDueDate] = useState("");
   const [sprintId, setSprintId] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [drawerWidth, setDrawerWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem("kanban-drawer-width");
+      return saved ? parseInt(saved, 10) : 400;
+    } catch {
+      return 400;
+    }
+  });
   const drawerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const isResizingRef = useRef(false);
 
   useEffect(() => {
     if (task) {
@@ -65,6 +74,33 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
       titleRef.current.focus();
     }
   }, [task?.id]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newWidth = window.innerWidth - e.clientX;
+      const clamped = Math.min(800, Math.max(320, newWidth));
+      setDrawerWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        try {
+          localStorage.setItem("kanban-drawer-width", String(drawerWidth));
+        } catch {
+          // Ignore localStorage errors
+        }
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [drawerWidth]);
 
   const persist = useCallback(
     (field: string, value: string | null) => {
@@ -178,8 +214,17 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
         role="dialog"
         aria-modal="false"
         aria-label={`Detalle de tarea: ${task.title}`}
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-background shadow-lg transition-transform duration-200 ease-out"
+        style={{ width: drawerWidth }}
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[800px] flex-col border-l bg-background shadow-lg transition-transform duration-200 ease-out md:max-w-none"
       >
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-primary/50 active:bg-primary hidden md:block"
+          onMouseDown={(e) => {
+            isResizingRef.current = true;
+            e.preventDefault();
+          }}
+          aria-hidden="true"
+        />
         <div className="flex items-center justify-between border-b px-4 py-3">
           <span className="text-xs text-muted-foreground">
             {taskStatusLabel[task.status]}

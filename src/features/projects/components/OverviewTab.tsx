@@ -28,6 +28,7 @@ interface Props {
 export function OverviewTab({ project, productName, productId, onChangeHealth }: Props) {
   const cl = projectChecklistProgress(project);
   const tk = projectTaskProgress(project);
+  const archivedCount = project.tasks.filter((t) => t.archived).length;
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -58,6 +59,7 @@ export function OverviewTab({ project, productName, productId, onChangeHealth }:
             total={tk.total}
             pct={tk.pct}
             indicatorClassName="bg-success"
+            tooltip={archivedCount > 0 ? `${archivedCount} tarea${archivedCount !== 1 ? "s" : ""} archivada${archivedCount !== 1 ? "s" : ""}` : undefined}
           />
         </div>
       </Panel>
@@ -124,18 +126,20 @@ function ProgressRow({
   total,
   pct,
   indicatorClassName,
+  tooltip,
 }: {
   label: string;
   done: number;
   total: number;
   pct: number;
   indicatorClassName?: string;
+  tooltip?: string;
 }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono text-foreground">
+        <span className="font-mono text-foreground" title={tooltip}>
           {done}/{total} · {pct}%
         </span>
       </div>

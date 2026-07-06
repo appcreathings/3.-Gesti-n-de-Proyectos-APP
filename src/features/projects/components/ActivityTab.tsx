@@ -8,6 +8,9 @@ import {
   KanbanSquare,
   PlusCircle,
   RefreshCw,
+  MessageCircle,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
@@ -28,6 +31,9 @@ const ICONS: Record<string, typeof Activity> = {
   "project.statusChanged": RefreshCw,
   "task.added": KanbanSquare,
   "task.statusChanged": KanbanSquare,
+  "task.commented": MessageCircle,
+  "task.archived": Archive,
+  "task.unarchived": ArchiveRestore,
 };
 
 const dayFormatter = new Intl.DateTimeFormat("es", {
@@ -72,7 +78,10 @@ export function ActivityTab({ projectId, entries }: Props) {
     const kind = e.entityRef.kind;
     if (kind === "task") {
       params.set("tab", "tasks");
-      if (e.entityRef.taskId) params.set("focus", e.entityRef.taskId);
+      if (e.entityRef.taskId) {
+        // Open drawer for task events (spec 016)
+        params.set("detail", e.entityRef.taskId);
+      }
     } else if (kind === "checklistItem" || kind === "checklist" || kind === "area") {
       params.set("tab", "areas");
       const focus = e.entityRef.itemId ?? e.entityRef.checklistId ?? e.entityRef.areaId;

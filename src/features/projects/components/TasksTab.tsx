@@ -146,6 +146,12 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     return areaScoped.filter((t) => t.sprintId === sprintScope);
   }, [areaScoped, sprintScope]);
 
+  // Archived tasks: only apply area filter, not sprint scope (spec 016)
+  const archivedTasks = useMemo(() => {
+    const archived = project.tasks.filter((t) => t.archived);
+    return areaFilterId ? archived.filter((t) => t.areaId === areaFilterId) : archived;
+  }, [project.tasks, areaFilterId]);
+
   // Visible task ids per column, derived from props. The single source of truth outside a drag.
   const boardFromScope = useMemo(() => {
     const board = {} as Record<TaskStatus, string[]>;
@@ -358,7 +364,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
 
       {showArchived ? (
         <ArchivedTasksList
-          tasks={tasksInScope}
+          tasks={archivedTasks}
           areas={project.areas}
           people={people}
           onOpenDetail={openDetail}
@@ -400,6 +406,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                       }
                       focused={t.id === focusId}
                       focusRef={focusRef}
+                      disabled={!!detailTaskId}
                       onMoveBack={() =>
                         mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
                       }
@@ -414,9 +421,12 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                           })
                         )
                       }
-                      onEdit={() => setDialog({ open: true, task: t })}
+                      onEdit={() => openDetail(t.id)}
                       onDelete={() => mutate((p) => ops.removeTask(p, t.id))}
                       onOpenDetail={() => openDetail(t.id)}
+                      onArchive={() =>
+                        mutate((p) => ops.updateTask(p, { ...t, archived: !t.archived }))
+                      }
                     />
                   ))}
                 </KanbanColumn>
@@ -442,6 +452,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                 onEdit={() => {}}
                 onDelete={() => {}}
                 onOpenDetail={() => {}}
+                onArchive={() => {}}
               />
             ) : null}
           </DragOverlay>

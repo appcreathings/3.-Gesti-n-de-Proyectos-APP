@@ -1,7 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Pencil,
   Trash2,
   CalendarClock,
   AlertCircle,
@@ -11,9 +10,18 @@ import {
   Lock,
   Unlock,
   MessageCircle,
+  MoreVertical,
+  Pencil,
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { daysUntil } from "@/domain/compute";
 import { priorityLabel, priorityVariant } from "@/domain/labels";
@@ -29,12 +37,15 @@ interface Props {
   focusRef?: React.RefObject<HTMLDivElement>;
   /** Rendered inside the DragOverlay (the "ghost" that follows the pointer while dragging). */
   isOverlay?: boolean;
+  /** Disable drag-and-drop (e.g. when the detail drawer is open). */
+  disabled?: boolean;
   onMoveBack: () => void;
   onMove: () => void;
   onToggleBlock: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onOpenDetail: () => void;
+  onArchive: () => void;
 }
 
 /** Sortable Kanban card (reorder + cross-column). The "Mover" button remains as keyboard fallback. */
@@ -46,15 +57,17 @@ export function TaskCard({
   focused,
   focusRef,
   isOverlay,
+  disabled,
   onMoveBack,
   onMove,
   onToggleBlock,
   onEdit,
   onDelete,
   onOpenDetail,
+  onArchive,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id, data: { status: task.status } });
+    useSortable({ id: task.id, data: { status: task.status }, disabled });
   // The overlay instance shares the dragged task's id, so its own `useSortable` also reports
   // `isDragging: true` — `isPlaceholder` isolates "this is the dimmed origin slot" from that.
   const isPlaceholder = isDragging && !isOverlay;
@@ -182,22 +195,33 @@ export function TaskCard({
               <Lock className="size-4" />
             )}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                title="Más opciones"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e: React.MouseEvent) => { e.stopPropagation(); onEdit(); }}>
+                <Pencil className="size-4 mr-2" /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e: React.MouseEvent) => { e.stopPropagation(); onArchive(); }}>
+                <Archive className="size-4 mr-2" /> {task.archived ? "Desarchivar" : "Archivar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onDelete(); }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="size-4 mr-2" /> Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
     </div>
