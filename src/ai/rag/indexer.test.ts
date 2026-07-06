@@ -105,6 +105,8 @@ const sample: ToolData = {
           sourceItemId: null,
           sprintId: null,
           tags: [],
+          comments: [],
+          archived: false,
           createdAt: NOW,
           updatedAt: NOW,
         },

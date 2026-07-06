@@ -10,6 +10,7 @@ import {
   GripVertical,
   Lock,
   Unlock,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,6 +136,15 @@ export function TaskCard({
                 <CalendarClock className="size-3" />
               )}
               {task.dueDate}
+            </Badge>
+          )}
+          {(task.comments?.length ?? 0) > 0 && (
+            <Badge
+              variant="outline"
+              className="gap-1 text-[11px] leading-tight px-1.5 py-0.5"
+            >
+              <MessageCircle className="size-3" />
+              {task.comments!.length}
             </Badge>
           )}
         </div>

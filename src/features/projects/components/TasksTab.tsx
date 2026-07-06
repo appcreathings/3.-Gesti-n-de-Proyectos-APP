@@ -17,7 +17,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Plus, X } from "lucide-react";
+import { Archive, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -30,6 +30,7 @@ import { SprintSwitcher, type SprintScope } from "./SprintSwitcher";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskCard } from "./kanban/TaskCard";
 import { TaskDetailDrawer } from "./kanban/TaskDetailDrawer";
+import { ArchivedTasksList } from "./kanban/ArchivedTasksList";
 
 interface Props {
   project: Project;
@@ -80,6 +81,19 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
   const detailTaskId = searchParams.get("detail");
   const detailTask = detailTaskId ? project.tasks.find((t) => t.id === detailTaskId) ?? null : null;
 
+  // Archived filter state (spec 015)
+  const showArchived = searchParams.get("archived") === "true";
+
+  function toggleArchived() {
+    const next = new URLSearchParams(searchParams);
+    if (showArchived) {
+      next.delete("archived");
+    } else {
+      next.set("archived", "true");
+    }
+    setSearchParams(next, { replace: true });
+  }
+
   function openDetail(taskId: string) {
     const next = new URLSearchParams(searchParams);
     next.set("detail", taskId);
@@ -96,6 +110,13 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     mutate((p) => ops.updateTask(p, updatedTask));
   }
 
+  function handleUnarchive(taskId: string) {
+    const task = project.tasks.find((t) => t.id === taskId);
+    if (task) {
+      mutate((p) => ops.updateTask(p, { ...task, archived: false }));
+    }
+  }
+
   // Default scope: the project's active sprint if it has one, otherwise "all"
   // (unchanged behavior for projects with no sprints — principio V).
   const activeSprint = project.sprints.find((s) => s.status === "active");
@@ -109,9 +130,14 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     setSearchParams(next, { replace: true });
   }
 
+  // Filter by archived status (spec 015): exclude archived tasks by default
+  const archivedFiltered = showArchived
+    ? project.tasks.filter((t) => t.archived)
+    : project.tasks.filter((t) => !t.archived);
+
   const areaScoped = areaFilterId
-    ? project.tasks.filter((t) => t.areaId === areaFilterId)
-    : project.tasks;
+    ? archivedFiltered.filter((t) => t.areaId === areaFilterId)
+    : archivedFiltered;
 
   // Tasks visible in the board: area filter combined with the sprint scope.
   const tasksInScope = useMemo(() => {
@@ -289,112 +315,138 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
       />
 
       <div className="mb-4 flex items-center justify-between gap-4">
-        {areaFilter ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            Filtrando por área:
-            <Badge variant="secondary">{areaFilter.name}</Badge>
-            <Button variant="ghost" size="sm" onClick={clearAreaFilter}>
-              <X className="size-3.5" />
-              Quitar filtro
-            </Button>
-          </div>
-        ) : (
-          <div />
-        )}
-        <Button
-          onClick={() =>
-            setDialog({
-              open: true,
-              status: undefined,
-            })
-          }
-        >
-          <Plus className="size-4" />
-          Nueva tarea
-        </Button>
+        <div className="flex items-center gap-2">
+          {areaFilter ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              Filtrando por área:
+              <Badge variant="secondary">{areaFilter.name}</Badge>
+              <Button variant="ghost" size="sm" onClick={clearAreaFilter}>
+                <X className="size-3.5" />
+                Quitar filtro
+              </Button>
+            </div>
+          ) : null}
+          {showArchived && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline">Archivadas</Badge>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showArchived ? "secondary" : "outline"}
+            size="sm"
+            onClick={toggleArchived}
+          >
+            <Archive className="size-3.5 mr-1.5" />
+            {showArchived ? "Ver activas" : `Archivadas (${project.tasks.filter((t) => t.archived).length})`}
+          </Button>
+          <Button
+            onClick={() =>
+              setDialog({
+                open: true,
+                status: undefined,
+              })
+            }
+            disabled={showArchived}
+          >
+            <Plus className="size-4" />
+            Nueva tarea
+          </Button>
+        </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={collisionDetection}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={onDragCancel}
-      >
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto sm:grid sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-3 sm:snap-none sm:overflow-visible">
-          {TASK_COLUMNS.map((col) => {
-            const ids = board[col];
-            const tasks = ids
-              .map((id) => project.tasks.find((t) => t.id === id))
-              .filter((t): t is Task => !!t);
-            return (
-              <KanbanColumn
-                key={col}
-                status={col}
-                count={tasks.length}
-                taskIds={ids}
-                onAdd={() => setDialog({ open: true, status: col })}
-              >
-                {tasks.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    area={project.areas.find((a) => a.id === t.areaId)}
-                    assignee={people.find((p) => p.id === t.assigneeId)}
-                    sprint={
-                      sprintScope === "all"
-                        ? project.sprints.find((s) => s.id === t.sprintId)
-                        : undefined
-                    }
-                    focused={t.id === focusId}
-                    focusRef={focusRef}
-                    onMoveBack={() =>
-                      mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
-                    }
-                    onMove={() =>
-                      mutate((p) => ops.updateTask(p, { ...t, status: NEXT[t.status] }))
-                    }
-                    onToggleBlock={() =>
-                      mutate((p) =>
-                        ops.updateTask(p, {
-                          ...t,
-                          status: t.status === "blocked" ? "doing" : "blocked",
-                        })
-                      )
-                    }
-                    onEdit={() => setDialog({ open: true, task: t })}
-                    onDelete={() => mutate((p) => ops.removeTask(p, t.id))}
-                    onOpenDetail={() => openDetail(t.id)}
-                  />
-                ))}
-              </KanbanColumn>
-            );
-          })}
-        </div>
-        <DragOverlay
-          dropAnimation={{
-            duration: 200,
-            easing: "cubic-bezier(0.2, 0, 0, 1)",
-          }}
+      {showArchived ? (
+        <ArchivedTasksList
+          tasks={tasksInScope}
+          areas={project.areas}
+          people={people}
+          onOpenDetail={openDetail}
+          onUnarchive={handleUnarchive}
+        />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDragCancel={onDragCancel}
         >
-          {activeTask ? (
-            <TaskCard
-              task={activeTask}
-              area={project.areas.find((a) => a.id === activeTask.areaId)}
-              assignee={people.find((p) => p.id === activeTask.assigneeId)}
-              focused={false}
-              isOverlay
-              onMoveBack={() => {}}
-              onMove={() => {}}
-              onToggleBlock={() => {}}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              onOpenDetail={() => {}}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto sm:grid sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-3 sm:snap-none sm:overflow-visible">
+            {TASK_COLUMNS.map((col) => {
+              const ids = board[col];
+              const tasks = ids
+                .map((id) => project.tasks.find((t) => t.id === id))
+                .filter((t): t is Task => !!t);
+              return (
+                <KanbanColumn
+                  key={col}
+                  status={col}
+                  count={tasks.length}
+                  taskIds={ids}
+                  onAdd={() => setDialog({ open: true, status: col })}
+                >
+                  {tasks.map((t) => (
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      area={project.areas.find((a) => a.id === t.areaId)}
+                      assignee={people.find((p) => p.id === t.assigneeId)}
+                      sprint={
+                        sprintScope === "all"
+                          ? project.sprints.find((s) => s.id === t.sprintId)
+                          : undefined
+                      }
+                      focused={t.id === focusId}
+                      focusRef={focusRef}
+                      onMoveBack={() =>
+                        mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
+                      }
+                      onMove={() =>
+                        mutate((p) => ops.updateTask(p, { ...t, status: NEXT[t.status] }))
+                      }
+                      onToggleBlock={() =>
+                        mutate((p) =>
+                          ops.updateTask(p, {
+                            ...t,
+                            status: t.status === "blocked" ? "doing" : "blocked",
+                          })
+                        )
+                      }
+                      onEdit={() => setDialog({ open: true, task: t })}
+                      onDelete={() => mutate((p) => ops.removeTask(p, t.id))}
+                      onOpenDetail={() => openDetail(t.id)}
+                    />
+                  ))}
+                </KanbanColumn>
+              );
+            })}
+          </div>
+          <DragOverlay
+            dropAnimation={{
+              duration: 200,
+              easing: "cubic-bezier(0.2, 0, 0, 1)",
+            }}
+          >
+            {activeTask ? (
+              <TaskCard
+                task={activeTask}
+                area={project.areas.find((a) => a.id === activeTask.areaId)}
+                assignee={people.find((p) => p.id === activeTask.assigneeId)}
+                focused={false}
+                isOverlay
+                onMoveBack={() => {}}
+                onMove={() => {}}
+                onToggleBlock={() => {}}
+                onEdit={() => {}}
+                onDelete={() => {}}
+                onOpenDetail={() => {}}
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       <TaskFormDialog
         open={dialog.open}

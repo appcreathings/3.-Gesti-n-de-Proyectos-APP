@@ -92,6 +92,7 @@ export const TaskSchema = z.object({
   sprintId: Id.nullable().default(null),
   tags: z.array(z.string()).default([]),
   comments: z.array(CommentSchema).default([]),
+  archived: z.boolean().default(false),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });

@@ -45,10 +45,10 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v3, specs 008/013)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v5, specs 008/013/014/015)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(3);
+    expect(value.schemaVersion).toBe(5);
   });
 });

@@ -74,6 +74,22 @@ function describe(event: DomainEvent, project: Project): string | null {
       const to = taskStatusLabel[event.to as TaskStatus] ?? event.to;
       return `Tarea "${task.title}": ${from} → ${to}`;
     }
+    case "task.commented": {
+      const task = project.tasks.find((t) => t.id === event.taskId);
+      if (!task) return null;
+      const comment = task.comments?.find((c) => c.id === event.commentId);
+      if (!comment) return null;
+      const preview = comment.text.length > 50 ? comment.text.slice(0, 50) + "..." : comment.text;
+      return `Comentario en "${task.title}": ${preview}`;
+    }
+    case "task.archived": {
+      const task = project.tasks.find((t) => t.id === event.taskId);
+      return task ? `Tarea "${task.title}" archivada` : null;
+    }
+    case "task.unarchived": {
+      const task = project.tasks.find((t) => t.id === event.taskId);
+      return task ? `Tarea "${task.title}" desarchivada` : null;
+    }
   }
 }
 
@@ -99,6 +115,9 @@ function refFor(event: DomainEvent): ActivityEntry["entityRef"] {
       return { kind: "area", projectId: event.projectId, areaId: event.areaId };
     case "task.added":
     case "task.statusChanged":
+    case "task.commented":
+    case "task.archived":
+    case "task.unarchived":
       return { kind: "task", projectId: event.projectId, taskId: event.taskId };
     default:
       return { kind: "project", projectId: event.projectId };

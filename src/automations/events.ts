@@ -10,7 +10,10 @@ export type DomainEvent =
   | { type: "project.created"; projectId: string; typeId: string | null }
   | { type: "project.statusChanged"; projectId: string; from: string; to: string }
   | { type: "task.added"; projectId: string; taskId: string }
-  | { type: "task.statusChanged"; projectId: string; taskId: string; from: string; to: string };
+  | { type: "task.statusChanged"; projectId: string; taskId: string; from: string; to: string }
+  | { type: "task.commented"; projectId: string; taskId: string; commentId: string }
+  | { type: "task.archived"; projectId: string; taskId: string }
+  | { type: "task.unarchived"; projectId: string; taskId: string };
 
 export type DomainEventType = DomainEvent["type"];
 
@@ -73,14 +76,34 @@ export function diffProjectEvents(prev: Project, next: Project): DomainEvent[] {
     const before = prevTasks.get(task.id);
     if (!before) {
       events.push({ type: "task.added", projectId: next.id, taskId: task.id });
-    } else if (before.status !== task.status) {
-      events.push({
-        type: "task.statusChanged",
-        projectId: next.id,
-        taskId: task.id,
-        from: before.status,
-        to: task.status,
-      });
+    } else {
+      if (before.status !== task.status) {
+        events.push({
+          type: "task.statusChanged",
+          projectId: next.id,
+          taskId: task.id,
+          from: before.status,
+          to: task.status,
+        });
+      }
+      const prevComments = before.comments ?? [];
+      const nextComments = task.comments ?? [];
+      if (nextComments.length > prevComments.length) {
+        const newComment = nextComments[nextComments.length - 1];
+        events.push({
+          type: "task.commented",
+          projectId: next.id,
+          taskId: task.id,
+          commentId: newComment.id,
+        });
+      }
+      if (before.archived !== task.archived) {
+        events.push({
+          type: task.archived ? "task.archived" : "task.unarchived",
+          projectId: next.id,
+          taskId: task.id,
+        });
+      }
     }
   }
 

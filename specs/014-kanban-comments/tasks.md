@@ -7,47 +7,47 @@ avanzar.
 **Prerequisito:** spec 013 (kanban-task-detail-drawer) debe estar implementado y mergeado.
 
 ## Fase 1 — Schema y migración
-- [ ] T1401 `src/domain/schemas/common.ts`: actualizar `SCHEMA_VERSION` de 3 a 4.
-- [ ] T1402 `src/domain/schemas/project.ts`: definir `CommentSchema` con campos `id`, `authorId`,
+- [x] T1401 `src/domain/schemas/common.ts`: actualizar `SCHEMA_VERSION` de 3 a 4.
+- [x] T1402 `src/domain/schemas/project.ts`: definir `CommentSchema` con campos `id`, `authorId`,
   `text`, `createdAt`, `updatedAt`.
-- [ ] T1403 `src/domain/schemas/project.ts`: agregar `comments: z.array(CommentSchema).default([])`
+- [x] T1403 `src/domain/schemas/project.ts`: agregar `comments: z.array(CommentSchema).default([])`
   a `TaskSchema`.
-- [ ] T1404 `src/domain/migrations.ts`: agregar migración v3→v4 que agrega `comments: []` a tareas
+- [x] T1404 `src/domain/migrations.ts`: agregar migración v3→v4 que agrega `comments: []` a tareas
   existentes (si no tienen el campo).
-- [ ] T1405 `src/domain/factories.ts`: actualizar `newTask()` para incluir `comments: []`.
-- [ ] T1406 Verificar: `npx tsc --noEmit` y `npx vitest run` pasan sin errores.
+- [x] T1405 `src/domain/factories.ts`: actualizar `newTask()` para incluir `comments: []`.
+- [x] T1406 Verificar: `npx tsc --noEmit` y `npx vitest run` pasan sin errores.
 
 ## Fase 2 — UI de comentarios en el drawer
-- [ ] T1410 `TaskDetailDrawer.tsx`: agregar sección "Comentarios" al final del drawer, debajo de la
+- [x] T1410 `TaskDetailDrawer.tsx`: agregar sección "Comentarios" al final del drawer, debajo de la
   metadata.
-- [ ] T1411 `TaskDetailDrawer.tsx`: implementar lista de comentarios en orden cronológico (más antiguo
+- [x] T1411 `TaskDetailDrawer.tsx`: implementar lista de comentarios en orden cronológico (más antiguo
   arriba, más reciente abajo). Cada comentario muestra: texto, fecha relativa, autor (si tiene
   `authorId`).
-- [ ] T1412 `TaskDetailDrawer.tsx`: implementar textarea para escribir nuevo comentario al final de la
+- [x] T1412 `TaskDetailDrawer.tsx`: implementar textarea para escribir nuevo comentario al final de la
   sección.
-- [ ] T1413 `TaskDetailDrawer.tsx`: implementar botón "Comentar" (deshabilitado si textarea está vacío)
+- [x] T1413 `TaskDetailDrawer.tsx`: implementar botón "Comentar" (deshabilitado si textarea está vacío)
   y atajo `Ctrl+Enter` para publicar.
-- [ ] T1414 `TaskDetailDrawer.tsx`: implementar persistencia al publicar: generar nuevo `Comment` con
+- [x] T1414 `TaskDetailDrawer.tsx`: implementar persistencia al publicar: generar nuevo `Comment` con
   UUID, `authorId: null`, `text`, timestamps. Llamar a `mutate()` con `ops.updateTask(taskId, { comments: [...task.comments, newComment] })`.
-- [ ] T1415 `TaskDetailDrawer.tsx`: limpiar textarea después de publicar. Scroll automático al último
+- [x] T1415 `TaskDetailDrawer.tsx`: limpiar textarea después de publicar. Scroll automático al último
   comentario.
-- [ ] T1416 Verificar: comentarios se agregan, persisten entre recargas, se muestran correctamente.
+- [x] T1416 Verificar: comentarios se agregan, persisten entre recargas, se muestran correctamente.
   Smoke visual de la sección de comentarios.
 
 ## Fase 3 — Integración con actividad y card
-- [ ] T1420 `src/automations/events.ts`: agregar detección de evento `task.commented`. Comparar
+- [x] T1420 `src/automations/events.ts`: agregar detección de evento `task.commented`. Comparar
   `prevTask.comments.length` vs `nextTask.comments.length`. Si aumentó, emitir evento con el último
   comentario.
-- [ ] T1421 `src/automations/activity.ts`: agregar mensaje para `task.commented`: "Comentario en 'X':
+- [x] T1421 `src/automations/activity.ts`: agregar mensaje para `task.commented`: "Comentario en 'X':
   [primeros 50 chars del texto]...". Incluir `taskId` para deep-link.
-- [ ] T1422 `src/features/projects/components/ActivityTab.tsx`: verificar que click en entrada de
+- [x] T1422 `src/features/projects/components/ActivityTab.tsx`: verificar que click en entrada de
   actividad de comentario abre drawer con `?detail=<taskId>`.
-- [ ] T1423 `TaskCard.tsx`: agregar badge contador de comentarios. Si `task.comments.length > 0`,
+- [x] T1423 `TaskCard.tsx`: agregar badge contador de comentarios. Si `task.comments.length > 0`,
   mostrar ícono `MessageCircle` + número. Estilo: `text-xs text-muted-foreground`.
-- [ ] T1424 `TaskCard.tsx`: posicionar badge junto a los demás badges (assignee, due date).
-- [ ] T1425 Verificar: evento se registra en activity log, mensaje aparece correctamente, badge se
+- [x] T1424 `TaskCard.tsx`: posicionar badge junto a los demás badges (assignee, due date).
+- [x] T1425 Verificar: evento se registra en activity log, mensaje aparece correctamente, badge se
   muestra en card cuando hay comentarios.
-- [ ] T1426 Verificar final: `npx tsc --noEmit`, `npx vitest run`, `npm run build` pasan sin errores.
+- [x] T1426 Verificar final: `npx tsc --noEmit`, `npx vitest run`, `npm run build` pasan sin errores.
   Smoke visual de HU-01 a HU-04. Actualizar memoria del proyecto con resumen de 014.
 
 ## Explícitamente fuera de este tasks.md

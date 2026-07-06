@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Archive, MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,9 @@ import { EntitySelect } from "@/components/forms/EntitySelect";
 import { PersonSelect } from "@/components/forms/PersonSelect";
 import { DateFieldPreview } from "@/components/forms/DateFieldPreview";
 import { priorityLabel, taskStatusLabel } from "@/domain/labels";
-import type { Area, Person, Priority, Sprint, Task, TaskStatus } from "@/domain/schemas";
+import { uuid } from "@/lib/utils";
+import { nowIso } from "@/lib/utils";
+import type { Area, Comment, Person, Priority, Sprint, Task, TaskStatus } from "@/domain/schemas";
 
 interface Props {
   task: Task | null;
@@ -30,8 +32,10 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [sprintId, setSprintId] = useState("");
+  const [newComment, setNewComment] = useState("");
   const drawerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (task) {
@@ -114,6 +118,51 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
     },
     [task, onUpdate],
   );
+
+  const addComment = useCallback(() => {
+    if (!task || !newComment.trim()) return;
+    const comment: Comment = {
+      id: uuid(),
+      authorId: null,
+      text: newComment.trim(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    onUpdate({
+      ...task,
+      comments: [...(task.comments ?? []), comment],
+      updatedAt: nowIso(),
+    });
+    setNewComment("");
+    setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }, [task, newComment, onUpdate]);
+
+  const toggleArchive = useCallback(() => {
+    if (!task) return;
+    onUpdate({
+      ...task,
+      archived: !task.archived,
+      updatedAt: nowIso(),
+    });
+    if (!task.archived) {
+      onClose();
+    }
+  }, [task, onUpdate, onClose]);
+
+  const formatRelativeDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "ahora";
+    if (diffMins < 60) return `hace ${diffMins} min`;
+    if (diffHours < 24) return `hace ${diffHours}h`;
+    if (diffDays < 7) return `hace ${diffDays}d`;
+    return date.toLocaleDateString();
+  };
 
   if (!task) return null;
 
@@ -318,6 +367,63 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
                   <span className="font-medium">Actualizada:</span>{" "}
                   {new Date(task.updatedAt).toLocaleDateString()}
                 </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <Button
+                variant={task.archived ? "default" : "outline"}
+                size="sm"
+                onClick={toggleArchive}
+                className="w-full"
+              >
+                <Archive className="size-3.5 mr-1.5" />
+                {task.archived ? "Desarchivar tarea" : "Archivar tarea"}
+              </Button>
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5 mb-3">
+                <MessageCircle className="size-3.5" />
+                Comentarios ({task.comments?.length ?? 0})
+              </Label>
+
+              {(task.comments?.length ?? 0) > 0 && (
+                <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto">
+                  {task.comments!.map((comment) => (
+                    <div key={comment.id} className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-sm whitespace-pre-wrap">{comment.text}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                        {formatRelativeDate(comment.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                  <div ref={commentsEndRef} />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Escribe un comentario..."
+                  className="min-h-[80px] resize-y text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      addComment();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={addComment}
+                  disabled={!newComment.trim()}
+                  size="sm"
+                  className="w-full"
+                >
+                  <Send className="size-3.5 mr-1.5" />
+                  Comentar
+                </Button>
               </div>
             </div>
           </div>
