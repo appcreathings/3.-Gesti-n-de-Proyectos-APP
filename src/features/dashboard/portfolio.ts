@@ -1,7 +1,7 @@
 import { daysUntil, isStalled, projectChecklistProgress } from "@/domain/compute";
 import { effectiveHealth } from "@/domain/health";
 import { collectDatedEntities, type DatedEntity } from "@/lib/dates";
-import type { Health, Product, Project, ProjectStatus, Settings } from "@/domain/schemas";
+import type { Health, Person, Product, Project, ProjectStatus, Settings } from "@/domain/schemas";
 
 const STATUSES: ProjectStatus[] = [
   "backlog",
@@ -26,6 +26,13 @@ export interface ProductRollup {
   avgProgress: number;
 }
 
+export interface WorkloadEntry {
+  personId: string;
+  personName: string;
+  taskCount: number;
+  totalEstimate: number;
+}
+
 export interface PortfolioStats {
   total: number;
   active: number;
@@ -36,6 +43,7 @@ export interface PortfolioStats {
   byStatus: Record<ProjectStatus, number>;
   byHealth: Record<Health, number>;
   byProduct: ProductRollup[];
+  workload: WorkloadEntry[];
 }
 
 function zero<T extends string>(keys: T[]): Record<T, number> {
@@ -48,6 +56,7 @@ export function computePortfolio(
   products: Product[],
   settings: Settings,
   now: Date,
+  people: Person[] = [],
 ): PortfolioStats {
   const byStatus = zero(STATUSES);
   const byHealth = zero(HEALTHS);
@@ -69,6 +78,32 @@ export function computePortfolio(
           open.reduce((sum, p) => sum + projectChecklistProgress(p).pct, 0) / open.length,
         );
 
+  // Calculate workload by person
+  const workloadMap = new Map<string, { taskCount: number; totalEstimate: number }>();
+  for (const project of open) {
+    for (const task of project.tasks) {
+      if (task.assigneeId) {
+        const entry = workloadMap.get(task.assigneeId) ?? { taskCount: 0, totalEstimate: 0 };
+        entry.taskCount++;
+        entry.totalEstimate += task.estimate ?? 0;
+        workloadMap.set(task.assigneeId, entry);
+      }
+    }
+  }
+
+  const workload: WorkloadEntry[] = Array.from(workloadMap.entries()).map(([personId, data]) => {
+    const person = people.find((p) => p.id === personId);
+    return {
+      personId,
+      personName: person?.name ?? "Persona eliminada",
+      taskCount: data.taskCount,
+      totalEstimate: data.totalEstimate,
+    };
+  });
+
+  // Sort by task count descending
+  workload.sort((a, b) => b.taskCount - a.taskCount);
+
   return {
     total: projects.length,
     active: open.length,
@@ -79,6 +114,7 @@ export function computePortfolio(
     byStatus,
     byHealth,
     byProduct: rollupByProduct(open, products, settings, now),
+    workload,
   };
 }
 

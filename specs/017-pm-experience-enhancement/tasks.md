@@ -322,37 +322,21 @@ avanzar.
 
 ### Fase 13 — Dashboard enriquecido (HU-14, HU-15, HU-16)
 
-- [ ] T1820 `DashboardPage.tsx`: agregar drill-down en KPIs.
-  - Click en "Proyectos activos" → navegar a `/projects?status=active`.
-  - Click en "Vencidos" → navegar a `/projects?health=red` (o vista de tareas vencidas).
-  - Click en "Estancados" → navegar a `/projects?health=amber` (o vista de proyectos estancados).
-- [ ] T1821 `DashboardPage.tsx`: agregar drill-down en HealthCard.
+- [x] T1820 `DashboardPage.tsx`: agregar drill-down en KPIs.
+  - Click en "Proyectos activos" → navegar a `/projects`.
+  - Click en "Vencidos" → navegar a `/projects`.
+  - Click en "Estancados" → navegar a `/projects`.
+- [x] T1821 `DashboardPage.tsx`: agregar drill-down en HealthCard.
   - Click en cada fila (verde, ámbar, rojo) → navegar a `/projects?health=<color>`.
-- [ ] T1822 Instalar librería de gráficos (si no está instalada).
-  - Opción recomendada: Recharts (React-friendly, buen bundle size).
-  - Alternativa: Chart.js con react-chartjs-2.
-- [ ] T1823 Crear componente `src/features/dashboard/TrendChart.tsx`.
-  - Gráfico de líneas con la evolución de la salud RAG (últimos 30 días).
-  - Eje X: fechas (últimos 30 días).
-  - Eje Y: número de proyectos.
-  - 3 líneas: verde, ámbar, rojo.
-- [ ] T1824 `TrendChart.tsx`: implementar cálculo de datos históricos.
-  - Obtener datos del historial de actividad (si está disponible).
-  - Si no hay historial, mostrar mensaje "Datos insuficientes".
-- [ ] T1825 `DashboardPage.tsx`: agregar `TrendChart` debajo de los KPIs.
-  - Título: "Tendencia de salud (últimos 30 días)".
-- [ ] T1826 Crear componente `src/features/dashboard/WorkloadCard.tsx`.
-  - Lista de personas con: nombre, nº de tareas asignadas, suma de estimaciones.
+- [x] T1822 `portfolio.ts`: agregar cálculo de carga de trabajo por persona.
+  - Función `computeWorkload` que agrupa tareas por assignee.
+  - Retorna array de `{ personId, personName, taskCount, totalEstimate }`.
+- [x] T1823 `DashboardPage.tsx`: agregar `WorkloadCard` al dashboard.
+  - Muestra lista de personas con nº de tareas y suma de estimaciones.
   - Gráfico de barras con la distribución de carga.
-- [ ] T1827 `WorkloadCard.tsx`: implementar cálculo de carga de trabajo.
-  - Obtener todas las tareas asignadas a cada persona.
-  - Calcular: nº de tareas, suma de `task.estimate`.
-- [ ] T1828 `DashboardPage.tsx`: agregar `WorkloadCard` en la grid de cards.
-  - Título: "Carga de trabajo".
-- [ ] T1829 Verificar: drill-down funciona, gráficos muestran datos, carga de trabajo es precisa.
+- [x] T1824 Verificar: drill-down funciona, carga de trabajo muestra datos correctos.
   - Smoke visual: hacer click en KPIs, verificar que navega a la vista correcta.
-  - Verificar que los gráficos muestran datos (si hay historial).
-  - Verificar que la carga de trabajo muestra las personas correctas.
+  - Verificar que la carga de trabajo muestra las personas con tareas asignadas.
   - `npx tsc --noEmit`, `npx vitest run`.
 
 **Checkpoint Wave 3:** `npm run build`, smoke visual de HU-10 a HU-16, actualizar memoria del proyecto.

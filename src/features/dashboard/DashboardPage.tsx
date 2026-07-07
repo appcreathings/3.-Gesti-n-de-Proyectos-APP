@@ -31,11 +31,12 @@ const HEALTH_ORDER: Health[] = ["red", "amber", "green"];
 export function DashboardPage() {
   const projects = useDataStore((s) => s.projects);
   const products = useDataStore((s) => s.products);
+  const people = useDataStore((s) => s.people);
   const settings = useAppStore((s) => s.workspace?.settings);
 
   const stats = useMemo(
-    () => (settings ? computePortfolio(projects, products, settings, new Date()) : null),
-    [projects, products, settings],
+    () => (settings ? computePortfolio(projects, products, settings, new Date(), people) : null),
+    [projects, products, settings, people],
   );
 
   if (!settings || !stats) return null;
@@ -78,23 +79,6 @@ export function DashboardPage() {
     );
   }
 
-  const kpis = [
-    { label: "Proyectos activos", value: stats.active, icon: FolderKanban },
-    { label: "Avance medio", value: `${stats.avgProgress}%`, icon: Gauge },
-    {
-      label: "Vencidos",
-      value: stats.overdue.length,
-      icon: AlertTriangle,
-      tone: "destructive" as const,
-    },
-    {
-      label: "Estancados",
-      value: stats.stalled.length,
-      icon: Hourglass,
-      tone: "warning" as const,
-    },
-  ];
-
   return (
     <div>
       <PageHeader
@@ -108,15 +92,36 @@ export function DashboardPage() {
       />
 
       <div className="grid gap-px overflow-hidden rounded-2xl border border-border/70 bg-border sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map(({ label, value, icon: Icon, tone }) => (
+        <Link to={ROUTES.projects} className="block">
           <StatTile
-            key={label}
-            value={value}
-            label={label}
-            icon={Icon}
-            tone={tone ?? "default"}
+            value={stats.active}
+            label="Proyectos activos"
+            icon={FolderKanban}
+            tone="default"
           />
-        ))}
+        </Link>
+        <StatTile
+          value={`${stats.avgProgress}%`}
+          label="Avance medio"
+          icon={Gauge}
+          tone="default"
+        />
+        <Link to={ROUTES.projects} className="block">
+          <StatTile
+            value={stats.overdue.length}
+            label="Vencidos"
+            icon={AlertTriangle}
+            tone="destructive"
+          />
+        </Link>
+        <Link to={ROUTES.projects} className="block">
+          <StatTile
+            value={stats.stalled.length}
+            label="Estancados"
+            icon={Hourglass}
+            tone="warning"
+          />
+        </Link>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -129,8 +134,9 @@ export function DashboardPage() {
         <StalledCard projects={stats.stalled} stalledAfterDays={settings.stalledAfterDays} />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <DueCard overdue={stats.overdue} dueSoon={stats.dueSoon} />
+        <WorkloadCard workload={stats.workload} />
       </div>
     </div>
   );
@@ -366,4 +372,40 @@ function DueSection({
 
 function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+/* ---- Carga de trabajo por persona ---- */
+function WorkloadCard({ workload }: { workload: import("./portfolio").WorkloadEntry[] }) {
+  if (workload.length === 0) {
+    return (
+      <Panel label="Carga" title="Carga de trabajo">
+        <p className="text-sm text-muted-foreground">No hay tareas asignadas.</p>
+      </Panel>
+    );
+  }
+
+  const maxTasks = Math.max(...workload.map((w) => w.taskCount));
+
+  return (
+    <Panel label="Carga" title="Carga de trabajo por persona">
+      <ul className="space-y-3">
+        {workload.map((entry) => (
+          <li key={entry.personId}>
+            <div className="mb-1.5 flex items-center justify-between text-sm">
+              <span className="font-medium">{entry.personName}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {entry.taskCount} tareas · {entry.totalEstimate}h
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${(entry.taskCount / maxTasks) * 100}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
 }
