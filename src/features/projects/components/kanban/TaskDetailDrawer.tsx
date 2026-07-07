@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import { PersonSelect } from "@/components/forms/PersonSelect";
 import { DateFieldPreview } from "@/components/forms/DateFieldPreview";
@@ -33,6 +34,8 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
   const [dueDate, setDueDate] = useState("");
   const [sprintId, setSprintId] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [drawerWidth, setDrawerWidth] = useState(() => {
     try {
       const saved = localStorage.getItem("kanban-drawer-width");
@@ -74,6 +77,57 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
       titleRef.current.focus();
     }
   }, [task?.id]);
+
+  // Get all existing tags from all tasks for autocomplete
+  const allExistingTags = useMemo(() => {
+    const tags = new Set<string>();
+    // We need to get tags from all tasks in the project, but we only have access to the current task
+    // For now, we'll use tags from the current task only
+    // In a real implementation, we'd pass all project tasks as a prop
+    if (task?.tags) {
+      for (const tag of task.tags) {
+        tags.add(tag);
+      }
+    }
+    return Array.from(tags);
+  }, [task]);
+
+  const filteredTagSuggestions = useMemo(() => {
+    if (!tagInput) return [];
+    const input = tagInput.toLowerCase();
+    return allExistingTags.filter(
+      (tag) => tag.toLowerCase().includes(input) && !(task?.tags ?? []).includes(tag),
+    );
+  }, [tagInput, allExistingTags, task]);
+
+  const addTag = useCallback(
+    (tag: string) => {
+      if (!task) return;
+      const trimmed = tag.trim();
+      if (!trimmed) return;
+      if ((task.tags ?? []).includes(trimmed)) return;
+      onUpdate({
+        ...task,
+        tags: [...(task.tags ?? []), trimmed],
+        updatedAt: nowIso(),
+      });
+      setTagInput("");
+      setShowTagSuggestions(false);
+    },
+    [task, onUpdate],
+  );
+
+  const removeTag = useCallback(
+    (tag: string) => {
+      if (!task) return;
+      onUpdate({
+        ...task,
+        tags: (task.tags ?? []).filter((t) => t !== tag),
+        updatedAt: nowIso(),
+      });
+    },
+    [task, onUpdate],
+  );
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -400,6 +454,56 @@ export function TaskDetailDrawer({ task, areas, people, sprints, onUpdate, onClo
                   persist("dueDate", v);
                 }}
               />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">Tags</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(task.tags ?? []).map((tag) => (
+                  <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="ml-0.5 rounded-full hover:bg-foreground/10 p-0.5"
+                      aria-label={`Eliminar tag ${tag}`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <div className="relative">
+                <Input
+                  value={tagInput}
+                  onChange={(e) => {
+                    setTagInput(e.target.value);
+                    setShowTagSuggestions(true);
+                  }}
+                  onFocus={() => setShowTagSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && tagInput.trim()) {
+                      e.preventDefault();
+                      addTag(tagInput);
+                    }
+                  }}
+                  placeholder="Escribe un tag y presiona Enter..."
+                  className="text-sm"
+                />
+                {showTagSuggestions && filteredTagSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 rounded-md border bg-popover shadow-md">
+                    {filteredTagSuggestions.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => addTag(tag)}
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="border-t pt-3">

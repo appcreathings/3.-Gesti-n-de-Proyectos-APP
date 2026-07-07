@@ -17,13 +17,21 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Archive, Plus, X } from "lucide-react";
+import { Archive, Filter, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import * as ops from "@/domain/projectOps";
 import { TASK_COLUMNS } from "@/domain/labels";
-import type { Person, Project, Sprint, Task, TaskStatus } from "@/domain/schemas";
+import type { Person, Priority, Project, Sprint, Task, TaskStatus } from "@/domain/schemas";
 import { TaskFormDialog } from "./TaskFormDialog";
 import { SprintFormDialog } from "./SprintFormDialog";
 import { SprintSwitcher, type SprintScope } from "./SprintSwitcher";
@@ -31,6 +39,7 @@ import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskCard } from "./kanban/TaskCard";
 import { TaskDetailDrawer } from "./kanban/TaskDetailDrawer";
 import { ArchivedTasksList } from "./kanban/ArchivedTasksList";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Props {
   project: Project;
@@ -76,6 +85,35 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const areaFilterId = searchParams.get("area");
   const areaFilter = areaFilterId ? project.areas.find((a) => a.id === areaFilterId) : undefined;
+
+  // Search state (spec 017)
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  // Filter state (spec 017)
+  const priorityFilter = searchParams.get("priority") as Priority | null;
+  const assigneeFilter = searchParams.get("assignee");
+  const dateFilter = searchParams.get("date");
+
+  function setFilter(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+    setSearchParams(next, { replace: true });
+  }
+
+  function clearFilters() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("priority");
+    next.delete("assignee");
+    next.delete("date");
+    setSearchParams(next, { replace: true });
+  }
+
+  const activeFiltersCount = [priorityFilter, assigneeFilter, dateFilter].filter(Boolean).length;
 
   // Detail drawer state (spec 013)
   const detailTaskId = searchParams.get("detail");
@@ -139,12 +177,73 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     ? archivedFiltered.filter((t) => t.areaId === areaFilterId)
     : archivedFiltered;
 
-  // Tasks visible in the board: area filter combined with the sprint scope.
+  // Tasks visible in the board: area filter combined with the sprint scope, search query and enriched filters (spec 017).
   const tasksInScope = useMemo(() => {
-    if (sprintScope === "all") return areaScoped;
-    if (sprintScope === "backlog") return areaScoped.filter((t) => t.sprintId === null);
-    return areaScoped.filter((t) => t.sprintId === sprintScope);
-  }, [areaScoped, sprintScope]);
+    let result = sprintScope === "all" ? areaScoped : sprintScope === "backlog"
+      ? areaScoped.filter((t) => t.sprintId === null)
+      : areaScoped.filter((t) => t.sprintId === sprintScope);
+
+    // Apply search filter
+    if (debouncedQuery) {
+      const query = debouncedQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(query) ||
+          t.description.toLowerCase().includes(query),
+      );
+    }
+
+    // Apply priority filter
+    if (priorityFilter) {
+      result = result.filter((t) => t.priority === priorityFilter);
+    }
+
+    // Apply assignee filter
+    if (assigneeFilter) {
+      result = result.filter((t) => t.assigneeId === assigneeFilter);
+    }
+
+    // Apply date filter
+    if (dateFilter) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      switch (dateFilter) {
+        case "overdue":
+          result = result.filter((t) => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            due.setHours(0, 0, 0, 0);
+            return due < today;
+          });
+          break;
+        case "due-soon": {
+          const threeDaysFromNow = new Date(today);
+          threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+          result = result.filter((t) => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            due.setHours(0, 0, 0, 0);
+            return due >= today && due <= threeDaysFromNow;
+          });
+          break;
+        }
+        case "this-week": {
+          const weekFromNow = new Date(today);
+          weekFromNow.setDate(weekFromNow.getDate() + 7);
+          result = result.filter((t) => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            due.setHours(0, 0, 0, 0);
+            return due >= today && due <= weekFromNow;
+          });
+          break;
+        }
+      }
+    }
+
+    return result;
+  }, [areaScoped, sprintScope, debouncedQuery, priorityFilter, assigneeFilter, dateFilter]);
 
   // Archived tasks: only apply area filter, not sprint scope (spec 016)
   const archivedTasks = useMemo(() => {
@@ -320,8 +419,8 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         onDeleteSprint={setDeleteSprint}
       />
 
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 items-center gap-2">
           {areaFilter ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               Filtrando por área:
@@ -339,6 +438,79 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar tareas..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="relative">
+                <Filter className="size-3.5 mr-1.5" />
+                Filtros
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 size-5 p-0 flex items-center justify-center text-xs">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <div className="px-2 py-1.5 text-sm font-semibold">Filtrar por</div>
+              <DropdownMenuSeparator />
+              <div className="space-y-3 p-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Prioridad</label>
+                  <Select
+                    value={priorityFilter ?? ""}
+                    onChange={(e) => setFilter("priority", e.target.value || null)}
+                  >
+                    <option value="">Todas</option>
+                    <option value="high">Alta</option>
+                    <option value="medium">Media</option>
+                    <option value="low">Baja</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Assignee</label>
+                  <Select
+                    value={assigneeFilter ?? ""}
+                    onChange={(e) => setFilter("assignee", e.target.value || null)}
+                  >
+                    <option value="">Todos</option>
+                    {people.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Fecha</label>
+                  <Select
+                    value={dateFilter ?? ""}
+                    onChange={(e) => setFilter("date", e.target.value || null)}
+                  >
+                    <option value="">Todas</option>
+                    <option value="overdue">Vencidas</option>
+                    <option value="due-soon">Por vencer (3 días)</option>
+                    <option value="this-week">Esta semana</option>
+                  </Select>
+                </div>
+                {activeFiltersCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full">
+                    <X className="size-3.5 mr-1.5" />
+                    Limpiar filtros
+                  </Button>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant={showArchived ? "secondary" : "outline"}
             size="sm"
@@ -407,6 +579,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                       focused={t.id === focusId}
                       focusRef={focusRef}
                       disabled={!!detailTaskId}
+                      searchQuery={debouncedQuery}
                       onMoveBack={() =>
                         mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
                       }

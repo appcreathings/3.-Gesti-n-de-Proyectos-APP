@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn, highlightText } from "@/lib/utils";
 import { daysUntil } from "@/domain/compute";
 import { priorityLabel, priorityVariant } from "@/domain/labels";
 import type { Area, Person, Sprint, Task } from "@/domain/schemas";
@@ -39,6 +39,8 @@ interface Props {
   isOverlay?: boolean;
   /** Disable drag-and-drop (e.g. when the detail drawer is open). */
   disabled?: boolean;
+  /** Search query for highlighting matches (spec 017). */
+  searchQuery?: string;
   onMoveBack: () => void;
   onMove: () => void;
   onToggleBlock: () => void;
@@ -58,6 +60,7 @@ export function TaskCard({
   focusRef,
   isOverlay,
   disabled,
+  searchQuery,
   onMoveBack,
   onMove,
   onToggleBlock,
@@ -108,10 +111,12 @@ export function TaskCard({
           <GripVertical className="size-3.5" />
         </button>
         <div className="flex flex-col min-w-0 flex-1">
-          <p className="text-sm font-medium leading-tight break-words line-clamp-2">{task.title}</p>
+          <p className="text-sm font-medium leading-tight break-words line-clamp-2">
+            {searchQuery ? highlightText(task.title, searchQuery) : task.title}
+          </p>
           {task.summary && !isPlaceholder && (
             <p className="text-xs text-muted-foreground leading-tight mt-0.5 line-clamp-2">
-              {task.summary}
+              {searchQuery ? highlightText(task.summary, searchQuery) : task.summary}
             </p>
           )}
         </div>
@@ -158,6 +163,20 @@ export function TaskCard({
             >
               <MessageCircle className="size-3" />
               {task.comments!.length}
+            </Badge>
+          )}
+          {(task.tags ?? []).slice(0, 3).map((tag) => (
+            <Badge
+              key={tag}
+              variant="outline"
+              className="text-[11px] leading-tight px-1.5 py-0.5 truncate max-w-[100px]"
+            >
+              {searchQuery ? highlightText(tag, searchQuery) : tag}
+            </Badge>
+          ))}
+          {(task.tags?.length ?? 0) > 3 && (
+            <Badge variant="outline" className="text-[11px] leading-tight px-1.5 py-0.5">
+              +{task.tags!.length - 3}
             </Badge>
           )}
         </div>

@@ -79,6 +79,13 @@ Cada push a `main` redespliega automáticamente.
 - ✅ Spec 003: drag & drop para reordenar checklists, pasos, áreas y Kanban intra-columna.
 - ✅ v1.0: listo para deploy — ErrorBoundary, code-splitting por ruta, PWA instalable,
   ESLint/Prettier, config de Vercel.
+- ✅ Specs 010-016: Kanban mejorado — drag-and-drop cross-columna, optimización tablet,
+  task detail drawer con resize, comentarios, archivado, menú contextual.
+- ✅ Spec 017 Wave 1: mejora integral de la experiencia PM — búsqueda por texto con resaltado,
+  filtros enriquecidos (prioridad, assignee, fecha, tags), vista "Mis tareas" cross-proyecto,
+  gestión de tags en UI.
+- 🔄 Spec 017 Wave 2-3: pendientes — indicadores visuales, vista lista, atajos de teclado,
+  estimación, WIP limits, Dashboard enriquecido.
 
 ## Arquitectura (resumen)
 ```

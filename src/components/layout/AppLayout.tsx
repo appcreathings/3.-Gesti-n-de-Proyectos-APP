@@ -16,6 +16,7 @@ import {
   Menu,
   MoreHorizontal,
   X,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -49,6 +50,7 @@ const NAV = [
   { to: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: ROUTES.products, label: "Productos", icon: Package },
   { to: ROUTES.projects, label: "Proyectos", icon: FolderKanban },
+  { to: ROUTES.myTasks, label: "Mis tareas", icon: UserCheck },
   { to: ROUTES.library(), label: "Biblioteca", icon: Library },
   { to: ROUTES.quarters, label: "Trimestres", icon: CalendarRange },
   { to: ROUTES.automations, label: "Automatizaciones", icon: Workflow },

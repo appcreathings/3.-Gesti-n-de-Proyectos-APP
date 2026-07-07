@@ -80,6 +80,11 @@ const BlogPostPage = lazy(() =>
     default: m.BlogPostPage,
   })),
 );
+const MyTasksPage = lazy(() =>
+  import("@/features/my-tasks/MyTasksPage").then((m) => ({
+    default: m.MyTasksPage,
+  })),
+);
 
 function page(el: ReactNode) {
   return <Suspense fallback={<Loading />}>{el}</Suspense>;
@@ -133,6 +138,7 @@ const router = createBrowserRouter([
               { path: ":id", element: page(<ProjectDetailPage />) },
             ],
           },
+          { path: "my-tasks", element: page(<MyTasksPage />) },
           { path: "quarters", element: page(<QuartersPage />) },
           { path: "library", element: page(<LibraryPage />) },
           { path: "automations", element: page(<AutomationsPage />) },
