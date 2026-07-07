@@ -297,25 +297,25 @@ avanzar.
 
 ### Fase 12 — Operaciones bulk (HU-13)
 
-- [ ] T1810 `TaskCard.tsx`: agregar checkbox de selección (aparece al hacer hover o con tecla Shift).
+- [x] T1810 `TaskCard.tsx`: agregar checkbox de selección (aparece al hacer hover o con tecla Shift).
   - Checkbox en la esquina superior izquierda de la card.
   - Visible al hacer hover o cuando se mantiene presionada la tecla Shift.
-- [ ] T1811 `TasksTab.tsx`: agregar estado `selectedTaskIds` (Set<string>).
+- [x] T1811 `TasksTab.tsx`: agregar estado `selectedTaskIds` (Set<string>).
   - Funciones: `toggleTaskSelection(id)`, `selectAll()`, `clearSelection()`.
-- [ ] T1812 `TasksTab.tsx`: agregar barra de acciones bulk en la parte superior.
+- [x] T1812 `TasksTab.tsx`: agregar barra de acciones bulk en la parte superior.
   - Visible cuando hay al menos una tarea seleccionada.
   - Acciones: "Mover a..." (dropdown), "Archivar", "Eliminar".
   - Mostrar contador: "3 tareas seleccionadas".
-- [ ] T1813 `TasksTab.tsx`: implementar acción "Mover a...".
+- [x] T1813 `TasksTab.tsx`: implementar acción "Mover a...".
   - Dropdown con opciones: Todo, Doing, Blocked, Done.
   - Al seleccionar, actualizar `task.status` de todas las tareas seleccionadas.
-- [ ] T1814 `TasksTab.tsx`: implementar acción "Archivar".
+- [x] T1814 `TasksTab.tsx`: implementar acción "Archivar".
   - Confirmación: "¿Archivar 3 tareas?".
   - Actualizar `task.archived = true` de todas las tareas seleccionadas.
-- [ ] T1815 `TasksTab.tsx`: implementar acción "Eliminar".
+- [x] T1815 `TasksTab.tsx`: implementar acción "Eliminar".
   - Confirmación: "¿Eliminar 3 tareas? Esta acción no se puede deshacer".
   - Eliminar todas las tareas seleccionadas.
-- [ ] T1816 Verificar: selección funciona, operaciones bulk se ejecutan correctamente.
+- [x] T1816 Verificar: selección funciona, operaciones bulk se ejecutan correctamente.
   - Smoke visual: seleccionar 3 tareas, moverlas a "Done", verificar que se movieron.
   - Verificar que las confirmaciones funcionan correctamente.
   - `npx tsc --noEmit`, `npx vitest run`.

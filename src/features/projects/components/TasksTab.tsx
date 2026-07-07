@@ -17,7 +17,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Archive, Filter, LayoutGrid, List, Plus, Search, Settings, X } from "lucide-react";
+import { Archive, Filter, LayoutGrid, List, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -117,6 +117,56 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
 
   function handleSaveWipLimits(limits: { todo: number | null; doing: number | null; blocked: number | null; done: number | null }) {
     mutate((p) => ({ ...p, wipLimits: limits }));
+  }
+
+  // Bulk selection state (spec 017)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+
+  function toggleTaskSelection(taskId: string) {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  }
+
+  function selectAllTasks() {
+    setSelectedTaskIds(new Set(tasksInScope.map((t) => t.id)));
+  }
+
+  function clearSelection() {
+    setSelectedTaskIds(new Set());
+  }
+
+  function handleBulkMove(status: TaskStatus) {
+    selectedTaskIds.forEach((taskId) => {
+      const task = project.tasks.find((t) => t.id === taskId);
+      if (task) {
+        mutate((p) => ops.updateTask(p, { ...task, status }));
+      }
+    });
+    clearSelection();
+  }
+
+  function handleBulkArchive() {
+    selectedTaskIds.forEach((taskId) => {
+      const task = project.tasks.find((t) => t.id === taskId);
+      if (task) {
+        mutate((p) => ops.updateTask(p, { ...task, archived: true }));
+      }
+    });
+    clearSelection();
+  }
+
+  function handleBulkDelete() {
+    selectedTaskIds.forEach((taskId) => {
+      mutate((p) => ops.removeTask(p, taskId));
+    });
+    clearSelection();
   }
 
   // Filter state (spec 017)
@@ -594,6 +644,46 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         </div>
       </div>
 
+      {selectedTaskIds.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <span className="text-sm font-medium">
+            {selectedTaskIds.size} tarea{selectedTaskIds.size !== 1 ? "s" : ""} seleccionada{selectedTaskIds.size !== 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={selectAllTasks}>
+              Seleccionar todas
+            </Button>
+            <Select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkMove(e.target.value as TaskStatus);
+                }
+              }}
+              value=""
+              className="h-8 text-sm"
+            >
+              <option value="">Mover a...</option>
+              <option value="todo">Por hacer</option>
+              <option value="doing">En curso</option>
+              <option value="blocked">Bloqueada</option>
+              <option value="done">Hecha</option>
+            </Select>
+            <Button variant="outline" size="sm" onClick={handleBulkArchive}>
+              <Archive className="size-3.5 mr-1.5" />
+              Archivar
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="size-3.5 mr-1.5" />
+              Eliminar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={clearSelection}>
+              <X className="size-3.5 mr-1.5" />
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {showArchived ? (
         <ArchivedTasksList
           tasks={archivedTasks}
@@ -648,6 +738,8 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                       focusRef={focusRef}
                       disabled={!!detailTaskId}
                       searchQuery={debouncedQuery}
+                      selected={selectedTaskIds.has(t.id)}
+                      onToggleSelect={() => toggleTaskSelection(t.id)}
                       onMoveBack={() =>
                         mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
                       }

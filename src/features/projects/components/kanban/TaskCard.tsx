@@ -43,6 +43,9 @@ interface Props {
   disabled?: boolean;
   /** Search query for highlighting matches (spec 017). */
   searchQuery?: string;
+  /** Bulk selection state (spec 017). */
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onMoveBack: () => void;
   onMove: () => void;
   onToggleBlock: () => void;
@@ -63,6 +66,8 @@ export function TaskCard({
   isOverlay,
   disabled,
   searchQuery,
+  selected,
+  onToggleSelect,
   onMoveBack,
   onMove,
   onToggleBlock,
@@ -108,6 +113,20 @@ export function TaskCard({
       )}
       onClick={!isOverlay && !isPlaceholder ? onOpenDetail : undefined}
     >
+      {onToggleSelect && !isPlaceholder && !isOverlay && (
+        <div className="absolute top-2 left-2 z-10">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="size-4 cursor-pointer"
+          />
+        </div>
+      )}
       <div className="flex min-w-0 items-start gap-1.5 mb-1.5">
         <button
           className="flex items-center justify-center -m-1.5 p-1.5 cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing shrink-0 min-w-[44px] min-h-[44px]"
