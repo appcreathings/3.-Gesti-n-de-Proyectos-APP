@@ -17,7 +17,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Archive, Filter, LayoutGrid, List, Plus, Search, Settings, Trash2, X } from "lucide-react";
+import { Archive, CheckSquare, Filter, LayoutGrid, List, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -121,6 +121,10 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
 
   // Bulk selection state (spec 017)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  // Selection mode toggle (spec 017 HU-13)
+  const [selectionMode, setSelectionMode] = useState(false);
+  // Multi-drag state (spec 017 HU-13)
+  const [draggedSelectedIds, setDraggedSelectedIds] = useState<string[]>([]);
 
   function toggleTaskSelection(taskId: string) {
     setSelectedTaskIds((prev) => {
@@ -140,6 +144,29 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
 
   function clearSelection() {
     setSelectedTaskIds(new Set());
+  }
+
+  function getColumnSelectionState(status: TaskStatus): "none" | "some" | "all" {
+    const columnTaskIds = board[status];
+    const selectedInColumn = columnTaskIds.filter((id) => selectedTaskIds.has(id));
+    if (selectedInColumn.length === 0) return "none";
+    if (selectedInColumn.length === columnTaskIds.length) return "all";
+    return "some";
+  }
+
+  function toggleColumnSelection(status: TaskStatus) {
+    const columnTaskIds = board[status];
+    const allSelected = columnTaskIds.every((id) => selectedTaskIds.has(id));
+    
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        columnTaskIds.forEach((id) => next.delete(id));
+      } else {
+        columnTaskIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
   }
 
   function handleBulkMove(status: TaskStatus) {
@@ -374,6 +401,18 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     }
   }, [focusId]);
 
+  // Escape key to exit selection mode (spec 017 HU-13)
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectionMode) {
+        setSelectionMode(false);
+        clearSelection();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectionMode]);
+
   function submitTask(t: Task) {
     if (project.tasks.some((x) => x.id === t.id)) {
       mutate((p) => ops.updateTask(p, t));
@@ -406,11 +445,20 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
       event.activatorEvent.preventDefault?.();
       return;
     }
-    setActiveId(String(event.active.id));
+    const activeTaskId = String(event.active.id);
+    setActiveId(activeTaskId);
     // Touch drags are restricted to intra-column reorder (onDragOver below) — column changes on
     // touch go through the existing move buttons instead.
     isTouchDragRef.current = event.activatorEvent.type.startsWith("touch");
     setDragBoard(boardFromScope);
+    
+    // Multi-drag: if the dragged card is selected and there are other selected cards (spec 017 HU-13)
+    if (selectionMode && selectedTaskIds.has(activeTaskId) && selectedTaskIds.size > 1) {
+      setDraggedSelectedIds(Array.from(selectedTaskIds));
+    } else {
+      setDraggedSelectedIds([]);
+    }
+    
     if ("vibrate" in navigator) {
       navigator.vibrate(50);
     }
@@ -462,6 +510,26 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     const finalCol = columnOf(finalBoard, activeTaskId);
     if (!finalCol) return;
 
+    // Multi-drag: move all selected tasks together (spec 017 HU-13)
+    if (draggedSelectedIds.length > 1) {
+      mutate((p) => {
+        let next = p;
+        // Move each selected task to the destination column
+        draggedSelectedIds.forEach((taskId) => {
+          const task = next.tasks.find((t) => t.id === taskId);
+          if (task && task.status !== finalCol) {
+            next = ops.updateTask(next, { ...task, status: finalCol });
+          }
+        });
+        // Reorder tasks in the destination column
+        const orderedIds = finalBoard[finalCol];
+        return ops.reorderTasks(next, orderedIds);
+      });
+      setDraggedSelectedIds([]);
+      return;
+    }
+
+    // Individual drag (normal behavior)
     const orderedIds = finalBoard[finalCol];
     const unchanged =
       finalCol === activeTask.status &&
@@ -475,11 +543,13 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         finalCol === activeTask.status ? p : ops.updateTask(p, { ...activeTask, status: finalCol });
       return ops.reorderTasks(next, orderedIds);
     });
+    setDraggedSelectedIds([]);
   }
 
   function onDragCancel() {
     setActiveId(null);
     setDragBoard(null);
+    setDraggedSelectedIds([]);
   }
 
   // Safe lookup for the DragOverlay — avoids a non-null assertion that could crash on a stray
@@ -630,6 +700,22 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
             {showArchived ? "Ver activas" : `Archivadas (${project.tasks.filter((t) => t.archived).length})`}
           </Button>
           <Button
+            variant={selectionMode ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => {
+              if (selectionMode) {
+                setSelectionMode(false);
+                clearSelection();
+              } else {
+                setSelectionMode(true);
+              }
+            }}
+            disabled={showArchived}
+          >
+            <CheckSquare className="size-3.5 mr-1.5" />
+            {selectionMode ? "Cancelar" : "Seleccionar"}
+          </Button>
+          <Button
             onClick={() =>
               setDialog({
                 open: true,
@@ -645,11 +731,11 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
       </div>
 
       {selectedTaskIds.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
           <span className="text-sm font-medium">
             {selectedTaskIds.size} tarea{selectedTaskIds.size !== 1 ? "s" : ""} seleccionada{selectedTaskIds.size !== 1 ? "s" : ""}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" size="sm" onClick={selectAllTasks}>
               Seleccionar todas
             </Button>
@@ -660,7 +746,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                 }
               }}
               value=""
-              className="h-8 text-sm"
+              className="h-8 py-1 text-sm"
             >
               <option value="">Mover a...</option>
               <option value="todo">Por hacer</option>
@@ -722,6 +808,9 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                   wipLimit={project.wipLimits?.[col]}
                   taskIds={ids}
                   onAdd={() => setDialog({ open: true, status: col })}
+                  selectionMode={selectionMode}
+                  columnSelectionState={getColumnSelectionState(col)}
+                  onToggleColumnSelection={() => toggleColumnSelection(col)}
                 >
                   {tasks.map((t) => (
                     <TaskCard
@@ -740,6 +829,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                       searchQuery={debouncedQuery}
                       selected={selectedTaskIds.has(t.id)}
                       onToggleSelect={() => toggleTaskSelection(t.id)}
+                      selectionMode={selectionMode}
                       onMoveBack={() =>
                         mutate((p) => ops.updateTask(p, { ...t, status: PREV[t.status] }))
                       }
@@ -773,20 +863,32 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
             }}
           >
             {activeTask ? (
-              <TaskCard
-                task={activeTask}
-                area={project.areas.find((a) => a.id === activeTask.areaId)}
-                assignee={people.find((p) => p.id === activeTask.assigneeId)}
-                focused={false}
-                isOverlay
-                onMoveBack={() => {}}
-                onMove={() => {}}
-                onToggleBlock={() => {}}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onOpenDetail={() => {}}
-                onArchive={() => {}}
-              />
+              <div className="relative">
+                <TaskCard
+                  task={activeTask}
+                  area={project.areas.find((a) => a.id === activeTask.areaId)}
+                  assignee={people.find((p) => p.id === activeTask.assigneeId)}
+                  focused={false}
+                  isOverlay
+                  selectionMode={selectionMode}
+                  selected={selectedTaskIds.has(activeTask.id)}
+                  onMoveBack={() => {}}
+                  onMove={() => {}}
+                  onToggleBlock={() => {}}
+                  onEdit={() => {}}
+                  onDelete={() => {}}
+                  onOpenDetail={() => {}}
+                  onArchive={() => {}}
+                />
+                {draggedSelectedIds.length > 1 && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute -top-2 -right-2 size-6 p-0 flex items-center justify-center text-xs font-bold shadow-lg"
+                  >
+                    {draggedSelectedIds.length}
+                  </Badge>
+                )}
+              </div>
             ) : null}
           </DragOverlay>
         </DndContext>

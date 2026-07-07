@@ -46,6 +46,8 @@ interface Props {
   /** Bulk selection state (spec 017). */
   selected?: boolean;
   onToggleSelect?: () => void;
+  /** Selection mode toggle (spec 017 HU-13). */
+  selectionMode?: boolean;
   onMoveBack: () => void;
   onMove: () => void;
   onToggleBlock: () => void;
@@ -68,6 +70,7 @@ export function TaskCard({
   searchQuery,
   selected,
   onToggleSelect,
+  selectionMode,
   onMoveBack,
   onMove,
   onToggleBlock,
@@ -106,6 +109,8 @@ export function TaskCard({
               "border-dashed border-border/50 bg-foreground/[0.02]"
             : "border-border/70 bg-background hover:border-border cursor-pointer",
         focused && !isPlaceholder && !isOverlay && "ring-2 ring-foreground/60",
+        // Spec 017 HU-13: Visual indicator for selected tasks
+        selected && selectionMode && !isPlaceholder && !isOverlay && "ring-2 ring-blue-400 ring-offset-2",
         // Spec 017: Visual indicators for blocked, overdue, and due-soon tasks
         !isPlaceholder && !isOverlay && isBlocked && "border-l-4 border-l-red-500",
         !isPlaceholder && !isOverlay && overdue && "bg-red-50 dark:bg-red-950/20",
@@ -113,8 +118,9 @@ export function TaskCard({
       )}
       onClick={!isOverlay && !isPlaceholder ? onOpenDetail : undefined}
     >
-      {onToggleSelect && !isPlaceholder && !isOverlay && (
-        <div className="absolute top-2 left-2 z-10">
+      <div className="flex min-w-0 items-start gap-1.5 mb-1.5">
+        {/* Spec 017 HU-13: Checkbox in flow before drag handle (only in selection mode) */}
+        {selectionMode && onToggleSelect && !isPlaceholder && !isOverlay && (
           <input
             type="checkbox"
             checked={selected}
@@ -123,11 +129,9 @@ export function TaskCard({
               onToggleSelect();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="size-4 cursor-pointer"
+            className="size-4 cursor-pointer shrink-0 mt-2.5"
           />
-        </div>
-      )}
-      <div className="flex min-w-0 items-start gap-1.5 mb-1.5">
+        )}
         <button
           className="flex items-center justify-center -m-1.5 p-1.5 cursor-grab touch-none text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing shrink-0 min-w-[44px] min-h-[44px]"
           aria-label={`Arrastrar tarea ${task.title}`}

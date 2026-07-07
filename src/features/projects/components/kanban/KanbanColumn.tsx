@@ -12,11 +12,17 @@ interface Props {
   /** Ids of the visible tasks in this column, in display order (for intra-column sorting). */
   taskIds: string[];
   onAdd: () => void;
+  /** Selection mode (spec 017 HU-13). */
+  selectionMode?: boolean;
+  /** Tri-state selection: "none" | "some" | "all" (spec 017 HU-13). */
+  columnSelectionState?: "none" | "some" | "all";
+  /** Toggle column selection (spec 017 HU-13). */
+  onToggleColumnSelection?: () => void;
   children: React.ReactNode;
 }
 
 /** Droppable Kanban column with sortable cards; highlights while a card hovers over it. */
-export function KanbanColumn({ status, count, wipLimit, taskIds, onAdd, children }: Props) {
+export function KanbanColumn({ status, count, wipLimit, taskIds, onAdd, selectionMode, columnSelectionState, onToggleColumnSelection, children }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: { type: "column", status },
@@ -35,6 +41,21 @@ export function KanbanColumn({ status, count, wipLimit, taskIds, onAdd, children
       )}
     >
       <div className="mb-3 flex items-center justify-between px-0.5">
+        {selectionMode && (
+          <input
+            type="checkbox"
+            checked={columnSelectionState === "all"}
+            ref={(el) => {
+              if (el) el.indeterminate = columnSelectionState === "some";
+            }}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleColumnSelection?.();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="size-4 cursor-pointer shrink-0 mr-2"
+          />
+        )}
         <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground truncate">
           {taskStatusLabel[status]}
         </span>

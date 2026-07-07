@@ -30,6 +30,10 @@ El Kanban y el Dashboard funcionan correctamente (specs 010-016), pero el PM enf
 - **Estimación opcional**: el campo `estimate` es nullable, no obligatorio.
 - **Subtareas planas**: sin anidamiento profundo (una tarea puede tener subtareas, pero las subtareas no pueden tener subtareas).
 - **WIP limits visuales**: no bloquean el drag-and-drop, solo muestran indicadores.
+- **Modo selección explícito**: los checkboxes aparecen solo al activar un toggle "Seleccionar" en la barra de herramientas, no por hover ni Shift. Esto evita conflictos con el drag handle y mantiene la UI limpia en reposo.
+- **Layout checkbox + drag handle**: cuando el modo selección está activo, el checkbox se sitúa a la izquierda del drag handle (GripVertical), ambos en el flujo de la card, sin overlap.
+- **Column checkbox tri-state**: en modo selección, cada columna muestra un checkbox en su header con estados unchecked / indeterminate / checked para seleccionar todas las tareas visibles de esa etapa.
+- **Multi-drag**: al arrastrar una card seleccionada, todas las cards seleccionadas se mueven juntas a la columna destino.
 
 ## Waves de implementación
 
@@ -134,9 +138,36 @@ El Kanban y el Dashboard funcionan correctamente (specs 010-016), pero el PM enf
 
 #### HU-13 — Operaciones bulk
 **Como** PM, **quiero** seleccionar múltiples tareas y moverlas/archivarlas/eliminarlas **para** ahorrar tiempo en operaciones repetitivas.
-- ✅ Checkbox en cada card del Kanban (aparece al hacer hover o con tecla Shift).
-- ✅ Barra de acciones bulk en la parte superior (mover a..., archivar, eliminar).
+
+**Activación del modo selección:**
+- ✅ Botón toggle "Seleccionar" en la barra de herramientas del Kanban (junto a "Nueva tarea").
+- ✅ Al activarse, aparecen checkboxes en cada card (a la izquierda del drag handle, en el flujo) y un checkbox tri-state en el header de cada columna.
+- ✅ `Escape` o botón "Cancelar" en la barra bulk desactiva el modo y limpia la selección.
+
+**Selección individual:**
+- ✅ Checkbox en cada card del Kanban (visible solo en modo selección).
+- ✅ Click en checkbox selecciona/deselecciona esa tarea.
+- ✅ Las cards seleccionadas muestran un indicador visual sutil (ej. ring azul suave).
+
+**Selección por columna:**
+- ✅ Checkbox tri-state en el header de cada columna (izquierda del nombre de columna).
+- ✅ Solo visible en modo selección.
+- ✅ Estados: unchecked (ninguna seleccionada) → indeterminate (algunas) → checked (todas).
+- ✅ Click: selecciona todas las tareas visibles de esa columna (respeta filtros activos) o las deselecciona.
+
+**Selección global:**
+- ✅ Botón "Seleccionar todas" en la barra bulk (selecciona todas las tareas visibles en todas las columnas).
+
+**Barra de acciones bulk:**
+- ✅ Aparece debajo de la barra de herramientas cuando hay ≥1 tarea seleccionada.
+- ✅ Muestra: "{n} tarea(s) seleccionada(s)" + acciones (Mover a..., Archivar, Eliminar, Cancelar).
 - ✅ Las operaciones bulk respetan los permisos y piden confirmación.
+
+**Multi-drag:**
+- ✅ En modo selección, al arrastrar una card seleccionada, todas las seleccionadas se mueven juntas a la columna destino.
+- ✅ El DragOverlay muestra la card arrastrada + un badge con el count total (ej. "3 tareas").
+- ✅ Las tareas se insertan en la columna destino manteniendo su orden relativo.
+- ✅ Si se arrastra una card NO seleccionada, el drag es individual (comportamiento normal).
 
 #### HU-14 — Drill-down en Dashboard
 **Como** CEO/PM, **quiero** hacer click en los KPIs del Dashboard **para** ver el detalle.
@@ -215,8 +246,9 @@ Todos los campos tienen defaults seguros → migración no destructiva.
 - `src/domain/migrations.ts` — migración v3 → v4.
 - `src/features/projects/components/kanban/TaskDetailDrawer.tsx` — agregar inputs de estimate y subtareas.
 - `src/features/projects/components/kanban/TaskCard.tsx` — mostrar estimate y progreso de subtareas.
-- `src/features/projects/components/kanban/KanbanColumn.tsx` — mostrar WIP limit.
-- `src/features/projects/components/TasksTab.tsx` — agregar selección bulk.
+- `src/features/projects/components/kanban/KanbanColumn.tsx` — mostrar WIP limit; agregar checkbox tri-state en header (visible solo en modo selección), recibir props de selección por columna.
+- `src/features/projects/components/TasksTab.tsx` — agregar estado `selectionMode`, toggle button, lógica de column select-all, multi-drag.
+- `src/features/projects/components/kanban/TaskCard.tsx` — reorganizar layout: checkbox en flujo antes del drag handle, condicional a `selectionMode`, indicador visual de selección.
 - `src/features/dashboard/DashboardPage.tsx` — agregar drill-down y gráficos de tendencias.
 - `src/features/dashboard/WorkloadCard.tsx` — nueva vista de carga de trabajo.
 
@@ -238,6 +270,7 @@ Todos los campos tienen defaults seguros → migración no destructiva.
 - El PM usa atajos de teclado para al menos 30% de las acciones comunes.
 - El CEO puede hacer drill-down desde los KPIs del Dashboard.
 - 0 regresión en las funcionalidades existentes (drag-and-drop, filtros, sprint switcher).
+- El PM puede seleccionar y mover 20+ tareas en < 10 segundos (vs. mover una por una).
 
 ## Orden de implementación sugerido
 
@@ -257,3 +290,4 @@ Wave 3 (estimación, subtareas, WIP limits, Dashboard enriquecido)
 | **Los gráficos de tendencias requieren historial de actividad** | Si no hay historial, mostrar un mensaje "Datos insuficientes" y sugerir activar el log de actividad. |
 | **Las subtareas pueden complicar el schema** | Mantener las subtareas como una lista plana dentro de la tarea, sin anidamiento profundo. |
 | **Los WIP limits pueden ser ignorados** | Mostrar indicadores visuales prominentes, pero no bloquear el drag-and-drop (el PM decide). |
+| **El multi-drag puede causar confusión visual** | Mostrar un badge con el count en el DragOverlay ("3 tareas") y mantener el orden relativo de las cards durante el drag. Si solo 1 card está seleccionada, comportarse como drag individual. |
