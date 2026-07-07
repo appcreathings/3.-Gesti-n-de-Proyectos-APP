@@ -81,14 +81,13 @@ Cada push a `main` redespliega automáticamente.
   ESLint/Prettier, config de Vercel.
 - ✅ Specs 010-016: Kanban mejorado — drag-and-drop cross-columna, optimización tablet,
   task detail drawer con resize, comentarios, archivado, menú contextual.
-- ✅ Spec 017 Wave 1: mejora integral de la experiencia PM — búsqueda por texto con resaltado,
+- ✅ Spec 017: mejora integral de la experiencia PM — búsqueda por texto con resaltado,
   filtros enriquecidos (prioridad, assignee, fecha, tags), vista "Mis tareas" cross-proyecto,
-  gestión de tags en UI.
-- ✅ Spec 017 Wave 2: indicadores visuales prominentes (bloqueadas/vencidas/por vencer),
+  gestión de tags en UI, indicadores visuales prominentes (bloqueadas/vencidas/por vencer),
   vista de lista alternativa en Kanban, atajos de teclado globales, quick add de tareas,
-  vista Daily Standup.
-- 🔄 Spec 017 Wave 3: pendiente — estimación, subtareas, WIP limits, operaciones bulk,
-  Dashboard enriquecido.
+  vista Daily Standup, estimación de tareas, subtareas, WIP limits por columna,
+  operaciones bulk (mover/archivar/eliminar), Dashboard enriquecido con drill-down y
+  vista de carga de trabajo por persona.
 
 ## Arquitectura (resumen)
 ```
