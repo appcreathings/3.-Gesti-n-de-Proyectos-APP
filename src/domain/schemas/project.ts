@@ -137,6 +137,14 @@ export const StakeholderSchema = z.object({
 });
 export type Stakeholder = z.infer<typeof StakeholderSchema>;
 
+export const WipLimitsSchema = z.object({
+  todo: z.number().nullable().default(null),
+  doing: z.number().nullable().default(null),
+  blocked: z.number().nullable().default(null),
+  done: z.number().nullable().default(null),
+});
+export type WipLimits = z.infer<typeof WipLimitsSchema>;
+
 export const ProjectSchema = z.object({
   id: Id,
   schemaVersion: z.number().default(SCHEMA_VERSION),
@@ -157,6 +165,12 @@ export const ProjectSchema = z.object({
   tasks: z.array(TaskSchema).default([]),
   milestones: z.array(MilestoneSchema).default([]),
   sprints: z.array(SprintSchema).default([]),
+  wipLimits: WipLimitsSchema.default({
+    todo: null,
+    doing: null,
+    blocked: null,
+    done: null,
+  }),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });

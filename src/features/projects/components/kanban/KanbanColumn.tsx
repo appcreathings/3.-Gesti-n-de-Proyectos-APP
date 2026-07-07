@@ -8,6 +8,7 @@ import type { TaskStatus } from "@/domain/schemas";
 interface Props {
   status: TaskStatus;
   count: number;
+  wipLimit?: number | null;
   /** Ids of the visible tasks in this column, in display order (for intra-column sorting). */
   taskIds: string[];
   onAdd: () => void;
@@ -15,13 +16,14 @@ interface Props {
 }
 
 /** Droppable Kanban column with sortable cards; highlights while a card hovers over it. */
-export function KanbanColumn({ status, count, taskIds, onAdd, children }: Props) {
+export function KanbanColumn({ status, count, wipLimit, taskIds, onAdd, children }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: { type: "column", status },
   });
 
   const isEmpty = taskIds.length === 0;
+  const isOverLimit = wipLimit !== null && wipLimit !== undefined && count > wipLimit;
 
   return (
     <div
@@ -29,14 +31,18 @@ export function KanbanColumn({ status, count, taskIds, onAdd, children }: Props)
       className={cn(
         "flex min-w-[85vw] shrink-0 snap-start flex-col rounded-xl border-2 border-transparent bg-background p-3 transition-colors sm:min-w-0 sm:shrink sm:border-border/70",
         isOver && "border-foreground/40 bg-foreground/[0.06]",
+        isOverLimit && "bg-amber-50 dark:bg-amber-950/20",
       )}
     >
       <div className="mb-3 flex items-center justify-between px-0.5">
         <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground truncate">
           {taskStatusLabel[status]}
         </span>
-        <Badge variant="outline" className="font-mono text-[11px] px-1.5 py-0.5">
-          {count}
+        <Badge
+          variant={isOverLimit ? "destructive" : "outline"}
+          className="font-mono text-[11px] px-1.5 py-0.5"
+        >
+          {count}{wipLimit !== null && wipLimit !== undefined ? `/${wipLimit}` : ""}
         </Badge>
       </div>
       <div className="flex-1 space-y-2.5">

@@ -17,7 +17,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Archive, Filter, LayoutGrid, List, Plus, Search, X } from "lucide-react";
+import { Archive, Filter, LayoutGrid, List, Plus, Search, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ import { TaskCard } from "./kanban/TaskCard";
 import { TaskDetailDrawer } from "./kanban/TaskDetailDrawer";
 import { ArchivedTasksList } from "./kanban/ArchivedTasksList";
 import { KanbanListView } from "./kanban/KanbanListView";
+import { WipLimitConfig } from "./kanban/WipLimitConfig";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface Props {
@@ -109,6 +110,13 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
     } catch {
       // Ignore localStorage errors
     }
+  }
+
+  // WIP limits state (spec 017)
+  const [wipConfigOpen, setWipConfigOpen] = useState(false);
+
+  function handleSaveWipLimits(limits: { todo: number | null; doing: number | null; blocked: number | null; done: number | null }) {
+    mutate((p) => ({ ...p, wipLimits: limits }));
   }
 
   // Filter state (spec 017)
@@ -532,6 +540,15 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWipConfigOpen(true)}
+            title="Configurar WIP limits"
+          >
+            <Settings className="size-3.5 mr-1.5" />
+            WIP
+          </Button>
           <div className="flex items-center rounded-md border border-border/70">
             <Button
               variant={viewMode === "kanban" ? "secondary" : "ghost"}
@@ -612,6 +629,7 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
                   key={col}
                   status={col}
                   count={tasks.length}
+                  wipLimit={project.wipLimits?.[col]}
                   taskIds={ids}
                   onAdd={() => setDialog({ open: true, status: col })}
                 >
@@ -716,6 +734,13 @@ export function TasksTab({ project, people, mutate, focusId }: Props) {
         sprints={project.sprints}
         onUpdate={handleUpdateTask}
         onClose={closeDetail}
+      />
+
+      <WipLimitConfig
+        open={wipConfigOpen}
+        wipLimits={project.wipLimits ?? { todo: null, doing: null, blocked: null, done: null }}
+        onSave={handleSaveWipLimits}
+        onClose={() => setWipConfigOpen(false)}
       />
     </div>
   );

@@ -43,6 +43,9 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
     // v5 -> v6: added Task.estimate and Task.subtasks (spec 017). New fields are
     // optional/defaulted in the Zod schema, so existing v5 records need no data transformation.
     { to: 6, up: (data) => data },
+    // v6 -> v7: added Project.wipLimits (spec 017). New field is optional/defaulted
+    // in the Zod schema, so existing v6 records need no data transformation.
+    { to: 7, up: (data) => data },
   ],
 };
 

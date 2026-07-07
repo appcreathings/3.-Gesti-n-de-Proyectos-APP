@@ -56,6 +56,12 @@ export function newProject(name: string, productId: string | null = null): Proje
     tasks: [],
     milestones: [],
     sprints: [],
+    wipLimits: {
+      todo: null,
+      doing: null,
+      blocked: null,
+      done: null,
+    },
     createdAt: ts,
     updatedAt: ts,
   };

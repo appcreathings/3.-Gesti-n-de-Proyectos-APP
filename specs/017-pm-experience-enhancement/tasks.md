@@ -276,22 +276,22 @@ avanzar.
 
 ### Fase 11 — WIP limits (HU-12)
 
-- [ ] T1800 `src/domain/schemas/project.ts`: agregar campo `wipLimits` a ProjectSchema.
+- [x] T1800 `src/domain/schemas/project.ts`: agregar campo `wipLimits` a ProjectSchema.
   - Tipo: objeto con keys `todo`, `doing`, `blocked`, `done`.
   - Cada key: `z.number().nullable().default(null)`.
-- [ ] T1801 `src/domain/migrations.ts`: agregar `wipLimits` a proyectos existentes (migración v3 → v4).
+- [x] T1801 `src/domain/migrations.ts`: agregar `wipLimits` a proyectos existentes (migración v6 → v7).
   - Default: `{ todo: null, doing: null, blocked: null, done: null }`.
-- [ ] T1802 Crear componente `src/features/projects/components/kanban/WipLimitConfig.tsx`.
+- [x] T1802 Crear componente `src/features/projects/components/kanban/WipLimitConfig.tsx`.
   - Modal o drawer para configurar WIP limits por columna.
   - Inputs numéricos para cada columna (todo, doing, blocked, done).
   - Botón "Guardar" para actualizar `project.wipLimits`.
-- [ ] T1803 `TasksTab.tsx`: agregar botón "Configurar WIP limits" en la barra superior.
+- [x] T1803 `TasksTab.tsx`: agregar botón "Configurar WIP limits" en la barra superior.
   - Icono: Settings (lucide-react).
   - Abre `WipLimitConfig`.
-- [ ] T1804 `KanbanColumn.tsx`: mostrar indicador visual cuando se supera el WIP limit.
+- [x] T1804 `KanbanColumn.tsx`: mostrar indicador visual cuando se supera el WIP limit.
   - Si `taskCount > wipLimit`: fondo ámbar (`bg-amber-50 dark:bg-amber-950/20`).
   - Mostrar contador: "12/10" (taskCount/wipLimit).
-- [ ] T1805 Verificar: WIP limits se guardan, indicador es visible.
+- [x] T1805 Verificar: WIP limits se guardan, indicador es visible.
   - Smoke visual: configurar WIP limit de 5 en "Doing", agregar 6 tareas, verificar indicador.
   - `npx tsc --noEmit`, `npx vitest run`.
 

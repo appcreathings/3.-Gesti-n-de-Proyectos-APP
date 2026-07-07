@@ -115,6 +115,12 @@ const sample: ToolData = {
       ],
       milestones: [],
       sprints: [],
+      wipLimits: {
+        todo: null,
+        doing: null,
+        blocked: null,
+        done: null,
+      },
       createdAt: NOW,
       updatedAt: NOW,
     } satisfies Project,
