@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   X,
   UserCheck,
+  Webhook,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -59,7 +60,8 @@ const NAV = [
   { to: ROUTES.daily, label: "Daily Standup", icon: Calendar },
   { to: ROUTES.library(), label: "Biblioteca", icon: Library },
   { to: ROUTES.quarters, label: "Trimestres", icon: CalendarRange },
-  { to: ROUTES.automations, label: "Automatizaciones", icon: Workflow },
+  { to: ROUTES.flows, label: "Flujos", icon: Workflow },
+  { to: ROUTES.integrations, label: "Integraciones", icon: Webhook },
   { to: ROUTES.notifications, label: "Notificaciones", icon: Bell },
   { to: ROUTES.settings(), label: "Ajustes", icon: Settings },
 ];

@@ -819,6 +819,478 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       ],
     },
   },
+  {
+    slug: "que-es-un-hito-gestion-proyectos",
+    title: "Qué es un hito en gestión de proyectos: definición y ejemplos prácticos",
+    excerpt:
+      "Un hito marca un punto de control clave en cualquier proyecto. Aprendé a definirlos, diferenciarlos de las tareas y usarlos para avanzar con claridad.",
+    category: "productividad",
+    categoryLabel: "Productividad",
+    publishedAt: "2026-07-07",
+    readingTime: "6 min",
+    featured: false,
+    seo: {
+      title: "Qué es un hito en gestión de proyectos: guía práctica — Hito",
+      description:
+        "Un hito en gestión de proyectos marca un punto de control clave. Aprendé a definirlos, diferenciarlos de las tareas y usarlos para avanzar con claridad.",
+      ogImageAlt: "Definición de hito en gestión de proyectos.",
+    },
+    content: {
+      eyebrow: "Productividad",
+      intro: (
+        <>
+          Si alguna vez planificaste un proyecto, seguro escuchaste la palabra{" "}
+          <strong>hito</strong>. Pero ¿qué es exactamente? No es una tarea, no
+          es una fecha en el calendario y no es un entregable cualquiera. Un
+          hito es algo más específico: un <em>punto de control</em> que te dice
+          si vas bien encaminado. La palabra viene del latín{" "}
+          <em>hitus</em>, pero su origen más concreto está en los mojones de
+          piedra que marcaban los caminos: señales que te decían dónde estabas y
+          cuánto faltaba para llegar. En gestión de proyectos, un hito cumple
+          exactamente esa función.
+        </>
+      ),
+      sections: [
+        {
+          heading: "Definición simple de hito",
+          body: (
+            <>
+              <p>
+                Un hito es un <strong>evento significativo</strong> dentro de un
+                proyecto que marca el cumplimiento de una etapa, una decisión o
+                un resultado verificable. No tiene duración por sí mismo: es un
+                punto en el tiempo, no un rango.
+              </p>
+              <p>
+                Pensalo así: si tu proyecto es un viaje, las tareas son los
+                pasos que das y los hitos son los carteles que te indican que
+                llegaste a cada pueblo del camino. No caminás "el cartel": el
+                cartel te confirma que llegaste.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Hito vs tarea: la diferencia clave",
+          body: (
+            <>
+              <p>
+                La confusión más común es tratar un hito como si fuera una
+                tarea. No lo son. Una <strong>tarea</strong> es trabajo
+                ejecutable: tiene duración, responsable y pasos concretos. Un{" "}
+                <strong>hito</strong> es un logro verificable: marca que algo
+                importante se completó.
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <strong>Tarea:</strong> "Redactar el documento de
+                  especificaciones".
+                </li>
+                <li>
+                  <strong>Hito:</strong> "Especificaciones aprobadas por el
+                  cliente".
+                </li>
+              </ul>
+              <p>
+                La tarea es el trabajo; el hito es la confirmación de que ese
+                trabajo produjo el resultado esperado. Si un equipo solo trackea
+                tareas, sabe qué está haciendo pero no si está avanzando hacia
+                donde necesita.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Ejemplos de hitos en proyectos reales",
+          body: (
+            <>
+              <p>
+                Los hitos varían según el tipo de proyecto, pero siempre comparten
+                una característica: son verificables. Acá van algunos ejemplos
+                concretos:
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <strong>Desarrollo de software:</strong> "MVP desplegado en
+                  staging", "Tests de integración aprobados", "Release v2.0 en
+                  producción".
+                </li>
+                <li>
+                  <strong>Marketing:</strong> "Campaña lanzada", "1.000 leads
+                  capturados", "Reporte de resultados entregado".
+                </li>
+                <li>
+                  <strong>Consultoría:</strong> "Diagnóstico inicial completado",
+                  "Propuesta aprobada", "Implementación finalizada".
+                </li>
+                <li>
+                  <strong>Construcción:</strong> "Cimientos vertidos",
+                  "Estructura completada", "Inspección municipal aprobada".
+                </li>
+              </ul>
+              <p>
+                Notá que ninguno de estos hitos dice <em>cómo</em> se logró. Solo
+                dicen que algo importante se completó y se puede verificar.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Cómo definir buenos hitos",
+          body: (
+            <>
+              <p>
+                No cualquier punto del proyecto merece ser un hito. Un buen hito
+                cumple cuatro criterios:
+              </p>
+              <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <strong>Verificable:</strong> se puede confirmar objetivamente
+                  si se cumplió o no. No hay ambigüedad.
+                </li>
+                <li>
+                  <strong>Relevante:</strong> marca un avance real hacia el
+                  objetivo del proyecto. No es un detalle menor disfrazado de
+                  logro.
+                </li>
+                <li>
+                  <strong>Con fecha:</strong> tiene un momento esperado de
+                  cumplimiento. Un hito sin fecha pierde su función de control.
+                </li>
+                <li>
+                  <strong>Alcanzable:</strong> es realista dentro del contexto
+                  del proyecto. Un hito imposible solo genera frustración.
+                </li>
+              </ol>
+              <p>
+                Si un "hito" no cumple estos criterios, probablemente es una
+                tarea disfrazada o un deseo. La disciplina de definir bien los
+                hitos es lo que los hace útiles.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Cómo trackear hitos sin complicarte",
+          body: (
+            <>
+              <p>
+                Trackear hitos no requiere herramientas complejas. Lo que
+                necesitás es visibilidad: saber en un vistazo qué hitos se
+                cumplieron, cuáles están en riesgo y cuáles aún no empezaron.
+              </p>
+              <p>
+                Una forma simple es usar una vista de proyecto donde los hitos
+                aparezcan como marcas en una línea de tiempo, con un estado
+                claro: pendiente, en progreso o completado. No necesitás un
+                diagrama de Gantt de 200 filas; necesitás claridad sobre los
+                puntos que importan.
+              </p>
+              <p>
+                En Hito, cada proyecto tiene sus áreas y procesos, y los hitos
+                emergen naturalmente cuando un proceso se completa o un
+                checklist se marca como terminado. No hay que configurar nada
+                extra: la estructura del proyecto ya te dice dónde están los
+                puntos de control.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Preguntas frecuentes",
+          body: (
+            <>
+              <dl className="space-y-4">
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Cuántos hitos debe tener un proyecto?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Depende de la duración y complejidad. Como regla general, un
+                    hito cada 2 a 4 semanas de trabajo mantiene el momentum sin
+                    sobrecargar el seguimiento.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Un hito puede cambiar de fecha?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Sí, y debería. Los hitos son puntos de referencia, no
+                    promesas inmutables. Lo importante es que el cambio sea
+                    consciente y documentado, no que se muevan por inercia.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Los hitos solo sirven para proyectos grandes?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    No. Un proyecto de dos semanas también puede tener 2 o 3
+                    hitos. La escala cambia, pero la función es la misma: saber
+                    si estás avanzando hacia donde querés.
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ),
+        },
+      ],
+    },
+  },
+  {
+    slug: "hito-project-gestion-por-hitos",
+    title: "Hito Project: cómo gestionar proyectos avanzando por hitos",
+    excerpt:
+      "Gestionar por hitos es avanzar con puntos de control claros. Conocé la filosofía del Hito Project: proyectos locales, hitos verificables y cero dependencia de la nube.",
+    category: "productividad",
+    categoryLabel: "Productividad",
+    publishedAt: "2026-07-07",
+    readingTime: "7 min",
+    featured: true,
+    seo: {
+      title: "Hito Project: gestión de proyectos por hitos, sin nube — Hito",
+      description:
+        "Gestionar por hitos es avanzar con puntos de control claros. Conocé la filosofía del Hito Project: proyectos locales, hitos verificables y cero dependencia de la nube.",
+      ogImageAlt: "Filosofía Hito Project: gestión por hitos.",
+    },
+    content: {
+      eyebrow: "Productividad",
+      intro: (
+        <>
+          El nombre no es casualidad. <strong>Hito</strong> viene de la idea de
+          que los proyectos no se miden por la cantidad de tareas abiertas, sino
+          por los puntos de control que se van superando. Un hito es un mojón
+          en el camino: te dice dónde estabas, dónde estás y cuánto falta. La
+          filosofía del <strong>Hito Project</strong> lleva esa idea al
+          extremo: gestionar todo el proyecto como una sucesión de hitos
+          verificables, con documentación viva y control total sobre tus datos.
+          Sin nube, sin suscripciones, sin depender de que un servidor tercero
+          esté online para que tu equipo funcione.
+        </>
+      ),
+      sections: [
+        {
+          heading: "Qué es el Hito Project",
+          body: (
+            <>
+              <p>
+                El Hito Project es una forma de entender la gestión de proyectos
+                donde el <strong>hito</strong> es la unidad central de progreso.
+                No es una metodología cerrada con certificaciones y manuales de
+                400 páginas. Es un principio simple: si no podés verificar que
+                avanzaste, no avanzaste.
+              </p>
+              <p>
+                Esta filosofía se materializa en una herramienta concreta: la
+                app Hito, un gestor de proyectos local-first donde cada
+                proyecto se organiza en áreas, procesos y checklists. Los hitos
+                no se configuran aparte: emergen cuando un proceso se completa,
+                cuando un checklist se marca como terminado, cuando un área
+                entrega su resultado.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Por qué gestionar por hitos funciona",
+          body: (
+            <>
+              <p>
+                La gestión tradicional de proyectos suele caer en dos extremos:
+                o microgestión de tareas (que agota al equipo y al líder) o
+                planificación abstracta de alto nivel (que nadie entiende cuando
+                abre el Excel). Gestionar por hitos ofrece un punto medio:
+              </p>
+              <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <strong>Claridad:</strong> todo el equipo sabe qué se necesita
+                  para "llegar al siguiente mojón". No hay ambigüedad sobre qué
+                  significa avanzar.
+                </li>
+                <li>
+                  <strong>Momentum:</strong> cada hito completado es una
+                  victoria visible. Eso genera inercia positiva, no la sensación
+                  de correr en una rueda de hámster.
+                </li>
+                <li>
+                  <strong>Puntos de control sin microgestión:</strong> no
+                  necesitás preguntar "¿cómo vas?" cada dos horas. El hito te
+                  dice si se llegó o no.
+                </li>
+              </ol>
+              <p>
+                Para equipos pequeños y medianos, esto es especialmente valioso:
+                no tenés un PM dedicado ni herramientas enterprise. Necesitás
+                algo simple que funcione y que no te esclavice.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Los 4 principios del Hito Project",
+          body: (
+            <>
+              <dl className="space-y-4">
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    1. Hitos verificables
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Cada punto de control debe poder confirmarse
+                    objetivamente. No alcanza con "creo que ya está". O se puede
+                    verificar, o no es un hito.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    2. Progreso visible
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    El estado del proyecto debe ser legible en un vistazo. Si
+                    necesitás tres reuniones para saber dónde estás, la
+                    herramienta no te está ayudando.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    3. Documentación viva
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Los procesos y checklists no son archivos muertos en una
+                    wiki: están al lado del trabajo, se actualizan con el
+                    proyecto y se usan de verdad.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    4. Control local
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Tus datos viven en archivos que vos controlás. No en
+                    servidores de terceros, no en planes premium, no en
+                    exportaciones parciales. Si mañana querés migrar, tus datos
+                    ya están en un formato abierto.
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ),
+        },
+        {
+          heading: "Cómo aplicar esta filosofía con Hito",
+          body: (
+            <>
+              <p>
+                La app Hito está construida sobre una jerarquía que hace que
+                los hitos emerjan de forma natural:{" "}
+                <strong>
+                  Producto → Proyecto → Área → Proceso / Checklist → Tarea
+                </strong>
+                . Cada nivel responde a una pregunta distinta y cada uno
+                aporta su propio punto de control.
+              </p>
+              <p>
+                Cuando un área completa su checklist, eso es un hito. Cuando un
+                proceso se ejecuta y se marca como terminado, eso es otro hito.
+                No necesitás configurar un módulo de "milestones" aparte: la
+                estructura del proyecto ya te los da.
+              </p>
+              <p>
+                Además, como todo es local-first, podés versionar tus proyectos
+                con Git, compartir la carpeta del equipo por los medios que ya
+                usan y trabajar sin internet. La filosofía del Hito Project no
+                es solo un concepto: es la arquitectura de la herramienta.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Hito Project vs gestión tradicional",
+          body: (
+            <>
+              <p>
+                La gestión tradicional de proyectos suele venir atada a
+                herramientas pesadas: Jira, Asana, Monday, ClickUp. Son
+                poderosas, pero también complejas, caras y dependientes de la
+                nube. El Hito Project propone otra cosa:
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <strong>Sin microgestión:</strong> no necesitás registrar cada
+                  minuto de trabajo. Los hitos marcan el progreso, no las horas
+                  facturadas.
+                </li>
+                <li>
+                  <strong>Sin dependencias de nube:</strong> tus datos son
+                  archivos JSON en tu equipo. No dependés del uptime de un
+                  tercero ni de que renueven una integración.
+                </li>
+                <li>
+                  <strong>Sin suscripciones:</strong> no hay plan premium, no
+                  hay límite de usuarios, no hay features bloqueadas. Es MIT, es
+                  todo, siempre.
+                </li>
+                <li>
+                  <strong>Sin fricción de onboarding:</strong> no hay que crear
+                  cuenta, verificar email ni configurar un workspace en la nube.
+                  Abrís la app y empezás a trabajar.
+                </li>
+              </ul>
+              <p>
+                Esto no significa que el Hito Project sea para todos. Si tu
+                equipo tiene 50 personas y necesita SSO, audit logs
+                distribuidos y compliance SOC2, hay herramientas mejores para
+                eso. Pero si sos un equipo de 1 a 15 personas que valora la
+                claridad, la privacidad y el control, esta filosofía está
+                pensada para vos.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Preguntas frecuentes",
+          body: (
+            <>
+              <dl className="space-y-4">
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Hito Project es una metodología o una herramienta?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Es ambos. La filosofía de gestionar por hitos es el
+                    principio; la app Hito es la implementación concreta. Podés
+                    aplicar el principio con cualquier herramienta, pero Hito
+                    está diseñada desde cero para que sea natural.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Puedo usar Hito sin internet?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Sí. Es una PWA local-first: funciona completamente offline.
+                    Los datos se guardan en archivos locales y el asistente de
+                    IA es opcional (requiere tu propia API key).
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">
+                    ¿Cómo comparto proyectos con mi equipo?
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    Como compartís cualquier carpeta: Git, Dropbox, Drive, red
+                    local. Cada persona abre la misma carpeta desde su app. No
+                    hay servidores de por medio.
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ),
+        },
+      ],
+    },
+  },
 ];
 
 export function getArticleBySlug(slug: string): BlogArticle | undefined {

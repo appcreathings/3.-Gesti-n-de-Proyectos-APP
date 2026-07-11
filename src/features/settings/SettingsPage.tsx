@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Download, Upload } from "lucide-react";
+import { Download, FolderOpen, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Panel } from "@/components/ui/Panel";
@@ -37,7 +37,9 @@ function SettingsContent() {
   const adapter = useAppStore((s) => s.adapter);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const updateOrg = useAppStore((s) => s.updateOrg);
+  const changeFolder = useAppStore((s) => s.changeFolder);
   const settings = ws?.settings;
+  const folderName = adapter.getRootName();
 
   const [orgName, setOrgName] = useState(ws?.org.name ?? "");
   useEffect(() => {
@@ -91,6 +93,31 @@ function SettingsContent() {
             </Button>
           </div>
         </Panel>
+
+        {adapter.kind === "filesystem" && (
+          <Panel
+            label="Almacenamiento"
+            title="Carpeta de datos"
+            description="Cambia la carpeta local donde se guardan tus proyectos."
+          >
+            <div className="flex max-w-md items-center gap-3">
+              <div className="flex min-w-0 items-center gap-2 text-sm">
+                <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate font-medium">
+                  {folderName ?? "Sin carpeta"}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto shrink-0"
+                onClick={changeFolder}
+              >
+                Cambiar carpeta
+              </Button>
+            </div>
+          </Panel>
+        )}
 
         <Panel label="Apariencia" title="Apariencia" description="Tema de la interfaz.">
           <div className="flex gap-2">

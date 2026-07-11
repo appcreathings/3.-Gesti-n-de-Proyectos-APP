@@ -37,6 +37,17 @@ interface DataState {
 
   hydrate: () => Promise<void>;
   runTemporal: () => Promise<void>;
+  /** Run poll-triggered flows (e.g. HubSpot) against freshly-fetched external records. */
+  runPolledFlow: (pollKey: string, records: Record<string, unknown>[]) => Promise<void>;
+  /** Ejecuta un flujo específico ahora mismo — "Ejecutar ahora" (spec 022 §B/§C).
+   * Trae datos frescos de verdad (poll) o corre contra un evento sintético
+   * (evento, requiere `syntheticEvent`) y aplica el resultado real, igual que
+   * una ejecución automática (sube runCount, entra al historial). Bypassea
+   * `enabled` sin tocar el flujo guardado. */
+  runFlowNow: (
+    flowId: string,
+    options?: { syntheticEvent?: DomainEvent },
+  ) => Promise<import("@/flows/manual-run").ManualRunOutcome>;
 
   createProduct: (p: Product) => Promise<void>;
   updateProduct: (p: Product) => Promise<void>;
@@ -165,6 +176,14 @@ export const useDataStore = create<DataState>((set, get) => ({
     });
     for (const p of changedProjects) await persistProject(p);
     if (notifications.length > 0) await get().addNotifications(notifications);
+  },
+
+  async runPolledFlow(pollKey, records) {
+    await runPolledFlowImpl(pollKey, records);
+  },
+
+  async runFlowNow(flowId, options) {
+    return runFlowNowImpl(flowId, options);
   },
 
   async createProduct(p) {
@@ -405,10 +424,93 @@ async function logActivity(events: DomainEvent[], project: Project) {
   await adapter().writeDoc<ActivityDoc>("activity", doc);
 }
 
+/**
+ * Apply the effects of a flow engine run: persist mutated projects, create/
+ * update people, push notifications, bump runCount only for flows that
+ * actually executed, and log any transform/output errors. Shared by the
+ * event-triggered path (`runAutomations`) and the poll-triggered path
+ * (`runPolledFlow`) so both apply results identically.
+ */
+async function applyFlowResult(
+  flowResult: import("@/flows/engine").FlowEngineResult,
+  flowStore: {
+    flows: import("@/domain/schemas/flow").FlowRule[];
+    incrementRunCount: (id: string) => Promise<void>;
+    recordRuns: (
+      entries: Omit<import("@/store/useFlowStore").FlowRunLog, "id">[],
+    ) => Promise<void>;
+  },
+) {
+  const s = useDataStore.getState();
+  for (const p of flowResult.changedProjects) {
+    await persistProject({ ...p, updatedAt: nowIso() });
+  }
+  // `createProject` (no `persistProject`/`saveProject`): dispara el evento
+  // `project.created` + registro de actividad + webhooks salientes, igual
+  // que un proyecto creado a mano — un deal de HubSpot que se convierte en
+  // proyecto debe pasar por el mismo camino que cualquier otro alta.
+  for (const p of flowResult.newProjects) {
+    await s.createProject(p);
+  }
+  for (const person of flowResult.newPeople) {
+    await s.createPerson(person);
+  }
+  for (const person of flowResult.updatedPeople) {
+    await s.updatePerson(person);
+  }
+  if (flowResult.notifications.length > 0) {
+    await s.addNotifications(flowResult.notifications);
+  }
+
+  const now = nowIso();
+  const runLogs: Omit<import("@/store/useFlowStore").FlowRunLog, "id">[] = [];
+
+  // Igual que un run log ya se le adjunta la traza de esa corrida (si se
+  // pidió con `trace: true`) y un preview del primer registro procesado —
+  // convierte el historial en un depurador real en vez de solo éxito/error
+  // (spec 023 §F).
+  const traceFor = (flowId: string) => flowResult.traces[flowId];
+  const previewFor = (flowId: string) => traceFor(flowId)?.records[0]?.record;
+
+  // Increment run count only for flows that actually matched and ran
+  for (const flowId of flowResult.executedFlowIds) {
+    await flowStore.incrementRunCount(flowId);
+    const flow = flowStore.flows.find((f) => f.id === flowId);
+    runLogs.push({
+      flowId,
+      flowName: flow?.name ?? flowId,
+      at: now,
+      status: "success",
+      detail: "Ejecutado correctamente.",
+      trace: traceFor(flowId),
+      preview: previewFor(flowId),
+    });
+  }
+
+  for (const err of flowResult.errors) {
+    console.error(`[FlowEngine] "${err.flowName}" (${err.stage}):`, err.message);
+    runLogs.push({
+      flowId: err.flowId,
+      flowName: err.flowName,
+      at: now,
+      status: "error",
+      detail: `[${err.stage}] ${err.message}`,
+      trace: traceFor(err.flowId),
+      preview: previewFor(err.flowId),
+    });
+  }
+
+  if (runLogs.length > 0) {
+    await flowStore.recordRuns(runLogs);
+  }
+}
+
 /** Run event-driven automations and apply their effects (no re-entrancy). */
 async function runAutomations(events: DomainEvent[]) {
   if (events.length === 0) return;
   const s = useDataStore.getState();
+
+  // Run legacy automations
   const { changedProjects, notifications } = runEngine({
     events,
     rules: s.automations,
@@ -419,6 +521,197 @@ async function runAutomations(events: DomainEvent[]) {
     await persistProject({ ...p, updatedAt: nowIso() });
   }
   if (notifications.length > 0) await s.addNotifications(notifications);
+
+  // Run new flow rules
+  try {
+    const { useFlowStore } = await import("./useFlowStore");
+    const { runFlowEngine } = await import("@/flows/engine");
+
+    const flowStore = useFlowStore.getState();
+    if (flowStore.flows.length > 0) {
+      const flowResult = await runFlowEngine({
+        flows: flowStore.flows,
+        events,
+        projects: s.projects,
+        people: s.people,
+        checklistTemplates: s.checklistTemplates,
+        projectTypes: s.projectTypes,
+        processTemplates: s.processTemplates,
+        trace: true,
+      });
+      await applyFlowResult(flowResult, flowStore);
+    }
+  } catch (error) {
+    console.error("Error running flow rules:", error);
+  }
+
+  // Dispatch outbound webhooks for integration events
+  try {
+    const { dispatchOutboundEvents } = await import("@/integrations/outbound/dispatcher");
+    const app = useAppStore.getState();
+    const orgName = app.workspace?.org.name ?? "Hito";
+    await dispatchOutboundEvents(events, orgName);
+  } catch {
+    // Silently fail — integrations are optional
+  }
+}
+
+/**
+ * Run flows whose trigger is a poll (e.g. HubSpot) against freshly-fetched
+ * external records. Called by the polling manager's registered handler once
+ * per successful poll — separate from `runAutomations` because there are no
+ * internal DomainEvents involved, only `externalData`. Exposed on the store
+ * as `runPolledFlow`.
+ */
+async function runPolledFlowImpl(pollKey: string, records: Record<string, unknown>[]) {
+  if (records.length === 0) return;
+  const s = useDataStore.getState();
+
+  try {
+    const { useFlowStore } = await import("./useFlowStore");
+    const { runFlowEngine } = await import("@/flows/engine");
+
+    const flowStore = useFlowStore.getState();
+    if (flowStore.flows.length === 0) return;
+
+    const externalData = new Map<string, Record<string, unknown>[]>();
+    externalData.set(pollKey, records);
+
+    const flowResult = await runFlowEngine({
+      flows: flowStore.flows,
+      events: [],
+      projects: s.projects,
+      people: s.people,
+      checklistTemplates: s.checklistTemplates,
+      projectTypes: s.projectTypes,
+      processTemplates: s.processTemplates,
+      externalData,
+      trace: true,
+    });
+    await applyFlowResult(flowResult, flowStore);
+  } catch (error) {
+    console.error("Error running polled flow:", error);
+  }
+}
+
+/**
+ * "Ejecutar ahora" (spec 022 §B/§C) — corre UN flujo específico de inmediato,
+ * de verdad (aplica igual que una ejecución automática: sube runCount, entra
+ * al historial), sin esperar al próximo poll o al evento real:
+ * - Trigger `poll`: trae datos frescos vía `fetchPollSampleForFlow` (ignora
+ *   el watermark incremental — nunca da "0 resultados" solo porque nada
+ *   cambió desde el último poll real).
+ * - Trigger `event`: requiere `options.syntheticEvent` (la Fase C construye
+ *   uno real a partir de una entidad elegida por el usuario).
+ * Corre `{...flow, enabled: true}` transitorio — bypassea el filtro de
+ * `enabled` del engine sin tocar el flujo guardado, así se puede probar un
+ * flujo que todavía no se activó.
+ */
+async function runFlowNowImpl(
+  flowId: string,
+  options?: { syntheticEvent?: DomainEvent },
+): Promise<import("@/flows/manual-run").ManualRunOutcome> {
+  const s = useDataStore.getState();
+  const { useFlowStore } = await import("./useFlowStore");
+  const { runFlowEngine, pollTriggerKey } = await import("@/flows/engine");
+
+  const flowStore = useFlowStore.getState();
+  const flow = flowStore.flows.find((f) => f.id === flowId);
+  if (!flow) return { success: false, message: "Flujo no encontrado." };
+
+  // A diferencia de una ejecución automática (que solo entra al historial si
+  // el engine llegó a correr), "Ejecutar ahora" es una acción explícita del
+  // usuario — todo desenlace, incluyendo un fallo *antes* de llegar al
+  // engine (conexión no encontrada, vault bloqueado, CORS), debe quedar
+  // visible en el historial. Sin esto, un fallo temprano se devolvía al
+  // llamador pero el panel de Historial se veía vacío — el usuario no tenía
+  // forma de saber qué pasó.
+  const recordOutcome = async (outcome: import("@/flows/manual-run").ManualRunOutcome) => {
+    await flowStore.recordRuns([
+      {
+        flowId: flow.id,
+        flowName: flow.name,
+        at: nowIso(),
+        status: outcome.success ? "success" : "error",
+        detail: `[Ejecutar ahora] ${outcome.message}`,
+      },
+    ]);
+    return outcome;
+  };
+
+  let events: DomainEvent[] = [];
+  let externalData: Map<string, Record<string, unknown>[]> | undefined;
+
+  if (flow.trigger.type === "poll") {
+    const { fetchPollSampleForFlow } = await import("@/flows/manual-run");
+    const fetchResult = await fetchPollSampleForFlow(flow.trigger);
+    if (!fetchResult.ok) {
+      return recordOutcome({
+        success: false,
+        message: fetchResult.error ?? "Error al traer datos de la conexión.",
+      });
+    }
+    const records = fetchResult.records ?? [];
+    if (records.length === 0) {
+      return recordOutcome({
+        success: true,
+        message: "No se encontraron registros para procesar en este momento.",
+      });
+    }
+    externalData = new Map([[pollTriggerKey(flow.trigger), records]]);
+  } else if (flow.trigger.type === "event") {
+    if (!options?.syntheticEvent) {
+      return recordOutcome({
+        success: false,
+        message: "Este flujo necesita elegir una entidad real para simular el evento.",
+      });
+    }
+    events = [options.syntheticEvent];
+  }
+
+  const transientFlow = { ...flow, enabled: true };
+
+  const flowResult = await runFlowEngine({
+    flows: [transientFlow],
+    events,
+    projects: s.projects,
+    people: s.people,
+    checklistTemplates: s.checklistTemplates,
+    projectTypes: s.projectTypes,
+    processTemplates: s.processTemplates,
+    externalData,
+    trace: true,
+  });
+
+  // `applyFlowResult` ya registra en el historial el desenlace normal
+  // (ejecutado / error de transform-output) vía `executedFlowIds`/`errors` —
+  // no duplicar esa entrada aquí, solo construir el mensaje de retorno para
+  // quien llamó a `runFlowNow`.
+  await applyFlowResult(flowResult, flowStore);
+
+  // Los casos "hubo error" y "se ejecutó" ya quedan en el historial gracias a
+  // `applyFlowResult` (itera `errors`/`executedFlowIds`). El caso restante —
+  // corrió sin errores pero no ejecutó nada (0 outputs configurados, o las
+  // condiciones filtraron todos los registros) — NO cae en ninguno de esos
+  // dos arrays, así que sin este `recordOutcome` quedaba silenciosamente
+  // fuera del historial (encontrado por el smoke test de spec 022 §C).
+  const flowErrors = flowResult.errors.filter((e) => e.flowId === flow.id);
+  if (flowErrors.length > 0) {
+    return {
+      success: false,
+      message: flowErrors.map((e) => `[${e.stage}] ${e.message}`).join(" · "),
+    };
+  }
+  if (flowResult.executedFlowIds.includes(flow.id)) {
+    return { success: true, message: "El flujo se ejecutó correctamente." };
+  }
+  return recordOutcome({
+    success: true,
+    message:
+      flow.outputs.length === 0
+        ? "El flujo corrió pero no tiene ninguna acción configurada."
+        : "El flujo corrió pero ningún registro cumplió las condiciones configuradas.",
+  });
 }
 
 /** Rebuild the lightweight index in workspace.json from the loaded entities. */

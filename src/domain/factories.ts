@@ -62,6 +62,7 @@ export function newProject(name: string, productId: string | null = null): Proje
       blocked: null,
       done: null,
     },
+    dedupeKey: null,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -142,6 +143,7 @@ export function newTask(title: string, areaId: string | null = null): Task {
     archived: false,
     estimate: null,
     subtasks: [],
+    dedupeKey: null,
     createdAt: ts,
     updatedAt: ts,
   };

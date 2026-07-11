@@ -14,6 +14,10 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  /** Estilo del botón de confirmar. `"destructive"` (default) para acciones
+   * irreversibles tipo eliminar; `"default"` para acciones reales pero no
+   * destructivas (ej. "Ejecutar ahora" un flujo). */
+  confirmVariant?: "destructive" | "default";
   onConfirm: () => void;
 }
 
@@ -23,6 +27,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Eliminar",
+  confirmVariant = "destructive",
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -37,7 +42,7 @@ export function ConfirmDialog({
             Cancelar
           </Button>
           <Button
-            variant="destructive"
+            variant={confirmVariant}
             onClick={() => {
               onConfirm();
               onOpenChange(false);

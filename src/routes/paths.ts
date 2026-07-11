@@ -12,6 +12,12 @@ export const ROUTES = {
   quarters: "/app/quarters",
   library: (tab?: string) => (tab ? `/app/library?tab=${tab}` : "/app/library"),
   automations: "/app/automations",
+  flows: "/app/flows",
+  flowNew: "/app/flows/new",
+  flowEdit: (id: string) => `/app/flows/${id}/edit`,
+  flowHistory: "/app/flows/history",
+  flowServices: "/app/flows/services",
+  integrations: "/app/integrations",
   notifications: "/app/notifications",
   settings: (hash?: string) => (hash ? `/app/settings#${hash}` : "/app/settings"),
 } as const;

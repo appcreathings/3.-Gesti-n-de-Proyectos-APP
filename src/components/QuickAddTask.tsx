@@ -7,8 +7,7 @@ import { Select } from "@/components/ui/select";
 import { useDataStore } from "@/store/useDataStore";
 import { useNavigate } from "react-router-dom";
 import * as ops from "@/domain/projectOps";
-import { uuid, nowIso } from "@/lib/utils";
-import type { Task } from "@/domain/schemas";
+import { newTask } from "@/domain/factories";
 
 interface Props {
   open: boolean;
@@ -50,26 +49,7 @@ export function QuickAddTask({ open, onClose }: Props) {
     e.preventDefault();
     if (!title.trim() || !projectId) return;
 
-    const task: Task = {
-      id: uuid(),
-      title: title.trim(),
-      description: "",
-      summary: "",
-      status: "todo",
-      priority,
-      assigneeId: null,
-      dueDate: null,
-      areaId: areaId || null,
-      sourceItemId: null,
-      sprintId: null,
-      tags: [],
-      comments: [],
-      archived: false,
-      estimate: null,
-      subtasks: [],
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
+    const task = { ...newTask(title.trim(), areaId || null), priority };
 
     mutateProject(projectId, (p) => ops.addTask(p, task));
     onClose();

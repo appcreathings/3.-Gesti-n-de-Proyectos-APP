@@ -15,7 +15,9 @@ interface Props {
   onDelete?: () => void;
 }
 
-/** Trigger→condición→acción card, shared by AutomationsPage and ProjectAutomationsTab. */
+/** Trigger→condición→acción card, usada por `ProjectAutomationsTab` (reglas
+ * legacy por-proyecto — el sistema global de automatizaciones se migró a
+ * Flows, spec 019/020; esta card sigue viva solo para el scope por-proyecto). */
 export function AutomationRuleCard({ rule, scopeLabel, onToggleEnabled, onEdit, onDelete }: Props) {
   return (
     <Card className="group">

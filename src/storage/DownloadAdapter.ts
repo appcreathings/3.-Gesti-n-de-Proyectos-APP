@@ -29,6 +29,14 @@ export class DownloadAdapter implements StorageAdapter {
     return this.ready;
   }
 
+  getRootName(): string | null {
+    return null;
+  }
+
+  async changeFolder(): Promise<void> {
+    throw new Error("changeFolder no soportado en el modo descarga");
+  }
+
   /** Migrate a read record up to the current schema version, snapshotting once first. */
   private async migrateOnRead<T extends Record<string, unknown>>(
     kind: MigrationKind,

@@ -31,6 +31,8 @@ const DOC_DIRS: Record<DocName, string> = {
   people: "people",
   notifications: "notifications",
   activity: "activity",
+  flows: "flows",
+  "flow-runs": "flow-runs",
 };
 
 export class StorageError extends Error {
@@ -51,6 +53,10 @@ export class FileSystemAdapter implements StorageAdapter {
 
   isReady(): boolean {
     return this.root !== null;
+  }
+
+  getRootName(): string | null {
+    return this.root?.name ?? null;
   }
 
   /**
@@ -116,6 +122,22 @@ export class FileSystemAdapter implements StorageAdapter {
       await this.bootstrap();
     }
     return ok;
+  }
+
+  async changeFolder(): Promise<void> {
+    if (!window.showDirectoryPicker) {
+      throw new StorageError("File System Access API no soportada");
+    }
+    const handle = await window.showDirectoryPicker({
+      id: "gestor-proyectos",
+      mode: "readwrite",
+    });
+    const ok = await verifyPermission(handle, true);
+    if (!ok) throw new StorageError("Permiso de carpeta denegado");
+    this.root = handle;
+    this.migrationBackupDone = false;
+    await idbSet(HANDLE_KEY, handle);
+    await this.bootstrap();
   }
 
   private requireRoot(): FileSystemDirectoryHandle {

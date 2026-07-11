@@ -1,0 +1,1205 @@
+import { describe, it, expect } from "vitest";
+import { runFlowEngine } from "./engine";
+import type { FlowRule } from "@/domain/schemas/flow";
+import type { DomainEvent } from "@/automations/events";
+import type { Project } from "@/domain/schemas";
+import { newProject, newTask } from "@/domain/factories";
+
+describe("FlowEngine", () => {
+  const createTestProject = (): Project => {
+    const project = newProject("Test Project");
+    project.id = "project-1";
+    return project;
+  };
+
+  describe("Event Trigger", () => {
+    it("executes flow when event matches", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Test Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createNotification",
+            severity: "info",
+            message: "Task changed",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        {
+          type: "task.statusChanged",
+          projectId: "project-1",
+          taskId: "task-1",
+          from: "todo",
+          to: "done",
+        },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(1);
+      expect(result.notifications[0].message).toBe("Task changed");
+    });
+
+    it("skips flow when event does not match", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Test Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createNotification",
+            severity: "info",
+            message: "Task changed",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        {
+          type: "project.statusChanged",
+          projectId: "project-1",
+          from: "active",
+          to: "done",
+        },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(0);
+    });
+
+    it("skips disabled flows", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Test Flow",
+        enabled: false,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createNotification",
+            severity: "info",
+            message: "Task changed",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        {
+          type: "task.statusChanged",
+          projectId: "project-1",
+          taskId: "task-1",
+          from: "todo",
+          to: "done",
+        },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(0);
+    });
+  });
+
+  describe("Conditions", () => {
+    it("filters records by conditions", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Test Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: {
+          conditions: [{ field: "to", op: "==", value: "done" }],
+          mapping: [],
+        },
+        outputs: [
+          {
+            type: "createNotification",
+            severity: "info",
+            message: "Task completed",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        {
+          type: "task.statusChanged",
+          projectId: "project-1",
+          taskId: "task-1",
+          from: "todo",
+          to: "doing",
+        },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(0);
+    });
+  });
+
+  describe("Poll Trigger", () => {
+    it("processes external data from polling", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "HubSpot Sync",
+        enabled: true,
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: {
+            connectionId: "conn-1",
+            objectType: "contacts",
+            fields: ["email", "firstname"],
+            filters: [],
+            intervalMs: 300000,
+          },
+        },
+        logic: {
+          conditions: [],
+          mapping: [
+            { source: "email", target: "email" },
+            { source: "firstname", target: "name" },
+          ],
+        },
+        outputs: [
+          {
+            type: "createPerson",
+            matchField: "email",
+            ifNotFound: "create",
+            data: {
+              email: "{{email}}",
+              name: "{{name}}",
+            },
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const externalData = new Map<string, Record<string, unknown>[]>();
+      externalData.set("hubspot", [
+        { email: "jane@example.com", firstname: "Jane" },
+      ]);
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+
+      expect(result.newPeople).toHaveLength(1);
+      expect(result.newPeople[0].email).toBe("jane@example.com");
+      expect(result.newPeople[0].name).toBe("Jane");
+    });
+  });
+
+  describe("Multiple Outputs", () => {
+    it("executes all outputs for each record", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Multi Output Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createNotification",
+            severity: "info",
+            message: "Task changed",
+          },
+          {
+            type: "webhook",
+            url: "https://example.com/webhook",
+            secret: "secret123",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        {
+          type: "task.statusChanged",
+          projectId: "project-1",
+          taskId: "task-1",
+          from: "todo",
+          to: "done",
+        },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(1);
+      expect(result.outboundDeliveries).toHaveLength(1);
+      expect(result.outboundDeliveries[0].url).toBe("https://example.com/webhook");
+    });
+  });
+
+  describe("Transform Code", () => {
+    it("applies custom transformation", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Transform Flow",
+        enabled: true,
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: {
+            connectionId: "conn-1",
+            objectType: "contacts",
+            fields: ["email", "name"],
+            filters: [],
+            intervalMs: 300000,
+          },
+        },
+        logic: {
+          conditions: [],
+          mapping: [
+            { source: "email", target: "email" },
+            { source: "name", target: "name" },
+          ],
+          transformCode: "record.name = record.name.toUpperCase(); return record;",
+        },
+        outputs: [
+          {
+            type: "createPerson",
+            matchField: "email",
+            ifNotFound: "create",
+            data: {
+              email: "{{email}}",
+              name: "{{name}}",
+            },
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const externalData = new Map<string, Record<string, unknown>[]>();
+      externalData.set("hubspot", [
+        { email: "jane@example.com", name: "Jane" },
+      ]);
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+
+      expect(result.newPeople).toHaveLength(1);
+      expect(result.newPeople[0].name).toBe("JANE");
+    });
+  });
+
+  describe("Targeting", () => {
+    const createSecondProject = (): Project => {
+      const project = newProject("Other Project");
+      project.id = "project-2";
+      return project;
+    };
+
+    it("createTask targets the project from the triggering event, not the first project in the map", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Task Flow",
+        enabled: true,
+        trigger: { type: "event", event: "checklist.completed" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Follow up", projectRef: "explicit" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // "project-1" is inserted first in the map but the event targets "project-2".
+      const events: DomainEvent[] = [
+        { type: "checklist.completed", projectId: "project-2", areaId: "area-1", checklistId: "cl-1" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject(), createSecondProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.changedProjects).toHaveLength(1);
+      expect(result.changedProjects[0].id).toBe("project-2");
+      expect(result.changedProjects[0].tasks).toHaveLength(1);
+      expect(result.changedProjects[0].tasks[0].title).toBe("Follow up");
+    });
+
+    it("does not mutate unrelated projects (change tracking is precise, not all-projects)", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Status Flow",
+        enabled: true,
+        trigger: { type: "event", event: "project.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "setProjectStatus", status: "done" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "project.statusChanged", projectId: "project-1", from: "active", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject(), createSecondProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.changedProjects.map((p) => p.id)).toEqual(["project-1"]);
+    });
+
+    it("skips the output (without throwing) when the target project can't be resolved", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Orphan Flow",
+        enabled: true,
+        // Poll triggers have no source project — createTask needs an explicit projectId.
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: {
+            connectionId: "conn-1",
+            objectType: "contacts",
+            fields: [],
+            filters: [],
+            intervalMs: 300000,
+          },
+        },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Untargeted", projectRef: "explicit" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const externalData = new Map<string, Record<string, unknown>[]>();
+      externalData.set("hubspot", [{ email: "x@example.com" }]);
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+
+      expect(result.changedProjects).toHaveLength(0);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("createNotification links entityRef to the event's project/task", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Notify Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createNotification", severity: "info", message: "Task changed" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications[0].entityRef).toEqual({
+        kind: "task",
+        projectId: "project-1",
+        taskId: "task-1",
+      });
+    });
+  });
+
+  describe("Run tracking", () => {
+    it("only reports executedFlowIds for flows that actually matched and ran", async () => {
+      const matching: FlowRule = {
+        id: "flow-matching",
+        schemaVersion: 7,
+        name: "Matching Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createNotification", severity: "info", message: "x" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const nonMatching: FlowRule = {
+        ...matching,
+        id: "flow-non-matching",
+        name: "Non-matching Flow",
+        trigger: { type: "event", event: "project.statusChanged" },
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [matching, nonMatching],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).toEqual(["flow-matching"]);
+    });
+
+    it("captures transform errors instead of throwing, and skips only the failing record", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Broken Transform Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: {
+          conditions: [],
+          mapping: [],
+          transformCode: "throw new Error('boom');",
+        },
+        outputs: [{ type: "createNotification", severity: "info", message: "x" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(0);
+      expect(result.executedFlowIds).toHaveLength(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].stage).toBe("transform");
+      expect(result.errors[0].message).toContain("boom");
+    });
+  });
+
+  describe("Mapping passthrough", () => {
+    it("passes the full record through when no mapping is configured (event fields stay interpolatable)", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 7,
+        name: "Passthrough Flow",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createNotification", severity: "info", message: "Tarea {{taskId}}: {{from}} -> {{to}}" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "task-42", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications[0].message).toBe("Tarea task-42: todo -> done");
+    });
+  });
+
+  describe("createTask projectRef (spec 023 §D)", () => {
+    it("projectRef 'createdProject' targets the project a prior createProject output just created", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 9,
+        name: "Deal to Project + Task",
+        enabled: true,
+        trigger: { type: "event", event: "project.created" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createProject", name: "New Project From Deal", fields: [] },
+          { type: "createTask", title: "Kickoff", projectRef: "createdProject" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "project.created", projectId: "project-1", typeId: null },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.newProjects).toHaveLength(1);
+      const created = result.newProjects[0];
+      expect(created.name).toBe("New Project From Deal");
+      expect(created.tasks.map((t) => t.title)).toContain("Kickoff");
+      // The newly created project must not also appear as "changed" — it
+      // would be persisted twice and the task would get silently dropped
+      // (see the `newProjectIds` filter in `runFlowEngine`).
+      expect(result.changedProjects.some((p) => p.id === created.id)).toBe(false);
+    });
+
+    it("projectRef 'trigger' uses the triggering event's project even if projectId is also set", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 9,
+        name: "Task on trigger project",
+        enabled: true,
+        trigger: { type: "event", event: "task.added" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createTask", title: "Follow-up", projectRef: "trigger", projectId: "some-other-project" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.added", projectId: "project-1", taskId: "seed-task" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.changedProjects).toHaveLength(1);
+      expect(result.changedProjects[0].id).toBe("project-1");
+      expect(result.changedProjects[0].tasks.map((t) => t.title)).toContain("Follow-up");
+    });
+
+    it("projectRef 'explicit' (default) keeps the previous projectId-with-fallback behavior", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 9,
+        name: "Explicit target",
+        enabled: true,
+        trigger: { type: "event", event: "task.added" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Explicit", projectRef: "explicit", projectId: "project-1" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.added", projectId: "some-unrelated-project", taskId: "seed-task" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.changedProjects).toHaveLength(1);
+      expect(result.changedProjects[0].id).toBe("project-1");
+      expect(result.changedProjects[0].tasks.map((t) => t.title)).toContain("Explicit");
+    });
+
+    it("applies the new task fields (status, assigneeId, dueDate, tags, estimate, summary)", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 9,
+        name: "Full fields",
+        enabled: true,
+        trigger: { type: "event", event: "task.added" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createTask",
+            title: "Rich task",
+            projectRef: "explicit",
+            projectId: "project-1",
+            status: "doing",
+            assigneeId: "person-1",
+            dueDate: "2026-08-01",
+            tags: ["urgente", "cliente-x"],
+            estimate: 5,
+            summary: "Resumen corto",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.added", projectId: "project-1", taskId: "seed-task" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      const task = result.changedProjects[0].tasks.find((t) => t.title === "Rich task");
+      expect(task).toMatchObject({
+        status: "doing",
+        assigneeId: "person-1",
+        dueDate: "2026-08-01",
+        tags: ["urgente", "cliente-x"],
+        estimate: 5,
+        summary: "Resumen corto",
+      });
+    });
+  });
+
+  describe("Deduplicación por clave (spec 023 §E)", () => {
+    it("createTask with dedupeKey omits creating a duplicate when a task with that key already exists", async () => {
+      const existingTask = { ...newTask("Existing"), dedupeKey: "ext-1" };
+      const project = createTestProject();
+      project.tasks = [existingTask];
+
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Dedup task",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createTask", title: "Should not duplicate", projectRef: "trigger", dedupeKey: "{{taskId}}" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "ext-1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.changedProjects).toHaveLength(0);
+    });
+
+    it("createTask without dedupeKey keeps creating every time (backward-compat baseline)", async () => {
+      const project = createTestProject();
+
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "No dedup",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Always created", projectRef: "trigger" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "ext-1", from: "todo", to: "done" },
+      ];
+
+      const firstRun = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+      const secondRun = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [firstRun.changedProjects[0]],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(secondRun.changedProjects[0].tasks.filter((t) => t.title === "Always created")).toHaveLength(2);
+    });
+
+    it("createProject with dedupeKey omits creating a duplicate, and a chained createTask still targets the existing project via 'createdProject'", async () => {
+      const existingProject = { ...createTestProject(), dedupeKey: "deal-1" };
+
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Dedup project + chained task",
+        enabled: true,
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: { connectionId: "conn-1", objectType: "deals", fields: [], filters: [], intervalMs: 300_000 },
+        },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createProject", name: "Should not duplicate", dedupeKey: "{{dealId}}", fields: [] },
+          { type: "createTask", title: "Follow-up", projectRef: "createdProject" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const externalData = new Map([["hubspot-deals", [{ dealId: "deal-1", dealname: "Acme Deal" }]]]);
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [existingProject],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+
+      expect(result.newProjects).toHaveLength(0);
+      expect(result.changedProjects).toHaveLength(1);
+      expect(result.changedProjects[0].id).toBe(existingProject.id);
+      expect(result.changedProjects[0].tasks.map((t) => t.title)).toContain("Follow-up");
+    });
+
+    it("running the same poll record twice with a fixed dedupeKey creates only one task total (no duplicates across runs)", async () => {
+      const project = createTestProject();
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Poll dedup",
+        enabled: true,
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: { connectionId: "conn-1", objectType: "contacts", fields: [], filters: [], intervalMs: 300_000 },
+        },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          {
+            type: "createTask",
+            title: "{{firstname}}",
+            projectRef: "explicit",
+            projectId: "project-1",
+            dedupeKey: "{{id}}",
+          },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const externalData = new Map([["hubspot", [{ id: "contact-1", firstname: "Ana" }]]]);
+
+      const firstRun = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+      expect(firstRun.changedProjects[0].tasks).toHaveLength(1);
+
+      // Simulate persistence between runs: the second run sees the project
+      // as it stands after the first (same pattern as "Ejecutar ahora" run
+      // twice, or two consecutive automatic polls).
+      const secondRun = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [firstRun.changedProjects[0]],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+
+      expect(secondRun.changedProjects).toHaveLength(0);
+    });
+  });
+
+  describe("Traza de depuración (spec 023 §F)", () => {
+    it("does not populate traces when input.trace is omitted (opt-in, no overhead by default)", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "No trace",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createNotification", severity: "info", message: "hi" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "t1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.traces).toEqual({});
+    });
+
+    it("records a failed condition with its evaluated operands", async () => {
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Condition trace",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: {
+          conditions: [{ field: "to", op: "==", value: "archived" }],
+          mapping: [],
+        },
+        outputs: [{ type: "createNotification", severity: "info", message: "hi" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "t1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+      });
+
+      const trace = result.traces["flow-1"];
+      expect(trace.triggerMatched).toBe(true);
+      expect(trace.recordCount).toBe(1);
+      expect(trace.records[0].conditionsPassed).toBe(false);
+      expect(trace.records[0].conditions).toEqual([
+        { field: "to", op: "==", expected: "archived", actual: "done", passed: false },
+      ]);
+      // Condition failed -> the record never reaches outputs.
+      expect(trace.records[0].outputs).toEqual([]);
+    });
+
+    it("records a skipped output with its reason (dedup match)", async () => {
+      const existingTask = { ...newTask("Existing"), dedupeKey: "ext-1" };
+      const project = createTestProject();
+      project.tasks = [existingTask];
+
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Skip trace",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Dup", projectRef: "trigger", dedupeKey: "{{taskId}}" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "ext-1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+      });
+
+      const outputTrace = result.traces["flow-1"].records[0].outputs[0];
+      expect(outputTrace).toMatchObject({
+        type: "createTask",
+        outcome: "skipped",
+        reason: 'Ya existe una tarea con dedupeKey "ext-1".',
+      });
+    });
+
+    it("records the mapped/transform steps and an executed output for a successful record", async () => {
+      const project = createTestProject();
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Full trace",
+        enabled: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: {
+          conditions: [],
+          mapping: [{ source: "to", target: "status" }],
+          transformCode: "record.status = record.status.toUpperCase(); return record;",
+        },
+        outputs: [{ type: "createTask", title: "{{status}}", projectRef: "trigger" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [
+        { type: "task.statusChanged", projectId: "project-1", taskId: "t1", from: "todo", to: "done" },
+      ];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+      });
+
+      const recordTrace = result.traces["flow-1"].records[0];
+      expect(recordTrace.mapped).toEqual({ status: "done" });
+      expect(recordTrace.transform).toEqual({ input: { status: "done" }, output: { status: "DONE" } });
+      expect(recordTrace.outputs[0]).toMatchObject({
+        type: "createTask",
+        outcome: "executed",
+        mutatedProjectIds: ["project-1"],
+      });
+    });
+
+    it("caps the number of traced records at MAX_TRACE_RECORDS while still processing every record", async () => {
+      const project = createTestProject();
+      const flow: FlowRule = {
+        id: "flow-1",
+        schemaVersion: 10,
+        name: "Many records",
+        enabled: true,
+        trigger: {
+          type: "poll",
+          provider: "hubspot",
+          config: { connectionId: "conn-1", objectType: "contacts", fields: [], filters: [], intervalMs: 300_000 },
+        },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "createTask", title: "{{id}}", projectRef: "explicit", projectId: "project-1" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const records = Array.from({ length: 8 }, (_, i) => ({ id: `c-${i}` }));
+      const externalData = new Map([["hubspot", records]]);
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [],
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+        trace: true,
+      });
+
+      const trace = result.traces["flow-1"];
+      expect(trace.recordCount).toBe(8);
+      expect(trace.records.length).toBeLessThan(8);
+      // Every record was still processed for real, regardless of trace cap.
+      expect(result.changedProjects[0].tasks).toHaveLength(8);
+    });
+  });
+});

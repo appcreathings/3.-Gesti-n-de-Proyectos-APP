@@ -104,6 +104,11 @@ export const TaskSchema = z.object({
   archived: z.boolean().default(false),
   estimate: z.number().nullable().default(null),
   subtasks: z.array(SubtaskSchema).default([]),
+  /** Clave de deduplicación interpolada por el flujo que creó esta tarea
+   * (ej. el id de un deal de HubSpot) — permite a `createTask` detectar que
+   * el registro ya se procesó y omitir un duplicado (spec 023 §E). `null`
+   * para tareas creadas a mano o por flujos sin `dedupeKey` configurado. */
+  dedupeKey: z.string().nullable().default(null),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });
@@ -171,6 +176,10 @@ export const ProjectSchema = z.object({
     blocked: null,
     done: null,
   }),
+  /** Igual que `Task.dedupeKey` — marca de qué registro externo vino este
+   * proyecto, para que `createProject` con `dedupeKey` configurado pueda
+   * detectar un duplicado y omitirlo (spec 023 §E). */
+  dedupeKey: z.string().nullable().default(null),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });

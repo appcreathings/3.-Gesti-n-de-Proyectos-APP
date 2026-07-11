@@ -60,12 +60,19 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-router": ["react-router-dom"],
-          "vendor-icons": ["lucide-react"],
-          "vendor-dnd": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
-          "vendor-markdown": ["react-markdown"],
+        // Vite 8 usa Rolldown internamente, que ya no acepta la forma-objeto
+        // de `manualChunks` (Rollup clásico) — solo función. Preexistente,
+        // ajeno a spec 020: bloqueaba `vite build` para cualquier cambio.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("node_modules/react-router-dom")) return "vendor-router";
+          if (id.includes("node_modules/lucide-react")) return "vendor-icons";
+          if (id.includes("node_modules/@dnd-kit")) return "vendor-dnd";
+          if (id.includes("node_modules/react-markdown")) return "vendor-markdown";
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
+            return "vendor-react";
+          }
+          return undefined;
         },
       },
     },

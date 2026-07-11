@@ -19,6 +19,7 @@ interface AppState {
   bootstrap: () => Promise<void>;
   connectFolder: () => Promise<void>;
   reconnectFolder: () => Promise<void>;
+  changeFolder: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   updateOrg: (name: string) => Promise<void>;
@@ -69,6 +70,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else {
         set({ error: "No se pudo reconectar la carpeta" });
       }
+    } catch (e) {
+      set({ error: errMsg(e) });
+    }
+  },
+
+  async changeFolder() {
+    try {
+      await adapter.changeFolder();
+      const workspace = await adapter.readWorkspace();
+      set({ workspace, connection: "ready", error: null });
     } catch (e) {
       set({ error: errMsg(e) });
     }

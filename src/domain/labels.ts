@@ -111,12 +111,17 @@ export const triggerLabel: Record<string, string> = {
   "project.statusChanged": "Al cambiar el estado del proyecto",
   "task.added": "Al crear una tarea",
   "task.statusChanged": "Al cambiar el estado de una tarea",
+  "task.commented": "Al comentar una tarea",
+  "task.archived": "Al archivar una tarea",
+  "task.unarchived": "Al desarchivar una tarea",
   "date.due": "Al vencer una fecha (M4)",
   "date.approaching": "Fecha por vencer (M4)",
   "app.opened": "Al abrir la app (M4)",
   schedule: "Programado (M4)",
 };
 
+/** Eventos reales que el store emite (`diffProjectEvents`), usados para
+ * elegir a qué eventos escuchar (webhooks salientes, flows con trigger "event"). */
 export const EVENT_TRIGGERS = [
   "item.checked",
   "checklist.completed",
@@ -126,6 +131,9 @@ export const EVENT_TRIGGERS = [
   "project.statusChanged",
   "task.added",
   "task.statusChanged",
+  "task.commented",
+  "task.archived",
+  "task.unarchived",
 ] as const;
 
 export const actionLabel: Record<string, string> = {

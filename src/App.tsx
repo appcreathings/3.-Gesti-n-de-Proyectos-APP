@@ -33,9 +33,14 @@ const QuartersPage = lazy(() =>
 const LibraryPage = lazy(() =>
   import("@/features/library/LibraryPage").then((m) => ({ default: m.LibraryPage })),
 );
-const AutomationsPage = lazy(() =>
-  import("@/features/automations/AutomationsPage").then((m) => ({
-    default: m.AutomationsPage,
+const IntegrationsPage = lazy(() =>
+  import("@/features/integrations/IntegrationsPage").then((m) => ({
+    default: m.IntegrationsPage,
+  })),
+);
+const SyncLogsPage = lazy(() =>
+  import("@/features/integrations/SyncLogsPage").then((m) => ({
+    default: m.SyncLogsPage,
   })),
 );
 const NotificationsPage = lazy(() =>
@@ -45,6 +50,20 @@ const NotificationsPage = lazy(() =>
 );
 const SettingsPage = lazy(() =>
   import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const FlowBuilderPage = lazy(() =>
+  import("@/features/flows/FlowBuilderPage").then((m) => ({ default: m.FlowBuilderPage })),
+);
+const FlowsPage = lazy(() =>
+  import("@/features/flows/FlowsPage").then((m) => ({ default: m.FlowsPage })),
+);
+const FlowHistoryPage = lazy(() =>
+  import("@/features/flows/FlowHistoryPage").then((m) => ({ default: m.FlowHistoryPage })),
+);
+const ScheduledServicesPage = lazy(() =>
+  import("@/features/flows/ScheduledServicesPage").then((m) => ({
+    default: m.ScheduledServicesPage,
+  })),
 );
 const NotFoundPage = lazy(() =>
   import("@/features/not-found/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
@@ -147,7 +166,18 @@ const router = createBrowserRouter([
           { path: "daily", element: page(<DailyStandupPage />) },
           { path: "quarters", element: page(<QuartersPage />) },
           { path: "library", element: page(<LibraryPage />) },
-          { path: "automations", element: page(<AutomationsPage />) },
+          // Automations (legacy) fue consolidado en Flows — redirect por bookmarks/links viejos.
+          { path: "automations", element: <Navigate to="/app/flows" replace /> },
+          { path: "flows", element: page(<FlowsPage />) },
+          { path: "flows/new", element: page(<FlowBuilderPage />) },
+          { path: "flows/history", element: page(<FlowHistoryPage />) },
+          { path: "flows/services", element: page(<ScheduledServicesPage />) },
+          { path: "flows/:id/edit", element: page(<FlowBuilderPage />) },
+          { path: "integrations", element: page(<IntegrationsPage />) },
+          // El wizard sandbox nunca persistía nada; crear un flow con trigger
+          // "poll" desde Flows es ahora el único camino de creación.
+          { path: "integrations/new", element: <Navigate to="/app/flows/new" replace /> },
+          { path: "integrations/logs", element: page(<SyncLogsPage />) },
           { path: "notifications", element: page(<NotificationsPage />) },
           { path: "settings", element: page(<SettingsPage />) },
         ],
@@ -169,8 +199,66 @@ export function App() {
     void useAiConfigStore.getState().hydrate();
   }, [bootstrap]);
 
+  // Initialize integration services
   useEffect(() => {
-    if (connection === "ready") void hydrate();
+    if (connection !== "ready" || !hydrated) return;
+
+    // Lazy import to avoid loading integration code until app is ready
+    const initIntegrations = async () => {
+      const [
+        { initVaultAutoLock },
+        { initVisibilityAwarePolling },
+        { startOutboundProcessor },
+        { maybeRunMaintenance },
+        { useVaultStore },
+      ] = await Promise.all([
+        import("@/integrations/vault-auto-lock"),
+        import("@/integrations/polling/visibility-aware"),
+        import("@/integrations/outbound/retry-engine"),
+        import("@/integrations/maintenance"),
+        import("@/integrations/vault"),
+      ]);
+
+      // Reimport a persisted vault key (session/always mode, spec 023 §A)
+      // before arming the auto-lock timer, so a reload doesn't force the
+      // user to re-enter the passphrase when they opted into persistence.
+      await useVaultStore.getState().restoreFromPersistence();
+      initVaultAutoLock();
+      initVisibilityAwarePolling();
+      startOutboundProcessor();
+      maybeRunMaintenance();
+    };
+
+    void initIntegrations();
+  }, [connection, hydrated]);
+
+  useEffect(() => {
+    if (connection !== "ready") return;
+    let cancelled = false;
+
+    const run = async () => {
+      const [, { useFlowStore }] = await Promise.all([
+        hydrate(),
+        import("./store/useFlowStore"),
+      ]);
+      if (cancelled) return;
+      await useFlowStore.getState().hydrate();
+      if (cancelled) return;
+
+      // One-time consolidation: legacy Automations (`useDataStore.automations`)
+      // are migrated into Flows so there's a single place to manage
+      // automations. Needs both stores hydrated first (see migrateLegacyAutomations).
+      const automations = useDataStore.getState().automations;
+      const { skipped } = await useFlowStore.getState().migrateLegacyAutomations(automations);
+      if (skipped.length > 0) {
+        console.warn("[Migración Flows] Reglas de Automations no migradas:", skipped);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [connection, hydrate]);
 
   // Temporal evaluation (M4): run on open (app.opened) and when the window regains focus.

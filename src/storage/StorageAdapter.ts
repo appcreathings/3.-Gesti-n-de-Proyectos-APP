@@ -21,7 +21,7 @@ export type Collection =
   | "quarters";
 
 /** Aggregated single-file documents. */
-export type DocName = "people" | "notifications" | "activity";
+export type DocName = "people" | "notifications" | "activity" | "flows" | "flow-runs";
 
 /** Default content for each aggregated doc when the file doesn't exist yet. */
 export function emptyDoc(name: DocName): Record<string, unknown> {
@@ -32,6 +32,10 @@ export function emptyDoc(name: DocName): Record<string, unknown> {
       return { schemaVersion: 1, notifications: [] };
     case "activity":
       return { schemaVersion: 1, entries: [] };
+    case "flows":
+      return { schemaVersion: 1, flows: [] };
+    case "flow-runs":
+      return { schemaVersion: 1, runs: [] };
   }
 }
 
@@ -57,6 +61,10 @@ export interface StorageAdapter {
   connect(): Promise<void>;
   /** Re-verify permission for a previously stored handle. */
   reconnect(): Promise<boolean>;
+  /** Prompt for a new folder, replacing the current one. */
+  changeFolder(): Promise<void>;
+  /** Name of the currently connected folder, or null if unavailable. */
+  getRootName(): string | null;
 
   readWorkspace(): Promise<Workspace>;
   writeWorkspace(ws: Workspace): Promise<void>;
