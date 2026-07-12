@@ -1,9 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { runFlowEngine } from "./engine";
 import type { FlowRule } from "@/domain/schemas/flow";
 import type { DomainEvent } from "@/automations/events";
 import type { Project } from "@/domain/schemas";
 import { newProject, newTask } from "@/domain/factories";
+
+vi.mock("@/integrations/outbound/email-via-apps-script", () => ({
+  sendEmailViaAppsScript: vi.fn(),
+}));
+vi.mock("@/integrations/connections", () => ({
+  getConnection: vi.fn(),
+}));
 
 describe("FlowEngine", () => {
   const createTestProject = (): Project => {
@@ -309,6 +316,183 @@ describe("FlowEngine", () => {
       expect(result.notifications).toHaveLength(1);
       expect(result.outboundDeliveries).toHaveLength(1);
       expect(result.outboundDeliveries[0].url).toBe("https://example.com/webhook");
+    });
+  });
+
+  // Spec 024 §F2: antes de este fix, un webhook/email que fallaba por red se
+  // registraba igual como "executed" — el run entero terminaba marcado
+  // "Ejecutado correctamente" en el historial aunque la entrega real jamás
+  // saliera. Estos tests fijan el comportamiento correcto: un fallo real
+  // debe contar como error del output, no como éxito.
+  describe("Webhook/Email failure handling (spec 024 §F2)", () => {
+    const webhookFlow = (): FlowRule => ({
+      id: "flow-webhook",
+      schemaVersion: 10,
+      name: "Webhook Flow",
+      enabled: true,
+      trigger: { type: "event", event: "task.statusChanged" },
+      logic: { conditions: [], mapping: [] },
+      outputs: [{ type: "webhook", url: "https://example.com/webhook", secret: "secret123" }],
+      lastRunAt: null,
+      runCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const emailFlow = (): FlowRule => ({
+      id: "flow-email",
+      schemaVersion: 10,
+      name: "Email Flow",
+      enabled: true,
+      trigger: { type: "event", event: "task.statusChanged" },
+      logic: { conditions: [], mapping: [] },
+      outputs: [{ type: "email", connectionId: "conn-1", to: "a@example.com", subject: "Hi", body: "Body" }],
+      lastRunAt: null,
+      runCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const changeEvent: DomainEvent = {
+      type: "task.statusChanged",
+      projectId: "project-1",
+      taskId: "task-1",
+      from: "todo",
+      to: "done",
+    };
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.clearAllMocks();
+    });
+
+    it("does not count a webhook that fails on network error as executed", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockRejectedValue(new Error("fetch failed"))
+      );
+
+      const result = await runFlowEngine({
+        flows: [webhookFlow()],
+        events: [changeEvent],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).not.toContain("flow-webhook");
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].stage).toBe("output");
+      expect(result.errors[0].message).toContain("Entrega fallida");
+      // El intento igual queda registrado, aunque haya fallado.
+      expect(result.outboundDeliveries).toHaveLength(1);
+    });
+
+    it("does not count a webhook that responds non-2xx as executed", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(null, { status: 500 }))
+      );
+
+      const result = await runFlowEngine({
+        flows: [webhookFlow()],
+        events: [changeEvent],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).not.toContain("flow-webhook");
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain("500");
+    });
+
+    it("counts a webhook that responds 2xx as executed, with no errors", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
+      );
+
+      const result = await runFlowEngine({
+        flows: [webhookFlow()],
+        events: [changeEvent],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).toContain("flow-webhook");
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("does not count a failed email send as executed", async () => {
+      const { getConnection } = await import("@/integrations/connections");
+      const { sendEmailViaAppsScript } = await import("@/integrations/outbound/email-via-apps-script");
+      vi.mocked(getConnection).mockResolvedValue({
+        id: "conn-1",
+        provider: "email",
+        name: "Test email",
+        config: { proxyUrl: "https://script.google.com/macros/s/abc/exec", fromEmail: "from@example.com" },
+        encryptedSecret: null,
+        enabled: true,
+        lastTestedAt: null,
+        lastTestOk: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      vi.mocked(sendEmailViaAppsScript).mockResolvedValue({ success: false, error: "Email proxy error: 500" });
+
+      const result = await runFlowEngine({
+        flows: [emailFlow()],
+        events: [changeEvent],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).not.toContain("flow-email");
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain("Envío fallido");
+      expect(result.emailDeliveries).toHaveLength(1);
+    });
+
+    it("counts a successful email send as executed, with no errors", async () => {
+      const { getConnection } = await import("@/integrations/connections");
+      const { sendEmailViaAppsScript } = await import("@/integrations/outbound/email-via-apps-script");
+      vi.mocked(getConnection).mockResolvedValue({
+        id: "conn-1",
+        provider: "email",
+        name: "Test email",
+        config: { proxyUrl: "https://script.google.com/macros/s/abc/exec", fromEmail: "from@example.com" },
+        encryptedSecret: null,
+        enabled: true,
+        lastTestedAt: null,
+        lastTestOk: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      vi.mocked(sendEmailViaAppsScript).mockResolvedValue({ success: true });
+
+      const result = await runFlowEngine({
+        flows: [emailFlow()],
+        events: [changeEvent],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.executedFlowIds).toContain("flow-email");
+      expect(result.errors).toHaveLength(0);
     });
   });
 

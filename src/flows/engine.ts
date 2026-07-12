@@ -733,24 +733,29 @@ async function executeOutput(
         ? interpolateObject(output.payload, data)
         : data;
 
-      // Send webhook directly with HMAC signature. Errors are caught and
-      // logged, never rethrown — a failed delivery still counts as
-      // "executed" (comportamiento previo), solo se anota el motivo en la
-      // traza de depuración.
-      let deliveryError: string | undefined;
-      try {
-        const signature = await signPayload(
-          {
-            eventId: uuid(),
-            eventType: "flow.execution",
-            timestamp: nowIso(),
-            workspace: { org: "Hito" },
-            data: payload,
-          },
-          output.secret
-        );
+      // Registrar el intento de entrega antes de llamar a la red: se
+      // conserva aunque la entrega falle (spec 024 §F2), para no perder el
+      // rastro de qué se intentó enviar.
+      result.outboundDeliveries.push({
+        url: output.url,
+        secret: output.secret,
+        payload,
+      });
 
-        await fetch(output.url, {
+      const signature = await signPayload(
+        {
+          eventId: uuid(),
+          eventType: "flow.execution",
+          timestamp: nowIso(),
+          workspace: { org: "Hito" },
+          data: payload,
+        },
+        output.secret
+      );
+
+      let response: Response;
+      try {
+        response = await fetch(output.url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -761,20 +766,22 @@ async function executeOutput(
           signal: AbortSignal.timeout(10_000),
         });
       } catch (error) {
-        console.error("Error sending webhook:", error);
-        deliveryError = error instanceof Error ? error.message : String(error);
+        // Un fallo de red ya no se traga: se relanza para que el catch del
+        // loop principal lo cuente como error real del output (spec 024
+        // §F2 — antes esto se registraba como "Ejecutado correctamente").
+        // `cause` se asigna a mano (en vez de vía el 2º argumento del
+        // constructor) porque el `lib` de tsconfig es ES2020 y no tipa esa
+        // sobrecarga, aunque el runtime sí la soporta.
+        const message = error instanceof Error ? error.message : String(error);
+        const wrapped = new Error(`Entrega fallida: ${message}`);
+        (wrapped as Error & { cause?: unknown }).cause = error;
+        throw wrapped;
+      }
+      if (!response.ok) {
+        throw new Error(`El webhook respondió HTTP ${response.status}.`);
       }
 
-      result.outboundDeliveries.push({
-        url: output.url,
-        secret: output.secret,
-        payload,
-      });
-      return {
-        mutatedProjectIds: [],
-        outcome: "executed",
-        reason: deliveryError ? `Entrega fallida: ${deliveryError}` : undefined,
-      };
+      return { mutatedProjectIds: [], outcome: "executed" };
     }
 
     case "email": {
@@ -800,27 +807,26 @@ async function executeOutput(
         htmlBody: interpolateString(output.body, data),
       };
 
-      // Send email via Apps Script proxy — mismo patrón que webhook: un fallo
-      // de envío no rebaja el desenlace a "error", solo queda anotado.
-      let sendError: string | undefined;
-      try {
-        await sendEmailViaAppsScript({ proxyUrl, fromEmail }, emailData);
-      } catch (error) {
-        console.error("Error sending email:", error);
-        sendError = error instanceof Error ? error.message : String(error);
-      }
-
       result.emailDeliveries.push({
         proxyUrl,
         to: emailData.to,
         subject: emailData.subject,
         body: emailData.htmlBody,
       });
-      return {
-        mutatedProjectIds: [],
-        outcome: "executed",
-        reason: sendError ? `Envío fallido: ${sendError}` : undefined,
-      };
+
+      // `sendEmailViaAppsScript` nunca lanza — siempre resuelve
+      // `{success, error?}` (ya registra el intento en syncLogs por su
+      // cuenta). El código previo ignoraba ese resultado por completo, así
+      // que un envío fallido (proxy caído, HTTP≥400) quedaba invisible para
+      // el motor y se contaba como "Ejecutado correctamente" (spec 024
+      // §F2). Ahora si falla se relanza para que el catch del loop principal
+      // lo cuente como error real del output.
+      const sendResult = await sendEmailViaAppsScript({ proxyUrl, fromEmail }, emailData);
+      if (!sendResult.success) {
+        throw new Error(`Envío fallido: ${sendResult.error ?? "error desconocido"}`);
+      }
+
+      return { mutatedProjectIds: [], outcome: "executed" };
     }
   }
 }

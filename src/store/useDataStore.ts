@@ -472,37 +472,87 @@ async function applyFlowResult(
   const traceFor = (flowId: string) => flowResult.traces[flowId];
   const previewFor = (flowId: string) => traceFor(flowId)?.records[0]?.record;
 
-  // Increment run count only for flows that actually matched and ran
+  // Agrupar errores por flow: un mismo run puede fallar en varios registros
+  // (ej. un poll de 50 filas donde 10 fallan el mismo output). Antes cada
+  // error generaba su propia entrada "error" en el historial, y si el flow
+  // también había ejecutado outputs con éxito en otros registros, terminaba
+  // apareciendo dos veces (una línea "success" y otra "error") para la misma
+  // corrida — spec 024 §F2.
+  const errorsByFlow = new Map<string, typeof flowResult.errors>();
+  for (const err of flowResult.errors) {
+    console.error(`[FlowEngine] "${err.flowName}" (${err.stage}):`, err.message);
+    const list = errorsByFlow.get(err.flowId) ?? [];
+    list.push(err);
+    errorsByFlow.set(err.flowId, list);
+  }
+
+  // Increment run count only for flows that actually matched and executed
+  // al menos un output — si además tuvo errores en otros outputs/registros
+  // de la misma corrida, se reporta "partial" en vez de "success".
   for (const flowId of flowResult.executedFlowIds) {
     await flowStore.incrementRunCount(flowId);
     const flow = flowStore.flows.find((f) => f.id === flowId);
-    runLogs.push({
-      flowId,
-      flowName: flow?.name ?? flowId,
-      at: now,
-      status: "success",
-      detail: "Ejecutado correctamente.",
-      trace: traceFor(flowId),
-      preview: previewFor(flowId),
-    });
+    const flowErrors = errorsByFlow.get(flowId);
+    runLogs.push(
+      flowErrors && flowErrors.length > 0
+        ? {
+            flowId,
+            flowName: flow?.name ?? flowId,
+            at: now,
+            status: "partial",
+            detail: `Ejecutado con errores: ${summarizeFlowErrors(flowErrors)}`,
+            trace: traceFor(flowId),
+            preview: previewFor(flowId),
+          }
+        : {
+            flowId,
+            flowName: flow?.name ?? flowId,
+            at: now,
+            status: "success",
+            detail: "Ejecutado correctamente.",
+            trace: traceFor(flowId),
+            preview: previewFor(flowId),
+          }
+    );
   }
 
-  for (const err of flowResult.errors) {
-    console.error(`[FlowEngine] "${err.flowName}" (${err.stage}):`, err.message);
+  // Flows que fallaron sin llegar a ejecutar ningún output (ej. el
+  // transform falló para todos los registros) — no incrementan runCount,
+  // igual que antes.
+  for (const [flowId, flowErrors] of errorsByFlow) {
+    if (flowResult.executedFlowIds.includes(flowId)) continue;
     runLogs.push({
-      flowId: err.flowId,
-      flowName: err.flowName,
+      flowId,
+      flowName: flowErrors[0].flowName,
       at: now,
       status: "error",
-      detail: `[${err.stage}] ${err.message}`,
-      trace: traceFor(err.flowId),
-      preview: previewFor(err.flowId),
+      detail: summarizeFlowErrors(flowErrors),
+      trace: traceFor(flowId),
+      preview: previewFor(flowId),
     });
   }
 
   if (runLogs.length > 0) {
     await flowStore.recordRuns(runLogs);
   }
+}
+
+/** Combina los errores de un mismo flow en un solo texto: agrupa mensajes
+ * idénticos (ej. el mismo output fallando en 10 registros de un poll) y
+ * recorta a los primeros 3 distintos para que el historial no se vuelva
+ * ilegible con corridas grandes. */
+function summarizeFlowErrors(errors: import("@/flows/engine").FlowExecutionError[]): string {
+  const counts = new Map<string, number>();
+  for (const e of errors) {
+    const key = `[${e.stage}] ${e.message}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const entries = Array.from(counts.entries());
+  const shown = entries
+    .slice(0, 3)
+    .map(([msg, count]) => (count > 1 ? `${msg} (x${count})` : msg));
+  const extra = entries.length - shown.length;
+  return shown.join(" | ") + (extra > 0 ? ` | +${extra} más` : "");
 }
 
 /** Run event-driven automations and apply their effects (no re-entrancy). */

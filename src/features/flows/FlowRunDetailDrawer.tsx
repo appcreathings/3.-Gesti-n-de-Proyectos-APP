@@ -1,4 +1,4 @@
-import { X, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { FlowRunLog } from "@/store/useFlowStore";
@@ -37,12 +37,19 @@ export function FlowRunDetailDrawer({ run, onClose }: Props) {
             <div className="flex items-start gap-2">
               {run.status === "success" ? (
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
+              ) : run.status === "partial" ? (
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
               ) : (
                 <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
               )}
               <div>
-                <Badge variant={run.status === "success" ? "success" : "destructive"} className="text-[10px]">
-                  {run.status === "success" ? "Éxito" : "Error"}
+                <Badge
+                  variant={
+                    run.status === "success" ? "success" : run.status === "partial" ? "warning" : "destructive"
+                  }
+                  className="text-[10px]"
+                >
+                  {run.status === "success" ? "Éxito" : run.status === "partial" ? "Parcial" : "Error"}
                 </Badge>
                 <p className="mt-1 text-sm">{run.detail}</p>
               </div>

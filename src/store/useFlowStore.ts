@@ -22,7 +22,12 @@ export interface FlowRunLog {
   flowId: string;
   flowName: string;
   at: string;
-  status: "success" | "error";
+  /** "partial" = al menos un output tuvo éxito y al menos otro falló en la
+   * misma corrida — antes esto se reportaba como dos entradas separadas
+   * ("success" + "error") para el mismo run, lo cual además dependía de que
+   * el output fallido reportara error para empezar (spec 024 §F2: webhook/
+   * email fallidos por red se contaban como "executed"). */
+  status: "success" | "partial" | "error";
   detail: string;
   /** Primer registro procesado en esta corrida, si el engine llegó a
    * matchear el trigger — para que el historial muestre datos reales, no

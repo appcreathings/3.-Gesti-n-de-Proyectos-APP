@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Play,
   Activity,
@@ -297,13 +298,23 @@ function FlowCard({
                   <div key={run.id} className="flex items-start gap-2 text-xs">
                     {run.status === "success" ? (
                       <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
+                    ) : run.status === "partial" ? (
+                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" />
                     ) : (
                       <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
                     )}
                     <span className="text-muted-foreground">
                       {new Date(run.at).toLocaleString()} —{" "}
                     </span>
-                    <span className={run.status === "error" ? "text-destructive" : ""}>
+                    <span
+                      className={
+                        run.status === "error"
+                          ? "text-destructive"
+                          : run.status === "partial"
+                            ? "text-warning"
+                            : ""
+                      }
+                    >
                       {run.detail}
                     </span>
                   </div>

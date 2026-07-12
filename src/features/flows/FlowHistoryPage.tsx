@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { CheckCircle2, AlertCircle, Filter } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Filter } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
@@ -56,6 +56,7 @@ export function FlowHistoryPage() {
             <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-40">
               <option value="">Todos los estados</option>
               <option value="success">Éxito</option>
+              <option value="partial">Parcial</option>
               <option value="error">Error</option>
             </Select>
             <span className="ml-auto text-xs text-muted-foreground">
@@ -73,6 +74,8 @@ export function FlowHistoryPage() {
             >
               {run.status === "success" ? (
                 <CheckCircle2 className="size-4 shrink-0 text-success" />
+              ) : run.status === "partial" ? (
+                <AlertTriangle className="size-4 shrink-0 text-warning" />
               ) : (
                 <AlertCircle className="size-4 shrink-0 text-destructive" />
               )}

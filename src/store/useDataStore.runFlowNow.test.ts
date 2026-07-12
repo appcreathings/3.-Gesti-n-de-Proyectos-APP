@@ -321,4 +321,42 @@ describe("useDataStore.runFlowNow", () => {
       expect.objectContaining({ flowId: flow.id, status: "success" }),
     ]);
   });
+
+  it("records a single 'partial' entry (not separate success + error) when a run has both executed outputs and errors (spec 024 §F2)", async () => {
+    const flow = makeFlow({ trigger: { type: "event", event: "task.added" } });
+    const recordRuns = vi.fn();
+    mockedFlowStoreGetState.mockReturnValue({
+      flows: [flow],
+      incrementRunCount: vi.fn(),
+      recordRuns,
+    } as never);
+    mockedRunFlowEngine.mockResolvedValue({
+      changedProjects: [],
+      newProjects: [],
+      newPeople: [],
+      updatedPeople: [],
+      notifications: [],
+      outboundDeliveries: [],
+      emailDeliveries: [],
+      executedFlowIds: [flow.id], // el output "createNotification" corrió...
+      errors: [
+        { flowId: flow.id, flowName: flow.name, stage: "output", message: "Entrega fallida: fetch failed" },
+      ], // ...pero el webhook de otro registro/output falló
+      traces: {},
+    });
+
+    await useDataStore
+      .getState()
+      .runFlowNow(flow.id, { syntheticEvent: { type: "task.added", projectId: "p", taskId: "t" } });
+
+    // Antes de este fix, `applyFlowResult` empujaba una entrada "success" (por
+    // `executedFlowIds`) y otra "error" (por `errors`) para la misma corrida.
+    expect(recordRuns).toHaveBeenCalledTimes(1);
+    const [loggedRuns] = recordRuns.mock.calls[0];
+    expect(loggedRuns).toHaveLength(1);
+    expect(loggedRuns[0]).toEqual(
+      expect.objectContaining({ flowId: flow.id, status: "partial" })
+    );
+    expect(loggedRuns[0].detail).toContain("Entrega fallida");
+  });
 });
