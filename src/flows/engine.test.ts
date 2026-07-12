@@ -204,6 +204,90 @@ describe("FlowEngine", () => {
 
       expect(result.notifications).toHaveLength(0);
     });
+
+    // Spec 024 §F6 (fix): HubSpot (y fuentes externas en general) suele
+    // devolver campos numéricos como string — antes `>`/`>=`/`<`/`<=`
+    // exigían `typeof === "number"` en ambos lados, así que una condición
+    // como "monto > 1000" nunca pasaba contra un deal real, sin ningún error
+    // visible para el usuario.
+    const numericStringFlow = (op: ">" | ">=" | "<" | "<=", value: unknown): FlowRule => ({
+      id: "flow-1",
+      schemaVersion: 11,
+      name: "Numeric coercion flow",
+      enabled: true,
+      notifyOnFailure: true,
+      trigger: {
+        type: "poll",
+        provider: "hubspot",
+        config: { connectionId: "conn-1", objectType: "deals", fields: [], filters: [], intervalMs: 300_000 },
+      },
+      logic: { conditions: [{ field: "amount", op, value }], mapping: [] },
+      outputs: [{ type: "createNotification", severity: "info", message: "Big deal" }],
+      lastRunAt: null,
+      runCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    it("passes a numeric comparison when the record's value arrives as a string (HubSpot-style)", async () => {
+      const externalData = new Map([["hubspot:conn-1:deals", [{ amount: "5000" }]]]);
+      const result = await runFlowEngine({
+        flows: [numericStringFlow(">", 1000)],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+      expect(result.notifications).toHaveLength(1);
+    });
+
+    it("passes a numeric comparison when the condition's own configured value is a string", async () => {
+      const externalData = new Map([["hubspot:conn-1:deals", [{ amount: 5000 }]]]);
+      const result = await runFlowEngine({
+        flows: [numericStringFlow(">=", "1000")],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+      expect(result.notifications).toHaveLength(1);
+    });
+
+    it("does not coerce a genuinely non-numeric string and fails the condition safely", async () => {
+      const externalData = new Map([["hubspot:conn-1:deals", [{ amount: "n/a" }]]]);
+      const result = await runFlowEngine({
+        flows: [numericStringFlow(">", 1000)],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+      expect(result.notifications).toHaveLength(0);
+    });
+
+    it("correctly rejects a numeric-string comparison that doesn't hold", async () => {
+      const externalData = new Map([["hubspot:conn-1:deals", [{ amount: "500" }]]]);
+      const result = await runFlowEngine({
+        flows: [numericStringFlow(">", 1000)],
+        events: [],
+        projects: [createTestProject()],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        externalData,
+      });
+      expect(result.notifications).toHaveLength(0);
+    });
   });
 
   describe("pollTriggerKey (spec 024 §F10)", () => {

@@ -382,6 +382,23 @@ function evaluateConditionsDetailed(
   return { passed: details.every((d) => d.passed), details };
 }
 
+/** Coerciona a número comparable cuando el valor ya es un número, o es un
+ * string que representa uno sin ambigüedad (spec 024 §F6 — fix). HubSpot (y
+ * fuentes externas en general) suele devolver campos numéricos como string
+ * (ej. `amount: "5000"`), así que antes `>`/`>=`/`<`/`<=` exigían
+ * `typeof === "number"` en ambos lados y una condición como "monto > 1000"
+ * nunca pasaba contra un registro real de HubSpot — fallaba en silencio, sin
+ * error visible para el usuario. `""`/espacios en blanco se rechazan
+ * explícitamente porque `Number("")` es `0`, no "no numérico". */
+function toComparableNumber(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function evaluateCondition(
   condition: FlowCondition,
   record: Record<string, unknown>
@@ -395,13 +412,17 @@ function evaluateCondition(
     case "!=":
       return value !== target;
     case ">":
-      return typeof value === "number" && typeof target === "number" && value > target;
     case ">=":
-      return typeof value === "number" && typeof target === "number" && value >= target;
     case "<":
-      return typeof value === "number" && typeof target === "number" && value < target;
-    case "<=":
-      return typeof value === "number" && typeof target === "number" && value <= target;
+    case "<=": {
+      const a = toComparableNumber(value);
+      const b = toComparableNumber(target);
+      if (a === null || b === null) return false;
+      if (condition.op === ">") return a > b;
+      if (condition.op === ">=") return a >= b;
+      if (condition.op === "<") return a < b;
+      return a <= b;
+    }
     case "in":
       return Array.isArray(target) && target.includes(value);
     case "contains":
