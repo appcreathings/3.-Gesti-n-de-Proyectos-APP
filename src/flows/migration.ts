@@ -41,6 +41,7 @@ export function migrateAutomationToFlow(rule: AutomationRule): FlowRule | null {
     schemaVersion: SCHEMA_VERSION,
     name: rule.name,
     enabled: rule.enabled,
+    notifyOnFailure: true,
     trigger: {
       type: "event",
       // Safe: every value reaching here already passed the trigger-type guard
@@ -154,6 +155,7 @@ export function createEmptyFlow(name: string): FlowRule {
     schemaVersion: SCHEMA_VERSION,
     name,
     enabled: true,
+    notifyOnFailure: true,
     trigger: { type: "event", event: "task.statusChanged" },
     logic: { conditions: [], mapping: [] },
     outputs: [],

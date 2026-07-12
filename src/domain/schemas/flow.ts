@@ -250,6 +250,14 @@ export const FlowRuleSchema = z.object({
   logic: LogicSchema.default({ conditions: [], mapping: [] }),
   outputs: z.array(OutputSchema).default([]),
   graph: FlowGraphSchema.optional(),
+  /** Si una corrida automática (poll o evento) de este flujo termina en
+   * "error"/"partial" mientras está activo, se emite una notificación (spec
+   * 024 §F3) — reusa el módulo de Notificaciones existente en vez de
+   * inventar un canal nuevo. Default `true`: hasta ahora un flujo activo
+   * podía fallar en silencio, así que avisar es el comportamiento esperado
+   * salvo que el usuario lo apague explícitamente. No aplica a "Ejecutar
+   * ahora" (es una prueba manual que el usuario ya está viendo en pantalla). */
+  notifyOnFailure: z.boolean().default(true),
   lastRunAt: IsoDate.nullable().default(null),
   runCount: z.number().default(0),
   createdAt: IsoDate,

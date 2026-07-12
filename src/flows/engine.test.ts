@@ -26,6 +26,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Test Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -71,6 +72,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Test Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -114,6 +116,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Test Flow",
         enabled: false,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -160,6 +163,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Test Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: {
           conditions: [{ field: "to", op: "==", value: "done" }],
@@ -231,6 +235,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "HubSpot Sync",
         enabled: true,
+        notifyOnFailure: true,
         trigger: {
           type: "poll",
           provider: "hubspot",
@@ -305,6 +310,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Sync conexión A",
         enabled: true,
+        notifyOnFailure: true,
         trigger: pollTrigger("conn-a"),
         logic: { conditions: [], mapping: [{ source: "email", target: "email" }] },
         outputs: [{ type: "createPerson", matchField: "email", ifNotFound: "create", data: { email: "{{email}}" } }],
@@ -342,6 +348,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Multi Output Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -399,6 +406,7 @@ describe("FlowEngine", () => {
       schemaVersion: 10,
       name: "Webhook Flow",
       enabled: true,
+      notifyOnFailure: true,
       trigger: { type: "event", event: "task.statusChanged" },
       logic: { conditions: [], mapping: [] },
       outputs: [{ type: "webhook", url: "https://example.com/webhook", secret: "secret123" }],
@@ -413,6 +421,7 @@ describe("FlowEngine", () => {
       schemaVersion: 10,
       name: "Email Flow",
       enabled: true,
+      notifyOnFailure: true,
       trigger: { type: "event", event: "task.statusChanged" },
       logic: { conditions: [], mapping: [] },
       outputs: [{ type: "email", connectionId: "conn-1", to: "a@example.com", subject: "Hi", body: "Body" }],
@@ -572,6 +581,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Transform Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: {
           type: "poll",
           provider: "hubspot",
@@ -642,6 +652,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Task Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "checklist.completed" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createTask", title: "Follow up", projectRef: "explicit" }],
@@ -678,6 +689,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Status Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "project.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "setProjectStatus", status: "done" }],
@@ -710,6 +722,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Orphan Flow",
         enabled: true,
+        notifyOnFailure: true,
         // Poll triggers have no source project — createTask needs an explicit projectId.
         trigger: {
           type: "poll",
@@ -754,6 +767,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Notify Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createNotification", severity: "info", message: "Task changed" }],
@@ -792,6 +806,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Matching Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createNotification", severity: "info", message: "x" }],
@@ -830,6 +845,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Broken Transform Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: {
           conditions: [],
@@ -872,6 +888,7 @@ describe("FlowEngine", () => {
         schemaVersion: 7,
         name: "Passthrough Flow",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -908,6 +925,7 @@ describe("FlowEngine", () => {
         schemaVersion: 9,
         name: "Deal to Project + Task",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "project.created" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -950,6 +968,7 @@ describe("FlowEngine", () => {
         schemaVersion: 9,
         name: "Task on trigger project",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.added" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -986,6 +1005,7 @@ describe("FlowEngine", () => {
         schemaVersion: 9,
         name: "Explicit target",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.added" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createTask", title: "Explicit", projectRef: "explicit", projectId: "project-1" }],
@@ -1020,6 +1040,7 @@ describe("FlowEngine", () => {
         schemaVersion: 9,
         name: "Full fields",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.added" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -1079,6 +1100,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Dedup task",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [
@@ -1115,6 +1137,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "No dedup",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createTask", title: "Always created", projectRef: "trigger" }],
@@ -1158,6 +1181,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Dedup project + chained task",
         enabled: true,
+        notifyOnFailure: true,
         trigger: {
           type: "poll",
           provider: "hubspot",
@@ -1200,6 +1224,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Poll dedup",
         enabled: true,
+        notifyOnFailure: true,
         trigger: {
           type: "poll",
           provider: "hubspot",
@@ -1259,6 +1284,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "No trace",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createNotification", severity: "info", message: "hi" }],
@@ -1290,6 +1316,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Condition trace",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: {
           conditions: [{ field: "to", op: "==", value: "archived" }],
@@ -1337,6 +1364,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Skip trace",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: { conditions: [], mapping: [] },
         outputs: [{ type: "createTask", title: "Dup", projectRef: "trigger", dedupeKey: "{{taskId}}" }],
@@ -1375,6 +1403,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Full trace",
         enabled: true,
+        notifyOnFailure: true,
         trigger: { type: "event", event: "task.statusChanged" },
         logic: {
           conditions: [],
@@ -1419,6 +1448,7 @@ describe("FlowEngine", () => {
         schemaVersion: 10,
         name: "Many records",
         enabled: true,
+        notifyOnFailure: true,
         trigger: {
           type: "poll",
           provider: "hubspot",

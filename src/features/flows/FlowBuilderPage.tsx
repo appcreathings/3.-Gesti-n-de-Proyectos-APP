@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { FlowRule } from "@/domain/schemas/flow";
 import { createEmptyFlow } from "@/flows/migration";
 import {
@@ -107,13 +108,21 @@ export function FlowBuilderPage() {
           }
         />
 
-        <div className="mb-4 max-w-md">
+        <div className="mb-4 max-w-md space-y-3">
           <Input
             value={flow.name}
             onChange={(e) => setFlow((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="Nombre del flujo"
             className="text-base font-medium"
           />
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={flow.notifyOnFailure}
+              onCheckedChange={(v) => setFlow((prev) => ({ ...prev, notifyOnFailure: v }))}
+              aria-label="Notificarme si este flujo falla"
+            />
+            Notificarme si este flujo falla
+          </label>
         </div>
 
         <FlowCanvas key={loadedFlowId ?? "new"} initialGraph={graph} onGraphChange={setGraph} />

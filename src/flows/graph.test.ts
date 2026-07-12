@@ -16,6 +16,7 @@ function makeRule(overrides: Partial<FlowRule> = {}): FlowRule {
     schemaVersion: 8,
     name: "Test",
     enabled: true,
+    notifyOnFailure: true,
     trigger: { type: "event", event: "task.statusChanged" },
     logic: { conditions: [], mapping: [] },
     outputs: [],

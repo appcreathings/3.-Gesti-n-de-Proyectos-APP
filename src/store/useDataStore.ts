@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { nowIso } from "@/lib/utils";
+import { nowIso, uuid } from "@/lib/utils";
 import type {
   ActivityDoc,
   ActivityEntry,
@@ -424,12 +424,26 @@ async function logActivity(events: DomainEvent[], project: Project) {
   await adapter().writeDoc<ActivityDoc>("activity", doc);
 }
 
+/** Cooldown entre notificaciones de fallo del mismo flow (spec 024 §F3) —
+ * sin esto, un flow de poll que falla cada 5 min generaría una notificación
+ * nueva cada 5 min indefinidamente ("5 veces en 10 min" del criterio de
+ * aceptación). En memoria por pestaña, mismo patrón que el resto del estado
+ * de polling/backoff de este código base — no se persiste entre sesiones. */
+const FLOW_FAILURE_NOTIFY_COOLDOWN_MS = 15 * 60_000;
+const lastFlowFailureNotifiedAt = new Map<string, number>();
+
 /**
  * Apply the effects of a flow engine run: persist mutated projects, create/
  * update people, push notifications, bump runCount only for flows that
  * actually executed, and log any transform/output errors. Shared by the
  * event-triggered path (`runAutomations`) and the poll-triggered path
  * (`runPolledFlow`) so both apply results identically.
+ *
+ * `isAutomatic` gates the failure-notification (spec 024 §F3): solo corridas
+ * automáticas (poll/evento) de un flow activo notifican al fallar — una
+ * corrida manual ("Ejecutar ahora") es una prueba que el usuario ya está
+ * viendo en pantalla, así que nunca notifica, sin importar el estado del
+ * flow.
  */
 async function applyFlowResult(
   flowResult: import("@/flows/engine").FlowEngineResult,
@@ -440,6 +454,7 @@ async function applyFlowResult(
       entries: Omit<import("@/store/useFlowStore").FlowRunLog, "id">[],
     ) => Promise<void>;
   },
+  options: { isAutomatic: boolean },
 ) {
   const s = useDataStore.getState();
   for (const p of flowResult.changedProjects) {
@@ -535,6 +550,38 @@ async function applyFlowResult(
   if (runLogs.length > 0) {
     await flowStore.recordRuns(runLogs);
   }
+
+  if (options.isAutomatic) {
+    const nowMs = Date.now();
+    const failureNotifications: import("@/domain/schemas").Notification[] = [];
+    for (const log of runLogs) {
+      if (log.status === "success") continue;
+      const flow = flowStore.flows.find((f) => f.id === log.flowId);
+      // Solo flows activos con la opción encendida (default true) — y
+      // respeta el cooldown para no inundar el buzón si el mismo flow sigue
+      // fallando en cada poll.
+      if (!flow?.enabled || flow.notifyOnFailure === false) continue;
+      const lastNotified = lastFlowFailureNotifiedAt.get(log.flowId) ?? 0;
+      if (nowMs - lastNotified < FLOW_FAILURE_NOTIFY_COOLDOWN_MS) continue;
+      lastFlowFailureNotifiedAt.set(log.flowId, nowMs);
+
+      failureNotifications.push({
+        id: uuid(),
+        type: "flow.failed",
+        severity: log.status === "error" ? "critical" : "warning",
+        message:
+          log.status === "error"
+            ? `El flujo "${log.flowName}" falló: ${log.detail}`
+            : `El flujo "${log.flowName}" terminó con errores: ${log.detail}`,
+        entityRef: null,
+        read: false,
+        createdAt: log.at,
+      });
+    }
+    if (failureNotifications.length > 0) {
+      await s.addNotifications(failureNotifications);
+    }
+  }
 }
 
 /** Combina los errores de un mismo flow en un solo texto: agrupa mensajes
@@ -589,7 +636,7 @@ async function runAutomations(events: DomainEvent[]) {
         processTemplates: s.processTemplates,
         trace: true,
       });
-      await applyFlowResult(flowResult, flowStore);
+      await applyFlowResult(flowResult, flowStore, { isAutomatic: true });
     }
   } catch (error) {
     console.error("Error running flow rules:", error);
@@ -638,7 +685,7 @@ async function runPolledFlowImpl(pollKey: string, records: Record<string, unknow
       externalData,
       trace: true,
     });
-    await applyFlowResult(flowResult, flowStore);
+    await applyFlowResult(flowResult, flowStore, { isAutomatic: true });
   } catch (error) {
     console.error("Error running polled flow:", error);
   }
@@ -736,8 +783,10 @@ async function runFlowNowImpl(
   // `applyFlowResult` ya registra en el historial el desenlace normal
   // (ejecutado / error de transform-output) vía `executedFlowIds`/`errors` —
   // no duplicar esa entrada aquí, solo construir el mensaje de retorno para
-  // quien llamó a `runFlowNow`.
-  await applyFlowResult(flowResult, flowStore);
+  // quien llamó a `runFlowNow`. `isAutomatic: false` — "Ejecutar ahora" es
+  // una prueba manual que el usuario ya está viendo en pantalla, nunca debe
+  // generar una notificación de fallo (spec 024 §F3).
+  await applyFlowResult(flowResult, flowStore, { isAutomatic: false });
 
   // Los casos "hubo error" y "se ejecutó" ya quedan en el historial gracias a
   // `applyFlowResult` (itera `errors`/`executedFlowIds`). El caso restante —

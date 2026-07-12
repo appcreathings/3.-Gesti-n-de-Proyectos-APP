@@ -92,6 +92,7 @@ describe("duplicateFlow (spec 024 §F7)", () => {
     schemaVersion: 10,
     name: "Original flow",
     enabled: true,
+    notifyOnFailure: true,
     trigger: { type: "event", event: "task.statusChanged" },
     logic: { conditions: [{ field: "status", op: "==", value: "done" }], mapping: [] },
     outputs: [{ type: "createNotification", severity: "info", message: "Hi" }],

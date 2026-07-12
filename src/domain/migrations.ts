@@ -72,10 +72,15 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
   // existing v8 records need no data transformation.
   // v9 -> v10 (spec 023 §E): `createTask`/`createProject` outputs gained
   // `dedupeKey`. Optional/defaulted, no data transformation needed.
+  // v10 -> v11 (spec 024 §F3): `FlowRule` gained `notifyOnFailure`.
+  // Optional/defaulted (`true`) in the Zod schema, no data transformation
+  // needed — existing flows keep the same "notify on failure" behavior that
+  // becomes the default for everyone.
   flows: [
     { to: 8, up: migrateFlowsDocV7ToV8 },
     { to: 9, up: (data) => data },
     { to: 10, up: (data) => data },
+    { to: 11, up: (data) => data },
   ],
 };
 

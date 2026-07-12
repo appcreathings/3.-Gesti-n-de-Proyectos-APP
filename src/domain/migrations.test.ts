@@ -45,11 +45,11 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v10, via v1-v7 field steps then a v10 step for spec 023's dedupeKey addition)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v11, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v11 with no projects-specific change — spec 024's notifyOnFailure only touched `flows`)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(10);
+    expect(value.schemaVersion).toBe(11);
   });
 });
 
