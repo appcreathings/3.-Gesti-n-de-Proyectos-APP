@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import ViteSitemapPlugin from "vite-plugin-sitemap";
 import path from "node:path";
+import { BLOG_SLUGS } from "./src/features/blog/data/slugs";
 
 export default defineConfig({
   plugins: [
@@ -10,6 +11,12 @@ export default defineConfig({
     ViteSitemapPlugin({
       hostname: "https://hito.autos",
       dynamicRoutes: [
+        "/docs",
+        "/changelog",
+        "/alternativa-trello",
+        "/alternativa-notion-local",
+        "/gestor-proyectos-offline",
+        "/blogs",
         "/app",
         "/app/products",
         "/app/projects",
@@ -17,6 +24,7 @@ export default defineConfig({
         "/app/automations",
         "/app/notifications",
         "/app/settings",
+        ...BLOG_SLUGS.map((slug) => `/blogs/${slug}`),
       ],
       generateRobotsTxt: false,
     }),
