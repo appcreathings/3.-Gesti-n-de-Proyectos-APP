@@ -35,6 +35,22 @@ function OutputRow({ output }: { output: FlowRunOutputTrace }) {
         ? "text-muted-foreground"
         : "text-destructive";
 
+  // Spec 025 §C: cuando `plan` está presente (dry-run), mostrar el plan
+  // descriptivo en lugar del badge "ejecutado"/"error" — distingue
+  // visualmente una simulación de un run real. El plan ya es auto-descriptivo
+  // ("Se crearía la tarea…", "Se omitiría…").
+  if (output.plan) {
+    return (
+      <div className="flex items-start gap-2 text-xs">
+        <Icon className={`mt-0.5 size-3.5 shrink-0 ${color}`} />
+        <div className="flex-1">
+          <span className="font-medium">{meta.label}</span>{" "}
+          <span className="text-muted-foreground italic">{output.plan}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-start gap-2 text-xs">
       <Icon className={`mt-0.5 size-3.5 shrink-0 ${color}`} />

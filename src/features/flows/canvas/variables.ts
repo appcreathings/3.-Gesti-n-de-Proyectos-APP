@@ -1,4 +1,4 @@
-import type { Trigger } from "@/domain/schemas/flow";
+import type { Trigger, PollTrigger } from "@/domain/schemas/flow";
 import type { DomainEventType } from "@/automations/events";
 
 export interface AvailableVariable {
@@ -11,8 +11,11 @@ export interface AvailableVariable {
 
 /** Campos que trae cada tipo de `DomainEvent` (ver `src/automations/events.ts`),
  * con un valor de ejemplo — se usan cuando todavía no hay una muestra real de
- * "Probar conexión" (trigger de evento, o trigger de poll sin probar aún). */
-const EVENT_FIELD_EXAMPLES: Record<DomainEventType, Record<string, string>> = {
+ * "Probar conexión" (trigger de evento, o trigger de poll sin probar aún).
+ *
+ * Exportado para que `src/flows/dry-run.ts` (spec 025 §C) pueda construir un
+ * evento sintético representativo sin duplicar esta tabla. */
+export const EVENT_FIELD_EXAMPLES: Record<DomainEventType, Record<string, string>> = {
   "item.checked": { type: "item.checked", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1", itemId: "item-1" },
   "checklist.completed": { type: "checklist.completed", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1" },
   "area.completed": { type: "area.completed", projectId: "proj-123", areaId: "area-1" },
@@ -26,17 +29,38 @@ const EVENT_FIELD_EXAMPLES: Record<DomainEventType, Record<string, string>> = {
   "task.unarchived": { type: "task.unarchived", projectId: "proj-123", taskId: "task-1" },
 };
 
+/** Campos por defecto que trae HubSpot según el `objectType` — espeja
+ * `HUBSPOT_FIELDS_BY_TYPE` de `TriggerStep.tsx` para que cuando el usuario
+ * aún no eligió `config.fields` manualmente ni probó la conexión, los
+ * selectores del mapeo no aparezcan vacíos (spec 025 §B). Se exporta para
+ * que `TriggerStep` y otros consumers usen la misma fuente de verdad. */
+export const HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE: Record<NonNullable<PollTrigger["config"]["objectType"]>, string[]> = {
+  contacts: ["email", "firstname", "lastname", "company", "phone"],
+  deals: ["dealname", "amount", "dealstage", "closedate", "pipeline"],
+  tickets: ["subject", "content", "hs_ticket_priority", "hs_pipeline_stage", "hs_ticket_category"],
+};
+
 function formatExample(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   const str = typeof value === "string" ? value : JSON.stringify(value);
   return str.length > 40 ? `${str.slice(0, 37)}...` : str;
 }
 
-/** Une las variables disponibles para interpolar `{{campo}}` en un nodo: la
- * muestra real de "Probar conexión" si existe (unión de claves de todos los
- * registros — spec 022 §A), o si no, los campos conocidos del tipo de evento
- * del trigger. Cada variable lleva un ejemplo de valor para reconocerla sin
- * adivinar por el nombre (spec 023 §C). */
+/** Une las variables disponibles para interpolar `{{campo}}` en un nodo, en
+ * orden de prioridad:
+ *  1. Muestra real de "Probar conexión" si existe (unión de claves de todos
+ *     los registros — spec 022 §A, o hidratada desde `flow.lastSample` — spec
+ *     025 §A).
+ *  2. Si no, los campos conocidos del tipo de evento del trigger (event).
+ *  3. Si no, para un poll de HubSpot, los `config.fields` elegidos por el
+ *     usuario al configurar el trigger (spec 025 §B) — antes se devolvía
+ *     `[]`, dejando al usuario escribiendo a ciegas los nombres de campos
+ *     que el propio flujo ya sabe que va a traer.
+ *  4. Para HubSpot sin `config.fields`, los defaults por `objectType` (ídem).
+ *  5. Para Google Sheets sin muestra ni `config.fields`, `[]` — Sheets no
+ *     expone campos conocidos hasta que se prueba la conexión (el rango es
+ *     arbitrario, definido en la conexión, no en el trigger).
+ * Cada variable lleva un ejemplo de valor cuando se conoce (spec 023 §C). */
 export function deriveAvailableVariables(
   trigger: Trigger,
   sample?: Record<string, unknown>[]
@@ -49,13 +73,54 @@ export function deriveAvailableVariables(
         if (!seen.has(key)) seen.set(key, formatExample(value));
       }
     }
-  } else if (trigger.type === "event") {
+    return Array.from(seen.entries()).map(([field, example]) => ({ field, example }));
+  }
+
+  if (trigger.type === "event") {
     for (const [key, value] of Object.entries(EVENT_FIELD_EXAMPLES[trigger.event])) {
       seen.set(key, value);
     }
+    return Array.from(seen.entries()).map(([field, example]) => ({ field, example }));
   }
 
-  return Array.from(seen.entries()).map(([field, example]) => ({ field, example }));
+  // Poll sin muestra — fallback a config.fields o defaults de HubSpot.
+  if (trigger.type === "poll") {
+    const explicitFields = trigger.config.fields;
+    const fields =
+      explicitFields.length > 0
+        ? explicitFields
+        : trigger.provider === "hubspot"
+          ? HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE[trigger.config.objectType ?? "contacts"]
+          : [];
+    for (const field of fields) seen.set(field, undefined);
+    return Array.from(seen.entries()).map(([field, example]) => ({ field, example }));
+  }
+
+  return [];
+}
+
+/** Valida que todos los `{{tokens}}` interpolables en `template` estén
+ * presentes en `available` (path completo o top-level). Devuelve los
+ * faltantes. Cuando `available` está vacío (sin muestra ni campos
+ * conocidos), devuelve `valid: true` — sin información para advertir,
+ * no hay valor en mostrar una advertencia (spec 025 §B). */
+export function validateVariables(
+  template: string,
+  available: AvailableVariable[]
+): { valid: boolean; missing: string[] } {
+  if (available.length === 0) return { valid: true, missing: [] };
+  const availableFields = new Set(available.map((v) => v.field));
+  const TOKEN_RE = /\{\{(\w+(?:\.\w+)*)\}\}/g;
+  const missing = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = TOKEN_RE.exec(template)) !== null) {
+    const path = m[1];
+    const top = path.split(".")[0];
+    if (!availableFields.has(path) && !availableFields.has(top)) {
+      missing.add(path);
+    }
+  }
+  return { valid: missing.size === 0, missing: Array.from(missing) };
 }
 
 export type InternalEntity = "task" | "project" | "person";

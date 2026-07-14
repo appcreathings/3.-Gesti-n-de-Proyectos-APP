@@ -1569,4 +1569,141 @@ describe("FlowEngine", () => {
       expect(result.changedProjects[0].tasks).toHaveLength(8);
     });
   });
+
+  // ── spec 025 §C — describeOutputs (dry-run) ──────────────────────────────
+  describe("describeOutputs (spec 025 §C — dry-run)", () => {
+    it("does NOT mutate state when describeOutputs is true", async () => {
+      const project = createTestProject();
+      const beforeTasks = project.tasks.length;
+      const flow: FlowRule = {
+        id: "flow-dry-1",
+        schemaVersion: 12,
+        name: "Dry-run test",
+        enabled: true,
+        notifyOnFailure: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Dry task", projectId: "project-1", projectRef: "explicit" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [{ type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" }];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+        describeOutputs: true,
+      });
+
+      // Estado real intacto.
+      expect(project.tasks.length).toBe(beforeTasks);
+      expect(result.changedProjects).toEqual([]);
+      expect(result.newProjects).toEqual([]);
+      expect(result.newPeople).toEqual([]);
+      expect(result.notifications).toEqual([]);
+      expect(result.outboundDeliveries).toEqual([]);
+      expect(result.emailDeliveries).toEqual([]);
+      expect(result.executedFlowIds).toEqual([]); // nunca se ejecutó de verdad.
+
+      // La traza describe el plan.
+      const trace = result.traces["flow-dry-1"];
+      expect(trace).toBeDefined();
+      const out = trace.records[0].outputs[0];
+      expect(out.outcome).toBe("executed");
+      expect(out.plan).toContain("Se crearía la tarea");
+      expect(out.plan).toContain("Dry task");
+      expect(out.plan).toContain("Test Project");
+    });
+
+    it("describeOnly webhook/email produces a plan and no network calls", async () => {
+      const project = createTestProject();
+      const flow: FlowRule = {
+        id: "flow-dry-2",
+        schemaVersion: 12,
+        name: "Dry webhook/email",
+        enabled: true,
+        notifyOnFailure: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [
+          { type: "webhook", url: "https://hooks.example.com/catch/x", secret: "whsec_test" },
+        ],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [{ type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" }];
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+        describeOutputs: true,
+      });
+
+      // No se llama a la red.
+      expect(fetchSpy).not.toHaveBeenCalled();
+      // No registro intentos de outbound.
+      expect(result.outboundDeliveries).toEqual([]);
+      // La traza describe el host sin exponer secretos.
+      const out = result.traces["flow-dry-2"]!.records[0].outputs[0];
+      expect(out.outcome).toBe("executed");
+      expect(out.plan).toContain("hooks.example.com");
+      expect(out.plan).not.toContain("whsec_test");
+      fetchSpy.mockRestore();
+    });
+
+    it("default behavior (describeOutputs undefined) remains real — createTask mutates state as before", async () => {
+      const project = createTestProject();
+      const beforeTasks = project.tasks.length;
+      const flow: FlowRule = {
+        id: "flow-notdry",
+        schemaVersion: 12,
+        name: "Real run",
+        enabled: true,
+        notifyOnFailure: true,
+        trigger: { type: "event", event: "task.statusChanged" },
+        logic: { conditions: [], mapping: [] },
+        outputs: [{ type: "createTask", title: "Real task", projectId: "project-1", projectRef: "explicit" }],
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const events: DomainEvent[] = [{ type: "task.statusChanged", projectId: "project-1", taskId: "task-1", from: "todo", to: "done" }];
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events,
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+        trace: true,
+      });
+
+      expect(project.tasks.length).toBe(beforeTasks); // original not mutated...
+      expect(result.changedProjects[0].tasks).toHaveLength(beforeTasks + 1); // ...mutated in `changedProjects` (clón).
+
+      const out = result.traces["flow-notdry"]!.records[0].outputs[0];
+      expect(out.outcome).toBe("executed");
+      expect(out.plan).toBeUndefined(); // sin plan: fue un run real.
+    });
+  });
 });

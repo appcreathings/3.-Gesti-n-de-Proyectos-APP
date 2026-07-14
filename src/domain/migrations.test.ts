@@ -45,11 +45,57 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v11, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v11 with no projects-specific change — spec 024's notifyOnFailure only touched `flows`)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v12, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v12 with no projects-specific change — spec 024's notifyOnFailure and 025's lastSample only touched `flows`)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(11);
+    expect(value.schemaVersion).toBe(12);
+  });
+});
+
+describe("flows v11 -> v12 (spec 025: lastSample/lastSampleAt)", () => {
+  it("converges a v11 doc to v12 without touching inner flows (identity step)", () => {
+    const doc = {
+      schemaVersion: 11,
+      flows: [
+        {
+          id: "flow-a",
+          name: "Demo",
+          trigger: { type: "event", event: "task.added" },
+          outputs: [{ type: "createNotification", severity: "info", message: "hi" }],
+        },
+      ],
+    };
+
+    const { value, migrated } = migrateRecord("flows", doc, 12, MIGRATIONS);
+    expect(migrated).toBe(true);
+    expect(value.schemaVersion).toBe(12);
+    const flow = (value as { flows: Record<string, unknown>[] }).flows[0];
+    // Sin-transform step: trigger and outputs preserved as-is.
+    expect(flow.trigger).toEqual({ type: "event", event: "task.added" });
+    expect(flow.outputs).toEqual([{ type: "createNotification", severity: "info", message: "hi" }]);
+    // Optional new fields are not added — they stay `undefined` for the
+    // Zod schema's `.optional()` to default them at parse time.
+    expect(flow).not.toHaveProperty("lastSample");
+    expect(flow).not.toHaveProperty("lastSampleAt");
+  });
+
+  it("is idempotent: a v12 doc is not touched", () => {
+    const doc = {
+      schemaVersion: 12,
+      flows: [
+        {
+          id: "flow-b",
+          name: "Demo v12",
+          trigger: { type: "poll", provider: "hubspot",
+            config: { connectionId: "c1", objectType: "contacts", fields: ["email"], filters: [], intervalMs: 300_000 } },
+          outputs: [],
+        },
+      ],
+    };
+
+    const { migrated } = migrateRecord("flows", doc, 12, MIGRATIONS);
+    expect(migrated).toBe(false);
   });
 });
 

@@ -19,6 +19,7 @@ import { getConnections, type IntegrationConnection } from "@/integrations/conne
 import { ROUTES } from "@/routes/paths";
 import { deriveAvailableVariables } from "./variables";
 import { VariablePicker } from "./VariablePicker";
+import { VariableValidationHint } from "./VariableValidationHint";
 
 interface Props {
   output: Output;
@@ -131,6 +132,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={titleRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.title} available={availableVariables} />
             <p className="text-xs text-muted-foreground">Usa {"{{campo}}"} para interpolación</p>
           </div>
 
@@ -212,6 +214,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={taskAssigneeRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.assigneeId ?? ""} available={availableVariables} />
           </div>
 
           <div className="grid gap-2">
@@ -223,6 +226,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={taskDueDateRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.dueDate ?? ""} available={availableVariables} />
           </div>
 
           <div className="grid gap-2">
@@ -262,6 +266,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={taskSummaryRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.summary ?? ""} available={availableVariables} />
           </div>
 
           <div className="grid gap-2">
@@ -273,6 +278,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={taskDescriptionRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.description ?? ""} available={availableVariables} />
           </div>
 
           <div className="grid gap-2">
@@ -284,6 +290,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={taskDedupeKeyRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.dedupeKey ?? ""} available={availableVariables} />
             <p className="text-xs text-muted-foreground">
               Si ya existe una tarea con esta clave (interpolada), se omite en vez de duplicar. Útil
               con el id del registro externo, ej. {"{{id}}"} de un contacto de HubSpot.
@@ -305,6 +312,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={projectNameRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.name} available={availableVariables} />
             <p className="text-xs text-muted-foreground">
               Usa {"{{campo}}"} para interpolar (p.ej. {"{{dealname}}"} en un deal de HubSpot)
             </p>
@@ -404,6 +412,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={projectDedupeKeyRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.dedupeKey ?? ""} available={availableVariables} />
             <p className="text-xs text-muted-foreground">
               Si ya existe un proyecto con esta clave (interpolada), se omite en vez de duplicar.
             </p>
@@ -526,6 +535,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={setFieldValueRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={String(output.value ?? "")} available={availableVariables} />
           </div>
         </div>
       );
@@ -561,6 +571,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={notificationMessageRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.message} available={availableVariables} />
           </div>
         </div>
       );
@@ -622,6 +633,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={emailToRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.to} available={availableVariables} />
           </div>
           <div className="grid gap-2">
             <Label>Asunto</Label>
@@ -632,6 +644,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={emailSubjectRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.subject} available={availableVariables} />
           </div>
           <div className="grid gap-2">
             <Label>Cuerpo</Label>
@@ -642,6 +655,7 @@ export function ActionConfigFields({ output, trigger, sample, onChange }: Props)
               inputRef={emailBodyRef}
               variables={availableVariables}
             />
+            <VariableValidationHint template={output.body} available={availableVariables} />
           </div>
         </div>
       );

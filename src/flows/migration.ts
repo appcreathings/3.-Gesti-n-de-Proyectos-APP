@@ -172,10 +172,15 @@ export function createEmptyFlow(name: string): FlowRule {
  * inactivo (para no registrar polling hasta que el usuario lo active a
  * propósito) y sin historial propio — `runCount`/`lastRunAt` arrancan en
  * cero, igual que un flujo recién creado.
+ *
+ * No hereda `lastSample`/`lastSampleAt` del original (spec 025 §A): la copia
+ * puede apuntar a otra conexión o la muestra del original puede referenciar
+ * registros ya no vigentes — mejor arrancar sin muestra y dejar al usuario
+ * "Probar conexión" cuando lo active.
  */
 export function duplicateFlow(flow: FlowRule): FlowRule {
   const now = nowIso();
-  return {
+  const clone: FlowRule = {
     ...flow,
     id: uuid(),
     schemaVersion: SCHEMA_VERSION,
@@ -186,4 +191,10 @@ export function duplicateFlow(flow: FlowRule): FlowRule {
     createdAt: now,
     updatedAt: now,
   };
+  // Limpieza explícita: el spread arriba rebota `undefined` traídos de flow,
+  // pero el original sí puede tener `lastSample` poblado — lo forzamos a
+  // undefined para que el JSON persistido no lo conserve.
+  clone.lastSample = undefined;
+  clone.lastSampleAt = undefined;
+  return clone;
 }

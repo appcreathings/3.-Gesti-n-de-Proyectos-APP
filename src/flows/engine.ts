@@ -43,6 +43,16 @@ export interface FlowEngineInput {
    * opt-in de todos modos para no cambiar el shape de `result` en llamadas
    * que no la necesitan. */
   trace?: boolean;
+  /** Si es true, los outputs se "describen" en vez de ejecutarse (no mutan
+   * `Project`s, no crean `Person`s, no disparan `webhook`s, no mandan
+   * `email`s, no emiten notificaciones). Cada output devuelve un string
+   * `plan` en la traza (ej. "Se crearía la tarea 'X' en el proyecto 'Y'")
+   * en `outcome` "executed"/"skipped" pero sin efecto real. `result`
+   * queda limpio de mutaciones de estado. Útil para el dry-run del editor
+   * de flujos (spec 025 §C). Las resoluciones de target (projectId/
+   * matchField) siguen corriendo — si fallan, el `plan` lo describe
+   * honestamente: "…pero el proyecto 'X' no existe — en runtime se omitiría". */
+  describeOutputs?: boolean;
 }
 
 export interface FlowExecutionError {
@@ -72,6 +82,12 @@ export interface FlowRunOutputTrace {
    * envío de red falló). */
   reason?: string;
   mutatedProjectIds: string[];
+  /** Solo presente cuando `FlowEngineInput.describeOutputs === true`
+   * (spec 025 §C — dry-run). Texto descriptivo en español natural de lo
+   * que *pasaría* si el output corriese de verdad — reemplaza al badge
+   * "ejecutado"/"omitido" en `FlowRunTraceView` para distinguir una
+   * simulación de un run real. */
+  plan?: string;
 }
 
 export interface FlowRunRecordTrace {
@@ -245,15 +261,17 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
             input.processTemplates,
             input.checklistTemplates,
             result,
-            runContext
+            runContext,
+            input.describeOutputs ?? false,
           );
           for (const id of outputResult.mutatedProjectIds) changedProjectIds.add(id);
-          executedFlowIds.add(flow.id);
+          if (!(input.describeOutputs ?? false)) executedFlowIds.add(flow.id);
           recordTrace?.outputs.push({
             type: output.type,
             outcome: outputResult.outcome,
             reason: outputResult.reason,
             mutatedProjectIds: outputResult.mutatedProjectIds,
+            plan: outputResult.plan,
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -470,6 +488,190 @@ function executeTransform(code: string, record: Record<string, unknown>): Transf
 
 // ─── TARGETING HELPERS ───────────────────────────────────────────────────────
 
+/** Modo describe-only (spec 025 §C, dry-run): construye un texto en
+ * español natural que describe lo que *pasaría* si el output corriese de
+ * verdad, sin mutar estado ni llamar a la red. Reusa las mismas resoluciones
+ * de target que el run real — si fallan, el `plan` lo dice honestamente
+ * ("se omitiría: el proyecto 'X' no existe"). El `outcome` "executed"
+ * significa "el plan fue computable" (no que se ejecutó algo). No lanza. */
+function describeOutput(
+  output: Output,
+  data: Record<string, unknown>,
+  source: RecordSource,
+  projectMap: Map<string, Project>,
+  people: Person[],
+  runContext: RunContext,
+): OutputExecutionOutcome {
+  switch (output.type) {
+    case "createProject": {
+      const name = interpolateString(output.name, data);
+      const dedupeKey = output.dedupeKey ? interpolateString(output.dedupeKey, data) : undefined;
+      if (dedupeKey && findProjectByDedupeKey(projectMap, dedupeKey)) {
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría crear el proyecto "${name}" — ya existe con dedupeKey "${dedupeKey}".`,
+        };
+      }
+      const typeLabel = output.projectTypeId
+        ? (projectMap.size > 0 ? "" : "") + (output.projectTypeId ? ` (tipo ${output.projectTypeId})` : "")
+        : "";
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se crearía el proyecto "${name}"${typeLabel}.`,
+      };
+    }
+
+    case "createTask": {
+      const title = interpolateString(output.title, data);
+      const projectId = resolveCreateTaskProjectId(output, source, projectMap, runContext);
+      if (!projectId) {
+        const refLabel =
+          output.projectRef === "createdProject"
+            ? "el nodo createProject anterior en este flujo"
+            : output.projectRef === "trigger"
+              ? "el evento/registro disparador"
+              : `"${output.projectId ?? ""}"`;
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría crear la tarea "${title}" — no se resolvió el proyecto destino (${refLabel}).`,
+        };
+      }
+      const project = projectMap.get(projectId);
+      const projectName = project?.name ?? projectId;
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se crearía la tarea "${title}" en el proyecto "${projectName}".`,
+      };
+    }
+
+    case "createPerson": {
+      const matchField = output.matchField;
+      const matchValue = data[matchField] as string;
+      const existing = people.find((p) => p[matchField] === matchValue);
+      if (existing) {
+        if (output.ifNotFound === "update") {
+          return {
+            mutatedProjectIds: [],
+            outcome: "executed",
+            plan: `Se actualizaría la persona existente (match por ${matchField}="${matchValue}").`,
+          };
+        }
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría la persona (match: ${matchField}="${matchValue}" ya existe, ifNotFound=${output.ifNotFound}).`,
+        };
+      }
+      if (output.ifNotFound === "create") {
+        return {
+          mutatedProjectIds: [],
+          outcome: "executed",
+          plan: `Se crearía una nueva persona (match por ${matchField}="${matchValue}").`,
+        };
+      }
+      return {
+        mutatedProjectIds: [],
+        outcome: "skipped",
+        plan: `Se omitiría la persona (sin match por ${matchField}="${matchValue}", ifNotFound=${output.ifNotFound}).`,
+      };
+    }
+
+    case "setProjectStatus": {
+      const projectId = resolveTargetProjectId(output.projectId, source, projectMap);
+      if (!projectId) {
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría — no se resolvió el proyecto destino (projectId="${output.projectId ?? ""}").`,
+        };
+      }
+      const project = projectMap.get(projectId);
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `El proyecto "${project?.name ?? projectId}" pasaría a estado "${output.status}".`,
+      };
+    }
+
+    case "setField": {
+      const projectId = resolveTargetProjectId(output.projectId, source, projectMap);
+      if (!projectId) {
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría — no se resolvió el proyecto destino.`,
+        };
+      }
+      const project = projectMap.get(projectId);
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se setearía ${output.field}=${JSON.stringify(output.value)} en el proyecto "${project?.name ?? projectId}".`,
+      };
+    }
+
+    case "createNotification": {
+      const message = interpolateString(output.message, data);
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se generaría una notificación (${output.severity}): "${message}".`,
+      };
+    }
+
+    case "markAreaComplete": {
+      const projectId = resolveTargetProjectId(output.projectId, source, projectMap);
+      const areaId = output.areaId ?? source.areaId;
+      if (!projectId || !areaId) {
+        return {
+          mutatedProjectIds: [],
+          outcome: "skipped",
+          plan: `Se omitiría — falta projectId/areaId.`,
+        };
+      }
+      const project = projectMap.get(projectId);
+      const area = project?.areas.find((a) => a.id === areaId);
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se marcaría completa el área "${area?.name ?? areaId}" del proyecto "${project?.name ?? projectId}".`,
+      };
+    }
+
+    case "webhook": {
+      const payloadShape = output.payload
+        ? `{${Object.keys(output.payload).join(", ")}}`
+        : `{${Object.keys(data).join(", ")}}`;
+      // Solo el host可见 para no enmascarar secretos en el plan.
+      let host: string;
+      try {
+        host = new URL(output.url).host;
+      } catch {
+        host = output.url;
+      }
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se enviaría POST a ${host} con payload ${payloadShape} (firmado con el secret configurado).`,
+      };
+    }
+
+    case "email": {
+      const to = interpolateString(output.to, data);
+      const subject = interpolateString(output.subject, data);
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        plan: `Se enviaría email a "${to}" con asunto "${subject}".`,
+      };
+    }
+  }
+}
+
 /** Resuelve el proyecto a modificar: preferencia explícita del output, si no
  * el proyecto de origen del evento/registro. Nunca cae en "el primero". */
 function resolveTargetProjectId(
@@ -545,14 +747,18 @@ function buildNotificationEntityRef(
  * `changedProjectIds` en `runFlowEngine` (comportamiento previo); `outcome`/
  * `reason` alimentan la traza de depuración del historial (spec 023 §F) sin
  * cambiar el comportamiento observable — los `console.warn` existentes se
- * conservan intactos. */
+ * conservan intactos. `plan` solo se usa cuando `describeOutputs: true`
+ * (dry-run, spec 025 §C) — sustituye a `reason`/`outcome` en la UI para
+ * distinguir simulación de run real. */
 interface OutputExecutionOutcome {
   mutatedProjectIds: string[];
   outcome: "executed" | "skipped";
   reason?: string;
+  plan?: string;
 }
 
-/** Ejecuta un output. */
+/** Ejecuta un output. Cuando `describeOnly` es true, no muta/llama a red —
+ * solo describe qué pasaría (spec 025 §C, dry-run). */
 async function executeOutput(
   output: Output,
   data: Record<string, unknown>,
@@ -564,8 +770,10 @@ async function executeOutput(
   processTemplates: ProcessTemplate[],
   checklistTemplates: ChecklistTemplate[],
   result: FlowEngineResult,
-  runContext: RunContext
+  runContext: RunContext,
+  describeOnly: boolean,
 ): Promise<OutputExecutionOutcome> {
+  if (describeOnly) return describeOutput(output, data, source, projectMap, people, runContext);
   switch (output.type) {
     case "createProject": {
       const dedupeKey = output.dedupeKey ? interpolateString(output.dedupeKey, data) : undefined;

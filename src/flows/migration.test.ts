@@ -86,10 +86,10 @@ describe("createEmptyFlow", () => {
   });
 });
 
-describe("duplicateFlow (spec 024 §F7)", () => {
+describe("duplicateFlow (spec 024 §F7 + spec 025 §A: no propaga lastSample)", () => {
   const original: FlowRule = {
     id: "flow-1",
-    schemaVersion: 10,
+    schemaVersion: 12,
     name: "Original flow",
     enabled: true,
     notifyOnFailure: true,
@@ -100,6 +100,9 @@ describe("duplicateFlow (spec 024 §F7)", () => {
     runCount: 42,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+    // Spec 025 §A: la muestra persistida viaja con el flujo original.
+    lastSample: [{ email: "a@b.com", firstname: "Ana" }],
+    lastSampleAt: "2026-07-13T10:00:00.000Z",
   };
 
   it("copies trigger/logic/outputs but resets identity and run history", () => {
@@ -113,6 +116,13 @@ describe("duplicateFlow (spec 024 §F7)", () => {
     expect(copy.trigger).toEqual(original.trigger);
     expect(copy.logic).toEqual(original.logic);
     expect(copy.outputs).toEqual(original.outputs);
+  });
+
+  it("does not propagate lastSample/lastSampleAt to the copy (spec 025 §A)", () => {
+    const copy = duplicateFlow(original);
+
+    expect(copy.lastSample).toBeUndefined();
+    expect(copy.lastSampleAt).toBeUndefined();
   });
 
   it("does not mutate the original flow", () => {

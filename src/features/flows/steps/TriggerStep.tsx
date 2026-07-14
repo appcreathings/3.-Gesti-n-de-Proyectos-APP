@@ -12,9 +12,11 @@ import { AppsScriptGuide } from "@/features/integrations/guides/AppsScriptGuide"
 import {
   getConnections,
   resolveConnectionSecret,
-  testConnection,
+  runConnectionProbe,
   type IntegrationConnection,
 } from "@/integrations/connections";
+import { HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE } from "@/features/flows/canvas/variables";
+import { SampleExplorer } from "@/features/flows/canvas/SampleExplorer";
 import { ROUTES } from "@/routes/paths";
 
 interface Props {
@@ -25,6 +27,12 @@ interface Props {
    * picker de mapeo de campos (spec 022 §A). `undefined` limpia una muestra
    * vieja (conexión cambiada, prueba fallida). */
   onSampleChange?: (sample: Record<string, unknown>[] | undefined) => void;
+  /** Muestra viva (efímera del canvas o persistida en `flow.lastSample`)
+   * que el `SampleExplorer` y el badge de cuenta deben mostrar en el
+   * contexto del canvas — el `flow` que ve `TriggerStep` aquí se construye
+   * sintéticamente en `TriggerNodeDrawer` sin `lastSample`, así que hay
+   * que pasarlo por separado. Spec 025 §A (ext: explorador de muestra). */
+  sample?: Record<string, unknown>[];
 }
 
 const TRIGGER_TYPES = [
@@ -70,11 +78,7 @@ const HUBSPOT_OBJECT_TYPES = [
   { value: "tickets", label: "Tickets" },
 ];
 
-const HUBSPOT_FIELDS_BY_TYPE = {
-  contacts: ["email", "firstname", "lastname", "company", "phone"],
-  deals: ["dealname", "amount", "dealstage", "closedate", "pipeline"],
-  tickets: ["subject", "content", "hs_ticket_priority", "hs_pipeline_stage", "hs_ticket_category"],
-};
+const HUBSPOT_FIELDS_BY_TYPE = HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE;
 
 const INTERVAL_OPTIONS = [
   { value: "60000", label: "Cada 1 minuto" },
@@ -83,12 +87,20 @@ const INTERVAL_OPTIONS = [
   { value: "1800000", label: "Cada 30 minutos" },
 ];
 
-export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
+export function TriggerStep({ flow, updateFlow, onSampleChange, sample }: Props) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [guideProvider, setGuideProvider] = useState<"hubspot" | "google-sheets" | null>(null);
   const [hubspotConnections, setHubspotConnections] = useState<IntegrationConnection[]>([]);
   const [sheetsConnections, setSheetsConnections] = useState<IntegrationConnection[]>([]);
+
+  // Preferimos la `sample` viva (estado del canvas, poblada al pulsar
+  // "Probar conexión") sobre `flow.lastSample` (persistida en el FlowRule).
+  // En el contexto del canvas, `flow` es sintético (`TriggerNodeDrawer`
+  // construye `{ ...createEmptyFlow(""), trigger }`) y no lleva
+  // `lastSample`, así que `flow.lastSample` solo funciona cuando se usa
+  // el `TriggerStep` standalone. Spec 025 §A (ext: explorador de muestra).
+  const displaySample = sample ?? flow.lastSample;
 
   useEffect(() => {
     getConnections("hubspot").then(setHubspotConnections);
@@ -127,6 +139,10 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
       default:
         return;
     }
+    // Spec 025 §A: la muestra persistida pertenece al trigger anterior —
+    // al cambiar de tipo de trigger (event↔poll, o provider entre poll),
+    // los registros viejos ya no aplican a nada.
+    clearStaleSample();
     updateFlow({ trigger: newTrigger });
   };
 
@@ -183,19 +199,60 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
 
     setIsTesting(true);
     setTestResult(null);
-    onSampleChange?.(undefined);
+    // NO limpiar la muestra anterior al inicio de la prueba — si la prueba
+    // falla por algo transitorio (timeout, CORS), el explorador sigue
+    // mostrando la muestra anterior en vez de quedarse vacío. Solo se
+    // limpia si la prueba explícitamente falla (más abajo).
 
     try {
       const secret = await resolveConnectionSecret(connection.id);
-      const result = await testConnection(pollTrigger.provider, connection.config, secret);
+      // Bug fix: antes se llamaba `testConnection` que siempre usaba la
+      // operación default (`"contacts"` para HubSpot), ignorando el
+      // `objectType` configurado en el trigger. Si el flujo era de deals,
+      // la prueba traía contactos (campos equivocados) o fallaba si el
+      // token no tenía scope de contacts. Ahora usamos `runConnectionProbe`
+      // con la operación que corresponde al `objectType` del trigger.
+      const operation =
+        pollTrigger.provider === "hubspot"
+          ? (pollTrigger.config.objectType ?? "contacts")
+          : "read";
+      const result = await runConnectionProbe(
+        pollTrigger.provider,
+        connection.config,
+        secret,
+        { operation },
+      );
       setTestResult(result.ok ? `✅ ${result.detail}` : `❌ ${result.detail}`);
-      if (result.ok) onSampleChange?.(result.sample);
+      if (result.ok) {
+        // La muestra viaja por `onSampleChange` → canvas → builder, que
+        // es quien la persiste en `flow.lastSample` al guardar (spec 025
+        // §A). El `updateFlow` lo hace el builder al recibir la muestra
+        // en `handleSampleChange` — aquí solo notificamos la muestra.
+        onSampleChange?.(result.records);
+      } else {
+        // Prueba fallida: limpiar la muestra efímera del canvas — el
+        // builder quitará `lastSample`/`lastSampleAt` al guardar, pero
+        // en vivo ya no queremos que los selectores muestren campos
+        // inválidos.
+        onSampleChange?.(undefined);
+      }
     } catch (error) {
       setTestResult(`❌ Error: ${error instanceof Error ? error.message : "Error desconocido"}`);
+      // No limpiar en catch transitorio — la muestra anterior podría
+      // seguir siendo válida. Solo limpiar si fue un error de la API.
     } finally {
       setIsTesting(false);
     }
   };
+
+  /** Notifica al canvas/builder que la muestra vigente ya no aplica
+   * y debe limpiarse. Lo que dispara es la subida del cambio (vía
+   * `onSampleChange(undefined)`), no un mutate local de `flow.lastSample`
+   * — el builder sincroniza su estado al recibir el callback y refresca
+   * `flow.lastSample`/`lastSampleAt` que alimenta este badge. Spec 025 §A. */
+  function clearStaleSample() {
+    onSampleChange?.(undefined);
+  }
 
   return (
     <div className="space-y-6">
@@ -303,14 +360,18 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
                       <Label>Conexión</Label>
                       <Select
                         value={pollTrigger.config.connectionId}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          // Spec 025 §A: la muestra persistida corresponde
+                          // a otra conexión — limpiarla para no sembrar
+                          // campos que la nueva conexión no traerá.
+                          clearStaleSample();
                           updateFlow({
                             trigger: {
                               ...pollTrigger,
                               config: { ...pollTrigger.config, connectionId: e.target.value },
                             },
-                          })
-                        }
+                          });
+                        }}
                       >
                         <option value="">Selecciona una conexión...</option>
                         {connections.map((conn) => (
@@ -330,7 +391,11 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
                       <Label>Tipo de objeto</Label>
                       <Select
                         value={pollTrigger.config.objectType ?? "contacts"}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          // Spec 025 §A: los campos del sample dependen
+                          // del objectType (contacts vs deals vs tickets)
+                          // — al cambiar, limpiar la muestra vieja.
+                          clearStaleSample();
                           updateFlow({
                             trigger: {
                               ...pollTrigger,
@@ -339,8 +404,8 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
                                 objectType: e.target.value as PollTrigger["config"]["objectType"],
                               },
                             },
-                          })
-                        }
+                          });
+                        }}
                       >
                         {HUBSPOT_OBJECT_TYPES.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -462,7 +527,7 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
                 </div>
 
                 {/* Test Connection */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Button
                     onClick={handleTestConnection}
                     disabled={isTesting || !pollTrigger.config.connectionId}
@@ -475,7 +540,24 @@ export function TriggerStep({ flow, updateFlow, onSampleChange }: Props) {
                       {testResult}
                     </span>
                   )}
+                  {/* Spec 025 §A: badge con la muestra vigente (persistida
+                    o efímera del canvas) — el usuario ve cuántos registros
+                    trajo la última prueba y cuándo, sin tener que re-probar. */}
+                  {displaySample && displaySample.length > 0 && flow.lastSampleAt && (
+                    <Badge variant="secondary" className="gap-1 text-[10px]" title={`Última prueba: ${flow.lastSampleAt}`}>
+                      Muestra: {displaySample.length} reg ·{" "}
+                      {new Date(flow.lastSampleAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Spec 025 §A (ext): explorador de la muestra traída por
+                  "Probar conexión". Antes solo se veía el badge — el
+                  usuario tenía que abrir el drawer de Transformación para
+                  saber qué campos traía la muestra. Ahora puede explorarlos
+                  aquí mismo y copiar tokens `{{campo}}` para pegarlos en
+                  cualquier campo interpolable del flujo. */}
+                <SampleExplorer sample={displaySample} />
               </div>
             );
           })()}

@@ -76,11 +76,17 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
   // Optional/defaulted (`true`) in the Zod schema, no data transformation
   // needed — existing flows keep the same "notify on failure" behavior that
   // becomes the default for everyone.
+  // v11 -> v12 (spec 025 §A): `FlowRule` gained `lastSample` and
+  // `lastSampleAt` (both optional). They only feed the editor's
+  // variable-picker — no semantics for the engine. No data transformation
+  // needed — fields absent in v11 files stay `undefined` and the UI treats
+  // that as "no persisted sample, please Probar conexión".
   flows: [
     { to: 8, up: migrateFlowsDocV7ToV8 },
     { to: 9, up: (data) => data },
     { to: 10, up: (data) => data },
     { to: 11, up: (data) => data },
+    { to: 12, up: (data) => data },
   ],
 };
 

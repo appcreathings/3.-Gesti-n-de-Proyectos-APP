@@ -22,6 +22,15 @@ import {
   suggestFieldMappingPairs,
   type AvailableVariable,
 } from "./variables";
+// Nota: en spec 025 §B se evaluó usar `VariableValidationHint` aquí también,
+// pero NO aplica en este paso del editor:
+//  - `mapping[*].source` es un path crudo ("amount", "properties.dealname"),
+//    no un template `{{token}}` — el `VariablePicker` ya lo valida mostrando
+//    los campos disponibles, y si el usuario escribe uno que no está, el
+//    resultado será undefined al ejecutar, visible en la traza del run.
+//  - `transformCode` es código JavaScript, no un template de interpolación —
+//    los `{{campo}}` no se resuelven dentro del `new Function`.
+// Documentado en `design.md` §6.
 
 interface Props {
   mapping: FieldMapping[];

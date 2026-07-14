@@ -258,6 +258,19 @@ export const FlowRuleSchema = z.object({
    * salvo que el usuario lo apague explícitamente. No aplica a "Ejecutar
    * ahora" (es una prueba manual que el usuario ya está viendo en pantalla). */
   notifyOnFailure: z.boolean().default(true),
+  /** Hasta 3 registros reales de la última "Probar conexión" exitosa del
+   * trigger (spec 025 §A). Se limpia al cambiar la conexión o el provider.
+   * Alimenta el selector de variables de condiciones/transformación/acciones
+   * al reabrir el editor sin tener que re-probar la conexión — la muestra
+   * efímera en `useState` del `FlowCanvas` solo vivía la sesión. No la lee
+   * el motor de ejecución; es solo referencia para autocompletar y validar
+   * `{{campo}}` huérfanos. Cap pequeño (3) para no inflar `flows.json` en
+   * una app local-first mono-usuario. */
+  lastSample: z.array(z.record(z.unknown())).max(3).optional(),
+  /** Timestamp ISO de cuándo se tomó `lastSample` — alimenta el badge
+   * "Muestra: N reg · HH:mm" del `TriggerStep` (spec 025 §A). Se limpia
+   * junto con `lastSample` al cambiar la conexión. */
+  lastSampleAt: IsoDate.optional(),
   lastRunAt: IsoDate.nullable().default(null),
   runCount: z.number().default(0),
   createdAt: IsoDate,

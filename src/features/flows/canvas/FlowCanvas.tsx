@@ -45,6 +45,16 @@ import { ActionConfigFields } from "./ActionConfigFields";
 interface Props {
   initialGraph: BuiltGraph;
   onGraphChange: (graph: BuiltGraph) => void;
+  /** Muestra inicial para poblar los selectores de variables al abrir
+   * el editor sin tener que re-probar la conexión (spec 025 §A). Proviene
+   * de `FlowRule.lastSample` — el builder la hidrata al cargar el flow.
+   * Si el usuario prueba la conexión de nuevo, ese cambio sube vía
+   * `onSampleChange` al padre, que lo persiste en `handleSave`. */
+  initialSample?: Record<string, unknown>[];
+  /** Callback al padre para que persista la muestra cuando "Probar
+   * conexión" trae registros frescos (spec 025 §A) o cuando se limpia
+   * (prueba fallida / conexión cambiada desde TriggerStep). */
+  onSampleChange?: (sample: Record<string, unknown>[] | undefined) => void;
 }
 
 function toPlainNodes(nodes: CanvasNode[]): FlowGraphNode[] {
@@ -56,15 +66,49 @@ function toPlainNodes(nodes: CanvasNode[]): FlowGraphNode[] {
   }));
 }
 
-function CanvasInner({ initialGraph, onGraphChange }: Props) {
+function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChange }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(
     initialGraph.nodes as CanvasNode[],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Muestra real de la última "Probar conexión" exitosa del nodo trigger —
-  // efímera (no se persiste), usada para poblar el picker de mapeo de campos
-  // en el nodo de Transformación (spec 022 §A).
-  const [triggerSample, setTriggerSample] = useState<Record<string, unknown>[] | undefined>();
+  // Muestra real de la última "Probar conexión" exitosa del nodo trigger.
+  // Antes efímera (spec 022 §A); ahora se hidrata desde `initialSample`
+  // (que viene de `FlowRule.lastSample` persistido — spec 025 §A) y los
+  // cambios se propagan al padre vía `onSampleChange` para que el builder
+  // los guarde. Las condiciones y transformaciones consumen esta misma
+  // muestra para sincronizar `availableVariables` reactivamente
+  // (spec 025 §B/E).
+  //
+  // REVALIDACIÓN REACTIVA (spec 025 §E1): no se requiere cableado extra.
+  // Cuando "Probar conexión" en `TriggerStep` llama `onSampleChange`,
+  // `updateTriggerSample` actualiza este estado y notifica al padre
+  // (builder). El builder persiste y propaga de vuelta via
+  // `initialSample` — el re-render del `FlowCanvas` re-renderiza los
+  // drawer abiertos (que reciben `sample` como prop y recalculan
+  // `availableVariables` en su render, disparando `validateVariables`
+  // y `VariableValidationHint` con los nuevos tokens huérfanos). El
+  // patrón es React puro (props flow), sin efecto extra.
+  const [triggerSample, setTriggerSample] = useState<Record<string, unknown>[] | undefined>(
+    initialSample,
+  );
+
+  // Sincroniza el estado local si el padre cambia la muestra inicial
+  // (típico: el flow existente hidrata después del primer render — ver
+  // `loadedFlowId` en `FlowBuilderPage` que remonta el canvas entero).
+  useEffect(() => {
+    if (initialSample !== undefined) setTriggerSample(initialSample);
+  }, [initialSample]);
+
+  // Wrapper que actualiza el estado local Y notifica al padre — así el
+  // builder can persistir `lastSample` en `handleSave`. Se usa donde antes
+  // se llamaba `setTriggerSample` directo. Spec 025 §A.
+  const updateTriggerSample = useCallback(
+    (next: Record<string, unknown>[] | undefined) => {
+      setTriggerSample(next);
+      onSampleChange?.(next);
+    },
+    [onSampleChange],
+  );
 
   // Las aristas son puramente derivadas (trigger -> condiciones -> transform
   // -> acciones): el usuario no las conecta a mano, así que no hace falta
@@ -175,7 +219,8 @@ function CanvasInner({ initialGraph, onGraphChange }: Props) {
                       <TriggerNodeDrawer
                         trigger={data.trigger}
                         onChange={(trigger) => updateNodeData(node.id, { kind: "trigger", trigger })}
-                        onSampleChange={setTriggerSample}
+                        onSampleChange={updateTriggerSample}
+                        sample={triggerSample}
                       />
                     );
                   }
@@ -184,6 +229,8 @@ function CanvasInner({ initialGraph, onGraphChange }: Props) {
                     return (
                       <ConditionConfigFields
                         condition={data.condition}
+                        trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
+                        sample={triggerSample}
                         onChange={(updates) =>
                           updateNodeData(node.id, {
                             kind: "condition",
@@ -244,7 +291,12 @@ function CanvasInner({ initialGraph, onGraphChange }: Props) {
 export function FlowCanvas(props: Props) {
   return (
     <ReactFlowProvider>
-      <CanvasInner {...props} />
+      <CanvasInner
+        initialGraph={props.initialGraph}
+        onGraphChange={props.onGraphChange}
+        initialSample={props.initialSample}
+        onSampleChange={props.onSampleChange}
+      />
     </ReactFlowProvider>
   );
 }
