@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 14;
 
 /** Enumerations (constitución / data-model.md). */
 export const ProductStatus = z.enum(["idea", "active", "maintenance", "sunset"]);

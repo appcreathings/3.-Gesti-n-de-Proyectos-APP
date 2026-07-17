@@ -1,0 +1,76 @@
+import { describe, it, expect } from "vitest";
+import { FLOW_TEMPLATES, featuredTemplates } from "./templates";
+import { validateFlow, flowErrors } from "./validation";
+import { FlowRuleSchema } from "@/domain/schemas/flow";
+
+/**
+ * Guardia anti-pudrición (spec 027 §C): cada plantilla debe parsear contra el
+ * schema REAL — si un bump futuro de `SCHEMA_VERSION` cambia un shape que
+ * alguna plantilla usa, estos tests fallan el build, no el runtime del
+ * usuario. Además fija el contrato de onboarding: los únicos problemas de
+ * una plantilla recién instanciada son los placeholders que el usuario debe
+ * completar (conexión/proyecto/destinatario), señalados por `validateFlow`.
+ */
+describe("FLOW_TEMPLATES (spec 027 §C)", () => {
+  it("defines the 6 curated v1 templates with unique ids", () => {
+    expect(FLOW_TEMPLATES).toHaveLength(6);
+    const ids = FLOW_TEMPLATES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it.each(FLOW_TEMPLATES.map((t) => [t.id, t] as const))(
+    "%s parses against FlowRuleSchema and starts disabled",
+    (_id, template) => {
+      const flow = template.build();
+      const parsed = FlowRuleSchema.parse(flow);
+      expect(parsed.enabled).toBe(false);
+      expect(flow.name.length).toBeGreaterThan(0);
+    }
+  );
+
+  it.each(FLOW_TEMPLATES.map((t) => [t.id, t] as const))(
+    "%s produces a fresh id on every build (instances are independent)",
+    (_id, template) => {
+      expect(template.build().id).not.toBe(template.build().id);
+    }
+  );
+
+  const expectedErrors: Record<string, string[]> = {
+    // Cada entrada: fragmentos que deben aparecer en los ERRORES de la
+    // plantilla recién instanciada — exactamente los placeholders a completar.
+    "hubspot-deal-to-project": ["conexión"],
+    "sheets-row-to-task": ["conexión", "proyecto destino"],
+    "hubspot-contact-to-person": ["conexión"],
+    "task-done-email": ["conexión de email", "destinatario"],
+    "project-created-webhook": ["URL"],
+    "big-deal-notification": ["conexión"],
+  };
+
+  it.each(FLOW_TEMPLATES.map((t) => [t.id, t] as const))(
+    "%s reports exactly its expected placeholder errors via validateFlow",
+    (id, template) => {
+      const errors = flowErrors(validateFlow(template.build(), { projects: [] }));
+      const expected = expectedErrors[id];
+      expect(expected).toBeDefined();
+      expect(errors).toHaveLength(expected.length);
+      for (const fragment of expected) {
+        expect(errors.some((e) => e.message.includes(fragment))).toBe(true);
+      }
+    }
+  );
+
+  it("the webhook template warns about the empty secret (never blocks)", () => {
+    const template = FLOW_TEMPLATES.find((t) => t.id === "project-created-webhook")!;
+    const issues = validateFlow(template.build(), { projects: [] });
+    const warnings = issues.filter((i) => i.severity === "warning");
+    expect(warnings.some((w) => w.message.includes("secret"))).toBe(true);
+  });
+
+  it("featuredTemplates returns 3 existing templates for the empty state", () => {
+    const featured = featuredTemplates();
+    expect(featured).toHaveLength(3);
+    for (const t of featured) {
+      expect(FLOW_TEMPLATES).toContain(t);
+    }
+  });
+});

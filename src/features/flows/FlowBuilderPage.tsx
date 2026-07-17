@@ -1,12 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useNavigate, useParams } from "react-router-dom";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Zap, Play } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { FlowRule } from "@/domain/schemas/flow";
 import type { FlowRunLog } from "@/store/useFlowStore";
 import { createEmptyFlow } from "@/flows/migration";
@@ -16,14 +25,41 @@ import {
   graphFromPersisted,
   type BuiltGraph,
 } from "@/flows/graph";
+import { validateFlow, flowErrors, type FlowIssue } from "@/flows/validation";
 import { FlowCanvas } from "./canvas/FlowCanvas";
 import { DebuggerPanel } from "./canvas/DebuggerPanel";
 import { RunEventFlowDialog } from "./RunEventFlowDialog";
+import { FlowIssuesBanner } from "./FlowIssuesBanner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useDataStore } from "@/store/useDataStore";
 import type { DomainEvent } from "@/automations/events";
 import { useFlowStore } from "@/store/useFlowStore";
 import { ROUTES } from "@/routes/paths";
+
+/** Proyección estable de un flujo para detectar cambios sin guardar (spec
+ * 027 §B): compara lo que realmente se perdería al descartar — el flujo
+ * COMPILADO desde el grafo (trigger/condiciones/mapeo/outputs) más los
+ * metadatos editables — e ignora lo efímero (`updatedAt`, `lastSample`,
+ * posiciones de nodos del canvas). Sensible al orden de claves del
+ * `JSON.stringify` — aceptable: un falso positivo es un diálogo de más,
+ * nunca pérdida de datos. */
+function comparableFlow(f: FlowRule): string {
+  return JSON.stringify({
+    name: f.name,
+    enabled: f.enabled,
+    notifyOnFailure: f.notifyOnFailure,
+    onErrorPolicy: f.onErrorPolicy ?? "continue",
+    tags: f.tags ?? [],
+    trigger: f.trigger,
+    logic: {
+      conditions: f.logic.conditions,
+      mapping: f.logic.mapping,
+      transformCode: f.logic.transformCode,
+      conditionMode: f.logic.conditionMode ?? "all",
+    },
+    outputs: f.outputs,
+  });
+}
 
 export function FlowBuilderPage() {
   const navigate = useNavigate();
@@ -32,6 +68,7 @@ export function FlowBuilderPage() {
   const updateFlowInStore = useFlowStore((s) => s.updateFlow);
   const flows = useFlowStore((s) => s.flows);
   const flowsHydrated = useFlowStore((s) => s.hydrated);
+  const projects = useDataStore((s) => s.projects);
   const isEditing = Boolean(id);
 
   const [flow, setFlow] = useState<FlowRule>(createEmptyFlow("Nuevo flujo"));
@@ -52,6 +89,17 @@ export function FlowBuilderPage() {
   const [realRunLog, setRealRunLog] = useState<FlowRunLog | null>(null);
   // Diálogo de ejecución real (spec 025 §D).
   const [runDialogOpen, setRunDialogOpen] = useState(false);
+  // Diálogo de guardado con errores (spec 027 §A): guarda el flujo compilado
+  // pendiente y si el guardado era in-place (Ctrl+S) o guardar-y-salir.
+  const [saveDialog, setSaveDialog] = useState<{ finalFlow: FlowRule; stay: boolean } | null>(null);
+  // Petición de abrir el drawer de un nodo desde el banner de issues.
+  const [openNodeRequest, setOpenNodeRequest] = useState<{ nodeId: string; nonce: number } | null>(
+    null,
+  );
+  // El guardado navega a propósito — el blocker de navegación no debe
+  // interceptar esa navegación aunque `isDirty` no haya alcanzado a
+  // recomputarse con el store ya actualizado.
+  const skipBlockerRef = useRef(false);
 
   const runFlowNow = useDataStore((s) => s.runFlowNow);
   const flowRuns = useFlowStore((s) => s.runs);
@@ -83,56 +131,148 @@ export function FlowBuilderPage() {
     }));
   };
 
-  const handleSave = async () => {
-    const compiled = compileGraphToRule(graph);
-    if (!compiled.trigger) return;
+  // ── Estado derivado del grafo: flujo compilado + validación (spec 027 §A) ─
+  const compiled = compileGraphToRule(graph);
+  const currentFlow: FlowRule = {
+    ...flow,
+    trigger: compiled.trigger ?? flow.trigger,
+    logic: {
+      conditions: compiled.conditions,
+      mapping: compiled.mapping,
+      transformCode: compiled.transformCode,
+      conditionMode: flow.logic.conditionMode,
+    },
+    outputs: compiled.outputs,
+  };
+  const issues = validateFlow(currentFlow, { projects });
+  const errors = flowErrors(issues);
 
-    const finalFlow: FlowRule = {
-      ...flow,
-      trigger: compiled.trigger,
-      logic: {
-        conditions: compiled.conditions,
-        mapping: compiled.mapping,
-        transformCode: compiled.transformCode,
-      },
-      outputs: compiled.outputs,
-      graph: graph as unknown as FlowRule["graph"],
-      // Spec 025 §A: persiste la muestra (cap 3) para que al reabrir el
-      // editor o duplicar+activar el flujo, los selectores de variables
-      // sigan poblados sin tener que re-probar la conexión. El
-      // `lastSampleAt`保鲜 freshness诊断 via el badge del `TriggerStep`.
-      lastSample: sample?.slice(0, 3),
-      lastSampleAt: sample && sample.length > 0 ? new Date().toISOString() : undefined,
-      updatedAt: new Date().toISOString(),
+  // ── Dirty (spec 027 §B): compara el flujo COMPILADO contra el guardado —
+  // el `isDirty` previo comparaba solo `flow` y no veía el grafo editado
+  // sin compilar. Para flujos nuevos, el baseline es el estado inicial del
+  // builder (capturado una sola vez en el primer render).
+  const initialComparableRef = useRef<string | null>(null);
+  if (initialComparableRef.current === null) {
+    initialComparableRef.current = comparableFlow(currentFlow);
+  }
+  const savedFlow = isEditing ? flows.find((f) => f.id === id) : undefined;
+  const baseline = isEditing
+    ? savedFlow
+      ? comparableFlow(savedFlow)
+      : null
+    : initialComparableRef.current;
+  const isDirty = baseline !== null && comparableFlow(currentFlow) !== baseline;
+
+  // ── Guard de navegación (spec 027 §B): cualquier navegación interna con
+  // cambios sin guardar pide confirmación; `beforeunload` cubre el cierre o
+  // recarga de la pestaña. El botón Cancelar simplemente navega — este
+  // blocker es el único punto de decisión.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && !skipBlockerRef.current && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
     };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
+  const persistFlow = async (finalFlow: FlowRule, stay: boolean) => {
     if (isEditing) {
       await updateFlowInStore(finalFlow);
     } else {
       await addFlow(finalFlow);
     }
-    navigate(ROUTES.flows);
+    if (stay) {
+      setFlow(finalFlow);
+      if (!isEditing) {
+        // Guardado in-place de un flujo nuevo (Ctrl+S): pasa a modo edición
+        // sin salir del editor — `runFlowNow`/"Ejecutar" opera por id
+        // persistido y ahora ya existe.
+        skipBlockerRef.current = true;
+        navigate(ROUTES.flowEdit(finalFlow.id), { replace: true });
+        skipBlockerRef.current = false;
+      }
+    } else {
+      skipBlockerRef.current = true;
+      navigate(ROUTES.flows);
+    }
+  };
+
+  /** Guardar (spec 027 §A/§B). `stay: true` = guardar sin salir (Ctrl+S);
+   * `false` = guardar y volver a la lista (botón, hábito existente).
+   * Guardar SIEMPRE se permite — lo que se protege es la activación: con
+   * errores y `enabled`, el diálogo ofrece "Guardar como inactivo" (default)
+   * o "Guardar activo igualmente". Warnings solos no bloquean nada. */
+  const handleSave = async (stay = false) => {
+    if (!compiled.trigger) return;
+
+    const finalFlow: FlowRule = {
+      ...currentFlow,
+      graph: graph as unknown as FlowRule["graph"],
+      // Spec 025 §A: persiste la muestra (cap 3) para que al reabrir el
+      // editor o duplicar+activar el flujo, los selectores de variables
+      // sigan poblados sin tener que re-probar la conexión.
+      lastSample: sample?.slice(0, 3),
+      lastSampleAt: sample && sample.length > 0 ? new Date().toISOString() : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (errors.length > 0 && finalFlow.enabled) {
+      setSaveDialog({ finalFlow, stay });
+      return;
+    }
+    await persistFlow(finalFlow, stay);
+  };
+
+  // Ctrl/Cmd+S guarda sin salir (spec 027 §B). El ref evita re-suscribir el
+  // listener en cada render manteniendo siempre el handler más reciente.
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void handleSaveRef.current(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  /** Clic en un issue del banner → abre el drawer del nodo referido (spec
+   * 027 §A). El índice del issue es relativo a su tipo, en el mismo orden
+   * en que `compileGraphToRule` recorre los nodos del grafo. */
+  const handleIssueClick = (issue: FlowIssue) => {
+    let nodeId: string | undefined;
+    switch (issue.nodeKind) {
+      case "trigger":
+        nodeId = graph.nodes.find((n) => n.data.kind === "trigger")?.id;
+        break;
+      case "transform":
+        nodeId = graph.nodes.find((n) => n.data.kind === "transform")?.id;
+        break;
+      case "condition":
+        nodeId = graph.nodes.filter((n) => n.data.kind === "condition")[issue.outputIndex ?? 0]?.id;
+        break;
+      case "action":
+        nodeId = graph.nodes.filter((n) => n.data.kind === "action")[issue.outputIndex ?? 0]?.id;
+        break;
+      case "flow":
+        nodeId = undefined;
+        break;
+    }
+    if (nodeId) setOpenNodeRequest({ nodeId, nonce: Date.now() });
   };
 
   // Spec 025 §D — handlers para "Ejecutar" desde el editor. Reusan
   // `useDataStore.runFlowNow` (mismo camino que `FlowsPage`): la corrida
   // es real (crea tareas, envía emails) y queda en el historial global.
-  const isDirty = (() => {
-    // Si nunca se guardó, no hay "último guardado" para comparar — pero
-    // el botón Ejecutar está deshabilitado para flujos no guardados, así
-    // que este caso no llega a `handleRunConfirm`.
-    if (!isEditing) return false;
-    // Comparación ligera: si el flow.guardado en el store difiere del
-    // flow estado del builder, hay cambios pendientes. No es perfecto
-    // (orden de keys, etc.) pero suficiente para avisar.
-    const saved = flows.find((f) => f.id === id);
-    if (!saved) return false;
-    return JSON.stringify({
-      ...flow,
-      updatedAt: undefined,
-    }) !== JSON.stringify({ ...saved, updatedAt: undefined });
-  })();
-
   const openRunDialog = () => {
     if (!isEditing) return;
     setRunDialogOpen(true);
@@ -216,30 +356,75 @@ export function FlowBuilderPage() {
                 <Play className="size-4" />
                 Ejecutar
               </Button>
-              <Button onClick={handleSave}>
+              {/* Spec 027 §B: el botón guarda y sale (hábito existente);
+                  Ctrl/Cmd+S guarda sin salir. En edición, deshabilitado sin
+                  cambios pendientes. */}
+              <Button
+                onClick={() => void handleSave(false)}
+                disabled={isEditing && !isDirty}
+                title="Ctrl+S guarda sin salir del editor"
+              >
                 <Zap className="size-4" />
-                {isEditing ? "Guardar Cambios" : "Guardar Flujo"}
+                {isEditing ? (isDirty ? "Guardar Cambios" : "Sin cambios") : "Guardar Flujo"}
               </Button>
             </div>
           }
         />
 
-        <div className="mb-4 max-w-md space-y-3">
+        <div className="mb-4 max-w-xl space-y-3">
           <Input
             value={flow.name}
             onChange={(e) => setFlow((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="Nombre del flujo"
             className="text-base font-medium"
           />
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={flow.notifyOnFailure}
-              onCheckedChange={(v) => setFlow((prev) => ({ ...prev, notifyOnFailure: v }))}
-              aria-label="Notificarme si este flujo falla"
-            />
-            Notificarme si este flujo falla
-          </label>
+          {/* Spec 027 §D: etiquetas para organizar la lista, junto al nombre. */}
+          <Input
+            value={(flow.tags ?? []).join(", ")}
+            onChange={(e) =>
+              setFlow((prev) => ({
+                ...prev,
+                tags: e.target.value
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean),
+              }))
+            }
+            placeholder="Etiquetas (separadas por comas): ventas, onboarding"
+            className="text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={flow.notifyOnFailure}
+                onCheckedChange={(v) => setFlow((prev) => ({ ...prev, notifyOnFailure: v }))}
+                aria-label="Notificarme si este flujo falla"
+              />
+              Notificarme si este flujo falla
+            </label>
+            {/* Spec 027 §E: política de fallo por flujo. */}
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Si una acción falla:
+              <Select
+                value={flow.onErrorPolicy ?? "continue"}
+                onChange={(e) =>
+                  setFlow((prev) => ({
+                    ...prev,
+                    onErrorPolicy: e.target.value as FlowRule["onErrorPolicy"],
+                  }))
+                }
+                className="h-8 w-auto text-xs"
+              >
+                <option value="continue">continuar con las demás</option>
+                <option value="stop">detener el flujo</option>
+              </Select>
+            </label>
+          </div>
         </div>
+
+        {/* Spec 027 §A: banner de problemas de configuración — clicable,
+            abre el drawer del nodo correspondiente. */}
+        <FlowIssuesBanner issues={issues} onIssueClick={handleIssueClick} />
 
         {/* Spec 025 §C/§D: layout 2 columnas — canvas + DebuggerPanel.
             En móvil el panel apila debajo del canvas y se mantiene
@@ -251,15 +436,79 @@ export function FlowBuilderPage() {
             onGraphChange={setGraph}
             initialSample={sample}
             onSampleChange={handleSampleChange}
+            openNodeRequest={openNodeRequest}
+            conditionMode={flow.logic.conditionMode ?? "all"}
+            onConditionModeChange={(mode) =>
+              setFlow((prev) => ({ ...prev, logic: { ...prev.logic, conditionMode: mode } }))
+            }
           />
           <div className="h-[calc(100vh-260px)] min-h-[480px]">
             <DebuggerPanel
-              flow={flow}
+              flow={currentFlow}
               realRunResult={realRunLog}
               onClearRealRun={() => setRealRunLog(null)}
             />
           </div>
         </div>
+
+        {/* Spec 027 §A: guardado con errores — el trabajo del usuario nunca
+            se pierde por validación; lo que se protege es la ACTIVACIÓN. */}
+        <Dialog open={saveDialog !== null} onOpenChange={(o) => !o && setSaveDialog(null)}>
+          <DialogContent className="md:max-w-lg sm:h-auto md:h-auto lg:h-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Este flujo tiene {errors.length} problema{errors.length !== 1 ? "s" : ""} y no puede
+                ejecutarse correctamente
+              </DialogTitle>
+              <DialogDescription>
+                Puedes guardarlo igualmente. Guardarlo inactivo evita que corra roto (no registra
+                polling ni reacciona a eventos) hasta que completes lo que falta:
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="max-h-40 space-y-1 overflow-auto px-6 text-xs text-destructive">
+              {errors.map((e, i) => (
+                <li key={i}>• {e.message}</li>
+              ))}
+            </ul>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSaveDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const pending = saveDialog!;
+                  setSaveDialog(null);
+                  void persistFlow(pending.finalFlow, pending.stay);
+                }}
+              >
+                Guardar activo igualmente
+              </Button>
+              <Button
+                onClick={() => {
+                  const pending = saveDialog!;
+                  setSaveDialog(null);
+                  void persistFlow({ ...pending.finalFlow, enabled: false }, pending.stay);
+                }}
+              >
+                Guardar como inactivo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Spec 027 §B: confirmación al navegar con cambios sin guardar —
+            cubre Cancelar y cualquier navegación interna. */}
+        <ConfirmDialog
+          open={blocker.state === "blocked"}
+          onOpenChange={(o) => {
+            if (!o && blocker.state === "blocked") blocker.reset?.();
+          }}
+          title="¿Descartar los cambios sin guardar?"
+          description="Tienes cambios sin guardar en este flujo. Si sales ahora, se perderán."
+          confirmLabel="Descartar y salir"
+          onConfirm={() => blocker.proceed?.()}
+        />
 
         {/* Spec 025 §D — diálogos de ejecución real. Si el flujo está dirty
             (cambios sin guardar), el ConfirmDialog avisa antes de correr la

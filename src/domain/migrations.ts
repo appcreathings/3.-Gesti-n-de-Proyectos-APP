@@ -81,12 +81,23 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
   // variable-picker — no semantics for the engine. No data transformation
   // needed — fields absent in v11 files stay `undefined` and the UI treats
   // that as "no persisted sample, please Probar conexión".
+  // v12 -> v13 (spec 026 §B1): `createPerson` output gained `matchSource`
+  // (optional template for matching against nested fields, e.g.
+  // `{{properties.email}}`). Optional, no data transformation needed —
+  // existing flows keep matching `matchField` directly against the record.
+  // v13 -> v14 (spec 027 §D/§E/§F, single shared bump): `FlowRule` gained
+  // `tags` and `onErrorPolicy`, `LogicSchema` gained `conditionMode`, and
+  // webhook/email outputs gained `retry`. All optional with engine-side
+  // defaults (no tags, "continue", "all", no retry), so existing v13
+  // records need no data transformation and keep behaving identically.
   flows: [
     { to: 8, up: migrateFlowsDocV7ToV8 },
     { to: 9, up: (data) => data },
     { to: 10, up: (data) => data },
     { to: 11, up: (data) => data },
     { to: 12, up: (data) => data },
+    { to: 13, up: (data) => data },
+    { to: 14, up: (data) => data },
   ],
 };
 

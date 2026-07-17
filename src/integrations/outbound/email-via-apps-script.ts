@@ -15,7 +15,15 @@ export interface EmailPayload {
 export async function sendEmailViaAppsScript(
   config: EmailConfig,
   email: EmailPayload
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  /** Clasificación estructurada del fallo (spec 027 §E): `true` para error
+   * de red o HTTP ≥ 500 (candidato a reintento), `false` para 4xx
+   * (permanente). El motor de flujos la usa para decidir si reintenta sin
+   * tener que parsear el string de `error`. */
+  transient?: boolean;
+}> {
   try {
     const response = await fetch(config.proxyUrl, {
       method: "POST",
@@ -32,6 +40,7 @@ export async function sendEmailViaAppsScript(
       return {
         success: false,
         error: `Email proxy error: ${response.status} ${response.statusText}`,
+        transient: response.status >= 500,
       };
     }
 
@@ -40,7 +49,7 @@ export async function sendEmailViaAppsScript(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await logEmailDelivery(config.proxyUrl, email, errorMessage);
-    return { success: false, error: errorMessage };
+    return { success: false, error: errorMessage, transient: true };
   }
 }
 

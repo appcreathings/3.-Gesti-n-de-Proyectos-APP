@@ -59,8 +59,57 @@ function OutputRow({ output }: { output: FlowRunOutputTrace }) {
         <span className={color}>
           {output.outcome === "executed" ? "ejecutado" : output.outcome === "skipped" ? "omitido" : "error"}
         </span>
+        {/* Spec 027 §E: cuántos intentos consumió el retry del output. */}
+        {output.attempts !== undefined && (
+          <span className="ml-1 text-muted-foreground">· {output.attempts} intentos</span>
+        )}
         {output.reason && <p className="mt-0.5 text-muted-foreground">{output.reason}</p>}
+        <ResolvedFields resolved={output.resolved} unresolvedTokens={output.unresolvedTokens} />
       </div>
+    </div>
+  );
+}
+
+/** Valores finales interpolados de un output en una corrida real (spec 026
+ * §E) — responde "¿por qué salió vacío?" sin adivinar, mostrando el
+ * resultado ya resuelto (ej. el título final de la tarea) en vez del
+ * template crudo. Los tokens que no resolvieron se marcan con un chip ámbar
+ * separado, identificando el token exacto. */
+function ResolvedFields({
+  resolved,
+  unresolvedTokens,
+}: {
+  resolved?: Record<string, string>;
+  unresolvedTokens?: string[];
+}) {
+  const resolvedEntries = resolved ? Object.entries(resolved) : [];
+  if (resolvedEntries.length === 0 && (!unresolvedTokens || unresolvedTokens.length === 0)) return null;
+  return (
+    <div className="mt-1 space-y-1">
+      {resolvedEntries.length > 0 && (
+        <dl className="space-y-0.5 font-mono text-[10px] text-muted-foreground">
+          {resolvedEntries.map(([key, value]) => (
+            <div key={key} className="flex gap-1">
+              <dt className="shrink-0 font-medium">{key}:</dt>
+              <dd className="truncate">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {unresolvedTokens && unresolvedTokens.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1">
+          <AlertCircle className="size-3 shrink-0 text-warning" />
+          {unresolvedTokens.map((token) => (
+            <span
+              key={token}
+              className="rounded bg-warning/10 px-1 py-0.5 font-mono text-[10px] text-warning"
+              title={`"{{${token}}}" no se resolvió — quedó vacío`}
+            >
+              {`{{${token}}}`}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -73,7 +122,15 @@ function RecordTraceBlock({ trace, index }: { trace: FlowRunRecordTrace; index: 
 
       {trace.conditions.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Condiciones</p>
+          {/* Spec 027 §F: el modo de combinación queda visible en la traza —
+              "any" evalúa OR y una sola condición cumplida deja pasar. */}
+          <p className="text-xs font-medium text-muted-foreground">
+            Condiciones
+            {trace.conditions.length > 1 &&
+              (trace.conditionMode === "any"
+                ? " — alcanza con que se cumpla una"
+                : " — deben cumplirse todas")}
+          </p>
           {trace.conditions.map((c, i) => (
             <div key={i} className="flex items-start gap-2 text-xs">
               {c.passed ? (

@@ -45,11 +45,11 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v12, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v12 with no projects-specific change — spec 024's notifyOnFailure and 025's lastSample only touched `flows`)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v14, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v14 with no projects-specific change — spec 024's notifyOnFailure, 025's lastSample, 026's matchSource and 027's tags/conditionMode/onErrorPolicy/retry only touched `flows`)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(12);
+    expect(value.schemaVersion).toBe(14);
   });
 });
 
@@ -95,6 +95,79 @@ describe("flows v11 -> v12 (spec 025: lastSample/lastSampleAt)", () => {
     };
 
     const { migrated } = migrateRecord("flows", doc, 12, MIGRATIONS);
+    expect(migrated).toBe(false);
+  });
+});
+
+describe("flows v12 -> v13 (spec 026 §B1: createPerson.matchSource)", () => {
+  it("converges a v12 doc to v13 without touching inner flows (identity step)", () => {
+    const doc = {
+      schemaVersion: 12,
+      flows: [
+        {
+          id: "flow-a",
+          name: "Demo",
+          trigger: { type: "event", event: "task.added" },
+          outputs: [
+            { type: "createPerson", matchField: "email", ifNotFound: "create", data: { email: "{{email}}" } },
+          ],
+        },
+      ],
+    };
+
+    const { value, migrated } = migrateRecord("flows", doc, 13, MIGRATIONS);
+    expect(migrated).toBe(true);
+    expect(value.schemaVersion).toBe(13);
+    const flow = (value as { flows: Record<string, unknown>[] }).flows[0];
+    expect(flow.outputs).toEqual([
+      { type: "createPerson", matchField: "email", ifNotFound: "create", data: { email: "{{email}}" } },
+    ]);
+    expect((flow.outputs as Record<string, unknown>[])[0]).not.toHaveProperty("matchSource");
+  });
+
+  it("is idempotent: a v13 doc is not touched", () => {
+    const doc = {
+      schemaVersion: 13,
+      flows: [{ id: "flow-b", name: "Demo v13", trigger: { type: "event", event: "task.added" }, outputs: [] }],
+    };
+    const { migrated } = migrateRecord("flows", doc, 13, MIGRATIONS);
+    expect(migrated).toBe(false);
+  });
+});
+
+describe("flows v13 -> v14 (spec 027: tags/conditionMode/onErrorPolicy/retry, identity step)", () => {
+  it("converges a v13 doc to v14 without touching inner flows", () => {
+    const doc = {
+      schemaVersion: 13,
+      flows: [
+        {
+          id: "flow-a",
+          name: "Demo",
+          trigger: { type: "event", event: "task.added" },
+          logic: { conditions: [{ field: "to", op: "==", value: "done" }], mapping: [] },
+          outputs: [{ type: "webhook", url: "https://example.com/hook", secret: "s" }],
+        },
+      ],
+    };
+
+    const { value, migrated } = migrateRecord("flows", doc, 14, MIGRATIONS);
+    expect(migrated).toBe(true);
+    expect(value.schemaVersion).toBe(14);
+    const flow = (value as { flows: Record<string, unknown>[] }).flows[0];
+    // Identity step: nothing added — the new fields stay absent and the
+    // engine treats that as "no tags / continue / all / no retry".
+    expect(flow).not.toHaveProperty("tags");
+    expect(flow).not.toHaveProperty("onErrorPolicy");
+    expect(flow.logic).not.toHaveProperty("conditionMode");
+    expect((flow.outputs as Record<string, unknown>[])[0]).not.toHaveProperty("retry");
+  });
+
+  it("is idempotent: a v14 doc is not touched", () => {
+    const doc = {
+      schemaVersion: 14,
+      flows: [{ id: "flow-b", name: "Demo v14", trigger: { type: "event", event: "task.added" }, outputs: [] }],
+    };
+    const { migrated } = migrateRecord("flows", doc, 14, MIGRATIONS);
     expect(migrated).toBe(false);
   });
 });

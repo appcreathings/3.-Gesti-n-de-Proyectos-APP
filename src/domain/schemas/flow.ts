@@ -45,7 +45,11 @@ export const PollTriggerSchema = z.object({
   type: z.literal("poll"),
   provider: z.enum(["hubspot", "google-sheets"]),
   config: z.object({
-    connectionId: z.string().min(1),
+    /** Puede quedar vacío ("sin conexión elegida aún") — típico en flujos
+     * migrados de v7 (spec 020 §D) y en plantillas recién instanciadas
+     * (spec 027 §C). `validateFlow` (spec 027 §A) lo reporta como error
+     * accionable en vez de romper el parse del flujo entero. */
+    connectionId: z.string(),
     /** Solo aplica cuando `provider === "hubspot"`. */
     objectType: z.enum(["contacts", "deals", "tickets"]).optional(),
     fields: z.array(z.string()).default([]),
@@ -81,6 +85,13 @@ export type FieldMapping = z.infer<typeof FieldMappingSchema>;
 
 export const LogicSchema = z.object({
   conditions: z.array(FlowConditionSchema).default([]),
+  /** Cómo se combinan las condiciones (spec 027 §F): "all" = deben cumplirse
+   * todas (AND, comportamiento histórico), "any" = alcanza con una (OR).
+   * Opcional (ausente = "all") en vez de `.default()` para que los flujos
+   * guardados antes del campo — y los literales existentes en tests — no
+   * requieran tocarse: el motor normaliza `?? "all"`. Deliberadamente plano,
+   * no árbol anidable (ver spec 027 Decisiones). */
+  conditionMode: z.enum(["all", "any"]).optional(),
   mapping: z.array(FieldMappingSchema).default([]),
   transformCode: z.string().optional().refine(
     (code) => {
@@ -153,6 +164,12 @@ export const CreatePersonOutputSchema = z.object({
   matchField: z.enum(["email", "name", "id"]).default("email"),
   ifNotFound: z.enum(["create", "skip", "update"]).default("create"),
   data: z.record(z.string()),
+  /** Template opcional (ej. `{{properties.email}}`) para cuando la clave del
+   * registro no coincide con `matchField` — por ejemplo, un registro de
+   * HubSpot anida el email en `properties.email` en vez de `email` top-level
+   * (spec 026 §B4). Si se omite, el match sigue resolviendo `matchField`
+   * directamente contra el registro (comportamiento previo). */
+  matchSource: z.string().optional(),
 });
 export type CreatePersonOutput = z.infer<typeof CreatePersonOutputSchema>;
 
@@ -188,11 +205,26 @@ export const MarkAreaCompleteOutputSchema = z.object({
 });
 export type MarkAreaCompleteOutput = z.infer<typeof MarkAreaCompleteOutputSchema>;
 
+/** Política de reintentos de un output de red (spec 027 §E). Solo aplica a
+ * webhook/email y solo ante fallos transitorios (error de red / HTTP ≥ 500,
+ * nunca 4xx) — los outputs internos (createTask, etc.) no fallan por
+ * transitorios y reintentarlos arriesga duplicar efectos. Ausente = sin
+ * reintentos (comportamiento previo). */
+export const RetryPolicySchema = z.object({
+  attempts: z.number().min(0).max(5),
+  backoff: z.enum(["fixed", "exponential"]),
+});
+export type RetryPolicy = z.infer<typeof RetryPolicySchema>;
+
 export const WebhookOutputSchema = z.object({
   type: z.literal("webhook"),
-  url: z.string().url(),
+  /** String libre (antes `.url()`): una URL vacía/no parseable ya no rompe
+   * el parse — la reporta `validateFlow` (spec 027 §A) como error clicable,
+   * y las plantillas (spec 027 §C) pueden instanciarse con `url: ""`. */
+  url: z.string(),
   secret: z.string(),
   payload: z.record(z.unknown()).optional(),
+  retry: RetryPolicySchema.optional(),
 });
 export type WebhookOutput = z.infer<typeof WebhookOutputSchema>;
 
@@ -201,10 +233,13 @@ export type WebhookOutput = z.infer<typeof WebhookOutputSchema>;
 // guardada una sola vez en Integraciones.
 export const EmailOutputSchema = z.object({
   type: z.literal("email"),
-  connectionId: z.string().min(1),
+  /** Puede quedar vacío (flujos migrados de v7, plantillas de spec 027 §C)
+   * — `validateFlow` lo reporta como error en vez de romper el parse. */
+  connectionId: z.string(),
   to: z.string(),
   subject: z.string(),
   body: z.string(),
+  retry: RetryPolicySchema.optional(),
 });
 export type EmailOutput = z.infer<typeof EmailOutputSchema>;
 
@@ -246,6 +281,14 @@ export const FlowRuleSchema = z.object({
   schemaVersion: z.number().default(SCHEMA_VERSION),
   name: z.string().min(1),
   enabled: z.boolean().default(true),
+  /** Etiquetas libres para organizar la lista de flujos (spec 027 §D):
+   * chips clicables que filtran. Opcional (ausente = sin etiquetas) para no
+   * exigir el campo en flujos guardados antes del bump 13→14. */
+  tags: z.array(z.string()).optional(),
+  /** Qué pasa con las acciones restantes cuando una falla (spec 027 §E):
+   * "continue" (default histórico) sigue con las demás; "stop" las marca
+   * `skipped` sin ejecutarlas. Opcional: ausente = "continue". */
+  onErrorPolicy: z.enum(["continue", "stop"]).optional(),
   trigger: TriggerSchema,
   logic: LogicSchema.default({ conditions: [], mapping: [] }),
   outputs: z.array(OutputSchema).default([]),

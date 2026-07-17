@@ -10,6 +10,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +56,16 @@ interface Props {
    * conexión" trae registros frescos (spec 025 §A) o cuando se limpia
    * (prueba fallida / conexión cambiada desde TriggerStep). */
   onSampleChange?: (sample: Record<string, unknown>[] | undefined) => void;
+  /** Petición externa de abrir el drawer de un nodo (spec 027 §A: clic en
+   * un issue del banner del builder). El `nonce` distingue dos clics
+   * consecutivos sobre el mismo issue — sin él, reabrir el mismo nodo tras
+   * cerrarlo no dispararía el efecto. */
+  openNodeRequest?: { nodeId: string; nonce: number } | null;
+  /** Modo de combinación de condiciones (spec 027 §F) — vive en
+   * `flow.logic.conditionMode` del builder, no en el grafo; el selector
+   * solo se muestra con ≥ 2 nodos de condición. */
+  conditionMode?: "all" | "any";
+  onConditionModeChange?: (mode: "all" | "any") => void;
 }
 
 function toPlainNodes(nodes: CanvasNode[]): FlowGraphNode[] {
@@ -66,7 +77,15 @@ function toPlainNodes(nodes: CanvasNode[]): FlowGraphNode[] {
   }));
 }
 
-function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChange }: Props) {
+function CanvasInner({
+  initialGraph,
+  onGraphChange,
+  initialSample,
+  onSampleChange,
+  openNodeRequest,
+  conditionMode,
+  onConditionModeChange,
+}: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(
     initialGraph.nodes as CanvasNode[],
   );
@@ -92,12 +111,25 @@ function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChang
     initialSample,
   );
 
+  // Qué registro de `triggerSample` alimenta las vistas previas en vivo de
+  // todo el canvas (`InterpolationPreview` dentro de cada `InterpolableField`
+  // — spec 026 §D3). Vive aquí (no en `SampleExplorer`) porque debe llegar
+  // también a los drawer de acción, no solo al trigger.
+  const [previewRecordIndex, setPreviewRecordIndex] = useState(0);
+
   // Sincroniza el estado local si el padre cambia la muestra inicial
   // (típico: el flow existente hidrata después del primer render — ver
   // `loadedFlowId` en `FlowBuilderPage` que remonta el canvas entero).
   useEffect(() => {
     if (initialSample !== undefined) setTriggerSample(initialSample);
   }, [initialSample]);
+
+  // Abre el drawer del nodo pedido desde afuera (clic en un issue del
+  // banner de validación — spec 027 §A). El nonce en la dependencia hace
+  // que el mismo nodo pueda reabrirse en clics sucesivos.
+  useEffect(() => {
+    if (openNodeRequest) setSelectedId(openNodeRequest.nodeId);
+  }, [openNodeRequest]);
 
   // Wrapper que actualiza el estado local Y notifica al padre — así el
   // builder can persistir `lastSample` en `handleSave`. Se usa donde antes
@@ -157,6 +189,7 @@ function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChang
 
   const actionsContextValue = useMemo(() => ({ deleteNode }), [deleteNode]);
 
+  const conditionCount = nodes.filter((n) => n.data.kind === "condition").length;
   const selectedNode = nodes.find((n) => n.id === selectedId);
   const triggerData = nodes.find((n) => n.data.kind === "trigger")?.data as
     | TriggerNodeData
@@ -200,6 +233,24 @@ function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChang
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Spec 027 §F: selector del modo de condiciones — solo visible
+              con ≥ 2 condiciones (con una sola no hay nada que combinar). */}
+          {conditionCount >= 2 && onConditionModeChange && (
+            <div className="rounded-md border border-border bg-background p-2 shadow-sm">
+              <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
+                Se deben cumplir:
+              </label>
+              <Select
+                value={conditionMode ?? "all"}
+                onChange={(e) => onConditionModeChange(e.target.value as "all" | "any")}
+                className="h-8 text-xs"
+              >
+                <option value="all">Todas las condiciones</option>
+                <option value="any">Alcanza con una</option>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -221,6 +272,8 @@ function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChang
                         onChange={(trigger) => updateNodeData(node.id, { kind: "trigger", trigger })}
                         onSampleChange={updateTriggerSample}
                         sample={triggerSample}
+                        previewRecordIndex={previewRecordIndex}
+                        onPreviewRecordIndexChange={setPreviewRecordIndex}
                       />
                     );
                   }
@@ -262,9 +315,16 @@ function CanvasInner({ initialGraph, onGraphChange, initialSample, onSampleChang
                     const data = node.data;
                     return (
                       <ActionConfigFields
+                        // `key={node.id}` fuerza una instancia nueva de React al
+                        // cambiar de nodo — necesario porque el componente
+                        // mantiene estado local propio (filas de `createPerson.data`/
+                        // `webhook.payload`, spec 026 §C3) que no debe filtrarse
+                        // de un nodo a otro al reabrir un action distinto.
+                        key={node.id}
                         output={data.output}
                         trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
                         sample={triggerSample}
+                        previewRecordIndex={previewRecordIndex}
                         onChange={(updates) =>
                           updateNodeData(node.id, {
                             kind: "action",
@@ -296,6 +356,9 @@ export function FlowCanvas(props: Props) {
         onGraphChange={props.onGraphChange}
         initialSample={props.initialSample}
         onSampleChange={props.onSampleChange}
+        openNodeRequest={props.openNodeRequest}
+        conditionMode={props.conditionMode}
+        onConditionModeChange={props.onConditionModeChange}
       />
     </ReactFlowProvider>
   );

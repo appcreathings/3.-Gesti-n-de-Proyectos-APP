@@ -156,6 +156,8 @@ export function createEmptyFlow(name: string): FlowRule {
     name,
     enabled: true,
     notifyOnFailure: true,
+    tags: [],
+    onErrorPolicy: "continue",
     trigger: { type: "event", event: "task.statusChanged" },
     logic: { conditions: [], mapping: [] },
     outputs: [],

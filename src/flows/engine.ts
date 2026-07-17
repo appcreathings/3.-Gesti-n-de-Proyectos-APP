@@ -22,7 +22,21 @@ import type {
 } from "@/domain/schemas/flow";
 import type { DomainEvent } from "@/automations/events";
 import { sendEmailViaAppsScript } from "@/integrations/outbound/email-via-apps-script";
-import { signPayload } from "@/integrations/outbound/signing";
+import { calculateRetryDelay } from "@/integrations/outbound/retry-delay";
+import {
+  resolvePath,
+  coerceDateString,
+  interpolateString as interpolate,
+  interpolateObject as interpolateObj,
+} from "./interpolation";
+import { buildWebhookRequest } from "./webhook-request";
+
+/** Fallo transitorio de un output de red (error de red o HTTP ≥ 500) —
+ * candidato a reintento cuando el output tiene `retry` configurado (spec
+ * 027 §E). Estructurado como clase para no parsear strings de error al
+ * decidir si se reintenta; un 4xx u otro fallo permanente se lanza como
+ * `Error` normal y nunca se reintenta. */
+export class TransientOutputError extends Error {}
 
 // ─── ENGINE INPUT/OUTPUT ─────────────────────────────────────────────────────
 
@@ -77,6 +91,9 @@ export interface FlowRunConditionTrace {
 export interface FlowRunOutputTrace {
   type: Output["type"];
   outcome: "executed" | "skipped" | "error";
+  /** Total de intentos que consumió el output cuando su `retry` (spec 027
+   * §E) entró en juego — presente solo si hubo más de un intento. */
+  attempts?: number;
   /** Presente cuando `outcome` es "skipped"/"error", o cuando "executed"
    * tuvo un detalle relevante (ej. un webhook que se registró pero cuyo
    * envío de red falló). */
@@ -88,11 +105,25 @@ export interface FlowRunOutputTrace {
    * "ejecutado"/"omitido" en `FlowRunTraceView` para distinguir una
    * simulación de un run real. */
   plan?: string;
+  /** Campos finales interpolados de este output, en una corrida REAL (spec
+   * 026 §E) — ej. `{ title: "ACME - seguimiento" }` para un `createTask`.
+   * Trunca cada valor a 120 caracteres y nunca incluye secretos ni bodies
+   * completos (el `secret` del webhook, el `body` del email) — mismo
+   * criterio que 024 §F4. Permite depurar "¿por qué salió vacío?" sin
+   * adivinar, mirando el resultado ya resuelto en vez del template crudo. */
+  resolved?: Record<string, string>;
+  /** Tokens `{{x}}` que no resolvieron a un valor definido en ningún campo
+   * de este output (spec 026 §A/§E) — alimenta un chip ámbar en la traza. */
+  unresolvedTokens?: string[];
 }
 
 export interface FlowRunRecordTrace {
   record: Record<string, unknown>;
   conditions: FlowRunConditionTrace[];
+  /** Cómo se combinaron las condiciones (spec 027 §F) — presente solo si el
+   * flow tenía condiciones; la traza lo muestra en el encabezado del bloque
+   * ("todas deben cumplirse" / "alcanza con una"). */
+  conditionMode?: "all" | "any";
   conditionsPassed: boolean;
   mapped?: Record<string, unknown>;
   transform?: { input: Record<string, unknown>; output?: Record<string, unknown>; error?: string };
@@ -199,15 +230,26 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
       const record = records[i];
       const source = sources[i];
 
-      // 3a. Filtrar por condiciones (sobre el registro original, sin mapear)
+      // 3a. Filtrar por condiciones (sobre el registro original, sin mapear).
+      // El modo (spec 027 §F) decide si deben cumplirse todas ("all",
+      // comportamiento histórico y default para flujos sin el campo) o si
+      // alcanza con una ("any").
+      const conditionMode = flow.logic.conditionMode ?? "all";
       const { passed: conditionsPassed, details: conditionDetails } = evaluateConditionsDetailed(
         flow.logic.conditions,
-        record
+        record,
+        conditionMode
       );
 
       const recordTrace: FlowRunRecordTrace | undefined =
         flowTrace && flowTrace.records.length < MAX_TRACE_RECORDS
-          ? { record, conditions: conditionDetails, conditionsPassed, outputs: [] }
+          ? {
+              record,
+              conditions: conditionDetails,
+              conditionMode: flow.logic.conditions.length > 0 ? conditionMode : undefined,
+              conditionsPassed,
+              outputs: [],
+            }
           : undefined;
       if (recordTrace) flowTrace!.records.push(recordTrace);
 
@@ -248,30 +290,55 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
       // (`projectRef: "createdProject"`) es el de este mismo registro, no el
       // de un registro anterior en el mismo poll (spec 023 §D).
       const runContext: RunContext = { lastCreatedProjectId: null };
-      for (const output of flow.outputs) {
+      for (let outputIndex = 0; outputIndex < flow.outputs.length; outputIndex++) {
+        const output = flow.outputs[outputIndex];
+        // Reintentos (spec 027 §E): SOLO webhook/email con `retry`
+        // configurado, SOLO ante fallos transitorios (`TransientOutputError`
+        // — red o HTTP ≥ 500), nunca en dry-run. Los outputs internos no se
+        // reintentan: no fallan por transitorios y repetirlos duplicaría
+        // efectos.
+        const retryPolicy =
+          !(input.describeOutputs ?? false) && (output.type === "webhook" || output.type === "email")
+            ? output.retry
+            : undefined;
+        const maxAttempts = 1 + (retryPolicy?.attempts ?? 0);
+        let attempts = 0;
         try {
-          const outputResult = await executeOutput(
-            output,
-            transformed,
-            source,
-            flow,
-            projectMap,
-            input.people,
-            input.projectTypes,
-            input.processTemplates,
-            input.checklistTemplates,
-            result,
-            runContext,
-            input.describeOutputs ?? false,
-          );
+          let outputResult: OutputExecutionOutcome;
+          for (;;) {
+            attempts++;
+            try {
+              outputResult = await executeOutput(
+                output,
+                transformed,
+                source,
+                flow,
+                projectMap,
+                input.people,
+                input.projectTypes,
+                input.processTemplates,
+                input.checklistTemplates,
+                result,
+                runContext,
+                input.describeOutputs ?? false,
+              );
+              break;
+            } catch (error) {
+              if (!(error instanceof TransientOutputError) || attempts >= maxAttempts) throw error;
+              await sleep(retryDelayMs(attempts - 1, retryPolicy!.backoff));
+            }
+          }
           for (const id of outputResult.mutatedProjectIds) changedProjectIds.add(id);
           if (!(input.describeOutputs ?? false)) executedFlowIds.add(flow.id);
           recordTrace?.outputs.push({
             type: output.type,
             outcome: outputResult.outcome,
+            attempts: attempts > 1 ? attempts : undefined,
             reason: outputResult.reason,
             mutatedProjectIds: outputResult.mutatedProjectIds,
             plan: outputResult.plan,
+            resolved: outputResult.resolved,
+            unresolvedTokens: outputResult.unresolvedTokens,
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -281,7 +348,29 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
             stage: "output",
             message,
           });
-          recordTrace?.outputs.push({ type: output.type, outcome: "error", reason: message, mutatedProjectIds: [] });
+          recordTrace?.outputs.push({
+            type: output.type,
+            outcome: "error",
+            attempts: attempts > 1 ? attempts : undefined,
+            reason: message,
+            mutatedProjectIds: [],
+          });
+
+          // Política de fallo (spec 027 §E): con "stop", los outputs
+          // restantes de ESTE registro se marcan skipped con motivo
+          // explícito y no se ejecutan. "continue" (default y comportamiento
+          // histórico) sigue con los demás.
+          if ((flow.onErrorPolicy ?? "continue") === "stop") {
+            for (let rest = outputIndex + 1; rest < flow.outputs.length; rest++) {
+              recordTrace?.outputs.push({
+                type: flow.outputs[rest].type,
+                outcome: "skipped",
+                reason: "Omitido — una acción anterior falló (política: detener).",
+                mutatedProjectIds: [],
+              });
+            }
+            break;
+          }
         }
       }
     }
@@ -385,10 +474,13 @@ function eventToSource(event: DomainEvent): RecordSource {
 /** Evalúa condiciones y devuelve, además del veredicto global, el detalle
  * por condición (operandos evaluados + si pasó) — usado para armar la traza
  * de depuración (spec 023 §F). Sin condiciones configuradas, siempre pasa
- * (comportamiento previo, sin condiciones que reportar). */
+ * (comportamiento previo, sin condiciones que reportar). El `mode` (spec
+ * 027 §F) decide la combinación: "all" = `every` (AND, histórico), "any" =
+ * `some` (OR). */
 function evaluateConditionsDetailed(
   conditions: FlowCondition[],
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  mode: "all" | "any" = "all"
 ): { passed: boolean; details: FlowRunConditionTrace[] } {
   const details = conditions.map((c) => ({
     field: c.field,
@@ -397,7 +489,35 @@ function evaluateConditionsDetailed(
     actual: getNestedValue(record, c.field),
     passed: evaluateCondition(c, record),
   }));
-  return { passed: details.every((d) => d.passed), details };
+  const passed =
+    details.length === 0
+      ? true
+      : mode === "any"
+        ? details.some((d) => d.passed)
+        : details.every((d) => d.passed);
+  return { passed, details };
+}
+
+// ─── RETRY HELPERS (spec 027 §E) ─────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Delay antes del reintento `attempt` (0-based). "fixed" espera siempre el
+ * delay base; "exponential" reusa `calculateRetryDelay` (mismo criterio ya
+ * probado del procesador outbound: base 1s, x2 por intento, jitter ±20%),
+ * con techo de 30s — un flujo corre inline en la app, no puede colgarse los
+ * 5 minutos que tolera la cola outbound. */
+function retryDelayMs(attempt: number, backoff: "fixed" | "exponential"): number {
+  const base = 1_000;
+  if (backoff === "fixed") return base;
+  return calculateRetryDelay(attempt, {
+    maxRetries: 5,
+    baseDelayMs: base,
+    maxDelayMs: 30_000,
+    jitterFactor: 0.2,
+  });
 }
 
 /** Coerciona a número comparable cuando el valor ya es un número, o es un
@@ -426,9 +546,17 @@ function evaluateCondition(
 
   switch (condition.op) {
     case "==":
-      return value === target;
-    case "!=":
-      return value !== target;
+    case "!=": {
+      // Igual criterio que `>`/`>=`/`<`/`<=` (spec 024 §F6): coercionar
+      // numéricamente solo cuando AMBOS lados son coercibles — evita que
+      // `amount: "5000"` (HubSpot) contra `condition.value: 5000` falle en
+      // silencio por ser tipos distintos. Cuando no aplica, comparación
+      // estricta previa (ej. strings no numéricos, booleans).
+      const a = toComparableNumber(value);
+      const b = toComparableNumber(target);
+      const equal = a !== null && b !== null ? a === b : value === target;
+      return condition.op === "==" ? equal : !equal;
+    }
     case ">":
     case ">=":
     case "<":
@@ -607,10 +735,11 @@ function describeOutput(
         };
       }
       const project = projectMap.get(projectId);
+      const plannedValue = typeof output.value === "string" ? interpolateString(output.value, data) : output.value;
       return {
         mutatedProjectIds: [],
         outcome: "executed",
-        plan: `Se setearía ${output.field}=${JSON.stringify(output.value)} en el proyecto "${project?.name ?? projectId}".`,
+        plan: `Se setearía ${output.field}=${JSON.stringify(plannedValue)} en el proyecto "${project?.name ?? projectId}".`,
       };
     }
 
@@ -643,10 +772,14 @@ function describeOutput(
     }
 
     case "webhook": {
-      const payloadShape = output.payload
-        ? `{${Object.keys(output.payload).join(", ")}}`
-        : `{${Object.keys(data).join(", ")}}`;
-      // Solo el host可见 para no enmascarar secretos en el plan.
+      // Spec 026 §C4: el plan ahora muestra el payload interpolado completo
+      // (truncado) en vez de solo las keys — coherente con la vista previa
+      // del drawer (§D). Solo el host es visible en el plan, nunca el
+      // secret usado para firmar.
+      const payload = output.payload ? interpolateObject(output.payload, data) : data;
+      const payloadPreview = JSON.stringify(payload);
+      const truncatedPayload =
+        payloadPreview.length > 200 ? `${payloadPreview.slice(0, 197)}...` : payloadPreview;
       let host: string;
       try {
         host = new URL(output.url).host;
@@ -656,7 +789,7 @@ function describeOutput(
       return {
         mutatedProjectIds: [],
         outcome: "executed",
-        plan: `Se enviaría POST a ${host} con payload ${payloadShape} (firmado con el secret configurado).`,
+        plan: `Se enviaría POST a ${host} con payload ${truncatedPayload} (firmado con el secret configurado).`,
       };
     }
 
@@ -708,6 +841,29 @@ function resolveCreateTaskProjectId(
   }
 }
 
+/** Resuelve un `assigneeId` interpolado contra las Personas conocidas por el
+ * engine (spec 026 §B5): id exacto → email (case-insensitive) → nombre
+ * exacto. Antes `{{email}}` en Responsable producía un `assigneeId` igual al
+ * string del email — nunca coincidía con un `Person.id` real, así que la UI
+ * mostraba "sin responsable" o un id huérfano. Sin match, devuelve
+ * `undefined` en vez de guardar un id que no identifica a nadie. */
+function resolvePersonId(interpolated: string, people: Person[]): string | undefined {
+  if (!interpolated) return undefined;
+  const byId = people.find((p) => p.id === interpolated);
+  if (byId) return byId.id;
+  const lower = interpolated.toLowerCase();
+  const byEmail = people.find((p) => p.email && p.email.toLowerCase() === lower);
+  if (byEmail) return byEmail.id;
+  const byName = people.find((p) => p.name === interpolated);
+  return byName?.id;
+}
+
+/** Coacciona un `dueDate` interpolado a `YYYY-MM-DD` (spec 026 §B6). La
+ * lógica vive ahora en `interpolation.ts` (`coerceDateString`, spec 027 §G)
+ * para que el mod de formato `{{campo|date}}` use exactamente el mismo
+ * criterio — este alias conserva el nombre local de los call sites. */
+const coerceDueDate = coerceDateString;
+
 /** Busca, entre todos los proyectos ya conocidos por el engine (existentes +
  * creados en esta misma corrida), uno con el `dedupeKey` dado — usado para
  * omitir un `createProject` repetido del mismo registro externo (spec 023
@@ -755,6 +911,17 @@ interface OutputExecutionOutcome {
   outcome: "executed" | "skipped";
   reason?: string;
   plan?: string;
+  /** Ver `FlowRunOutputTrace.resolved`/`unresolvedTokens` (spec 026 §E) —
+   * solo poblados en la ejecución real (nunca en `describeOutput`, que ya
+   * comunica lo mismo a través de `plan`). */
+  resolved?: Record<string, string>;
+  unresolvedTokens?: string[];
+}
+
+/** Trunca un valor a `n` caracteres para la traza (spec 026 §E) — evita que
+ * un campo largo (descripción, body) infle `flow-runs`. */
+function truncateForTrace(value: string, n = 120): string {
+  return value.length > n ? `${value.slice(0, n - 3)}...` : value;
 }
 
 /** Ejecuta un output. Cuando `describeOnly` es true, no muta/llama a red —
@@ -790,7 +957,10 @@ async function executeOutput(
         }
       }
 
-      const name = interpolateString(output.name, data);
+      const nameResult = interpolate(output.name, data);
+      const name = nameResult.value;
+      const unresolvedTokens = [...nameResult.unresolved];
+      const resolved: Record<string, string> = { name: truncateForTrace(name) };
       const productId = output.productId ?? null;
       const type = output.projectTypeId
         ? projectTypes.find((t) => t.id === output.projectTypeId)
@@ -805,9 +975,24 @@ async function executeOutput(
         : newProject(name, productId);
 
       for (const mapping of output.fields) {
-        const value = getNestedValue(data, mapping.source);
-        if (value !== undefined) {
+        // Spec 026 §B3: la UI envuelve este campo en un `InterpolableField`
+        // cuyo `VariablePicker` inserta `{{campo}}` — si el usuario lo usó
+        // (camino natural), `source` es un template a interpolar. Si no
+        // contiene `{{`, se trata como path crudo (retrocompat con flujos
+        // guardados antes de esta spec, que esperaban `getNestedValue`
+        // directo). El guard `value !== ""` evita pisar el campo del
+        // proyecto con una cadena vacía cuando un token no resolvió.
+        let value: unknown;
+        if (mapping.source.includes("{{")) {
+          const r = interpolate(mapping.source, data);
+          value = r.value;
+          unresolvedTokens.push(...r.unresolved);
+        } else {
+          value = getNestedValue(data, mapping.source);
+        }
+        if (value !== undefined && value !== "") {
           (project as unknown as Record<string, unknown>)[mapping.target] = value;
+          resolved[mapping.target] = truncateForTrace(String(value));
         }
       }
       if (dedupeKey) project.dedupeKey = dedupeKey;
@@ -820,7 +1005,12 @@ async function executeOutput(
       // conocer su id de antemano (spec 023 §D).
       projectMap.set(project.id, project);
       runContext.lastCreatedProjectId = project.id;
-      return { mutatedProjectIds: [], outcome: "executed" };
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        resolved,
+        unresolvedTokens: unresolvedTokens.length > 0 ? unresolvedTokens : undefined,
+      };
     }
 
     case "createTask": {
@@ -839,12 +1029,35 @@ async function executeOutput(
       }
       const project = projectMap.get(projectId)!;
       const areaId = output.areaId ?? source.areaId ?? null;
-      const task = newTask(interpolateString(output.title, data), areaId);
+      const unresolvedTokens: string[] = [];
+      const titleResult = interpolate(output.title, data);
+      unresolvedTokens.push(...titleResult.unresolved);
+      const task = newTask(titleResult.value, areaId);
+      const resolved: Record<string, string> = { title: truncateForTrace(titleResult.value) };
       if (output.priority) task.priority = output.priority as Task["priority"];
       if (output.description) task.description = interpolateString(output.description, data);
       if (output.status) task.status = output.status as Task["status"];
-      if (output.assigneeId) task.assigneeId = interpolateString(output.assigneeId, data);
-      if (output.dueDate) task.dueDate = interpolateString(output.dueDate, data);
+      // Spec 026 §B5: el valor interpolado (ej. `{{email}}`) se resuelve
+      // contra las Personas conocidas — nunca se guarda el string crudo como
+      // si fuera un `Person.id`.
+      if (output.assigneeId) {
+        const assigneeResult = interpolate(output.assigneeId, data);
+        unresolvedTokens.push(...assigneeResult.unresolved);
+        const resolvedPersonId = resolvePersonId(assigneeResult.value, people);
+        task.assigneeId = resolvedPersonId ?? null;
+        resolved.assigneeId = resolvedPersonId
+          ? truncateForTrace(resolvedPersonId)
+          : `sin match para "${assigneeResult.value}"`;
+      }
+      // Spec 026 §B6: coacciona ISO/epoch-ms a `YYYY-MM-DD` — HubSpot
+      // (`closedate`) entrega epoch-ms, que antes se guardaba crudo.
+      if (output.dueDate) {
+        const dueDateResult = interpolate(output.dueDate, data);
+        unresolvedTokens.push(...dueDateResult.unresolved);
+        const coerced = coerceDueDate(dueDateResult.value);
+        task.dueDate = coerced.value ?? null;
+        resolved.dueDate = coerced.value ?? coerced.warning ?? "";
+      }
       if (output.tags) task.tags = output.tags.map((tag) => interpolateString(tag, data));
       if (output.estimate !== undefined) task.estimate = output.estimate;
       if (output.summary) task.summary = interpolateString(output.summary, data);
@@ -852,23 +1065,45 @@ async function executeOutput(
 
       const updated = ops.addTask(project, task);
       projectMap.set(projectId, updated);
-      return { mutatedProjectIds: [projectId], outcome: "executed" };
+      return {
+        mutatedProjectIds: [projectId],
+        outcome: "executed",
+        resolved,
+        unresolvedTokens: unresolvedTokens.length > 0 ? unresolvedTokens : undefined,
+      };
     }
 
     case "createPerson": {
       const matchField = output.matchField;
-      const matchValue = data[matchField] as string;
-      const existing = people.find((p) => p[matchField] === matchValue);
+      // Spec 026 §B4: `matchSource` (opcional) permite matchear contra un
+      // path anidado del registro (ej. `{{properties.email}}` de HubSpot)
+      // cuando la clave no coincide 1:1 con `matchField`. Sin `matchSource`,
+      // `resolvePath` cubre igual el caso previo (`data[matchField]`) y de
+      // paso el de un path anidado con el mismo nombre que `matchField`.
+      const matchValue = output.matchSource
+        ? interpolateString(output.matchSource, data)
+        : String(resolvePath(data, matchField) ?? "");
+      const existing = matchValue ? people.find((p) => p[matchField] === matchValue) : undefined;
+
+      const matchResolved = { match: truncateForTrace(`${matchField}=${matchValue}`) };
 
       if (existing) {
         if (output.ifNotFound === "update" || output.ifNotFound === "create") {
           const updated = { ...existing };
+          const unresolvedTokens: string[] = [];
           for (const [key, value] of Object.entries(output.data)) {
-            (updated as Record<string, unknown>)[key] = interpolateString(value, data);
+            const r = interpolate(value, data);
+            unresolvedTokens.push(...r.unresolved);
+            (updated as Record<string, unknown>)[key] = r.value;
           }
           updated.updatedAt = nowIso();
           result.updatedPeople.push(updated);
-          return { mutatedProjectIds: [], outcome: "executed" };
+          return {
+            mutatedProjectIds: [],
+            outcome: "executed",
+            resolved: matchResolved,
+            unresolvedTokens: unresolvedTokens.length > 0 ? unresolvedTokens : undefined,
+          };
         }
         return {
           mutatedProjectIds: [],
@@ -878,23 +1113,36 @@ async function executeOutput(
       }
       if (output.ifNotFound === "create") {
         const personData: Record<string, string> = {};
+        const unresolvedTokens: string[] = [];
         for (const [key, value] of Object.entries(output.data)) {
-          personData[key] = interpolateString(value, data);
+          const r = interpolate(value, data);
+          unresolvedTokens.push(...r.unresolved);
+          personData[key] = r.value;
         }
         // Si el output no define mapeo explícito para un campo, usar el valor
-        // ya presente en el registro transformado (útil para polling directo).
+        // ya presente en el registro transformado (útil para polling
+        // directo) — resuelto vía `resolvePath` para soportar registros
+        // anidados (spec 026 §B4).
+        const nameFromRecord = resolvePath(data, "name");
+        const emailFromRecord = resolvePath(data, "email");
+        const roleTitleFromRecord = resolvePath(data, "roleTitle");
         const fallbackName =
-          typeof data.name === "string"
-            ? data.name
-            : typeof data.email === "string"
-              ? data.email
+          typeof nameFromRecord === "string"
+            ? nameFromRecord
+            : typeof emailFromRecord === "string"
+              ? emailFromRecord
               : "Sin nombre";
         const person = newPerson(personData.name || fallbackName);
-        person.email = personData.email || (typeof data.email === "string" ? data.email : "");
+        person.email = personData.email || (typeof emailFromRecord === "string" ? emailFromRecord : "");
         person.roleTitle =
-          personData.roleTitle || (typeof data.roleTitle === "string" ? data.roleTitle : "");
+          personData.roleTitle || (typeof roleTitleFromRecord === "string" ? roleTitleFromRecord : "");
         result.newPeople.push(person);
-        return { mutatedProjectIds: [], outcome: "executed" };
+        return {
+          mutatedProjectIds: [],
+          outcome: "executed",
+          resolved: matchResolved,
+          unresolvedTokens: unresolvedTokens.length > 0 ? unresolvedTokens : undefined,
+        };
       }
       return {
         mutatedProjectIds: [],
@@ -924,24 +1172,46 @@ async function executeOutput(
         return { mutatedProjectIds: [], outcome: "skipped", reason };
       }
       const project = projectMap.get(projectId)!;
-      const updated = { ...project, [output.field]: output.value, updatedAt: nowIso() };
+      // Spec 026 §B2: la UI ya ofrece `VariablePicker`/hint de validación
+      // para este campo (anuncia "{{campo}}" como sintaxis válida), pero el
+      // motor guardaba `output.value` crudo — un `{{amount}}` terminaba
+      // literal en el proyecto en vez del valor real.
+      let value: unknown = output.value;
+      let unresolvedTokens: string[] | undefined;
+      if (typeof output.value === "string") {
+        const r = interpolate(output.value, data);
+        value = r.value;
+        unresolvedTokens = r.unresolved.length > 0 ? r.unresolved : undefined;
+      }
+      const updated = { ...project, [output.field]: value, updatedAt: nowIso() };
       projectMap.set(projectId, updated);
-      return { mutatedProjectIds: [projectId], outcome: "executed" };
+      return {
+        mutatedProjectIds: [projectId],
+        outcome: "executed",
+        resolved: { [output.field]: truncateForTrace(String(value)) },
+        unresolvedTokens,
+      };
     }
 
     case "createNotification": {
       const projectId = resolveTargetProjectId(undefined, source, projectMap);
+      const messageResult = interpolate(output.message, data);
       const notification: Notification = {
         id: uuid(),
         type: flow.name,
         severity: output.severity,
-        message: interpolateString(output.message, data),
+        message: messageResult.value,
         entityRef: buildNotificationEntityRef(projectId, source),
         read: false,
         createdAt: nowIso(),
       };
       result.notifications.push(notification);
-      return { mutatedProjectIds: [], outcome: "executed" };
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        resolved: { message: truncateForTrace(messageResult.value) },
+        unresolvedTokens: messageResult.unresolved.length > 0 ? messageResult.unresolved : undefined,
+      };
     }
 
     case "markAreaComplete": {
@@ -966,59 +1236,60 @@ async function executeOutput(
     }
 
     case "webhook": {
-      const payload = output.payload
-        ? interpolateObject(output.payload, data)
-        : data;
+      // Spec 026 §C1: la construcción de la request (payload interpolado +
+      // firma HMAC + headers) vive en `webhook-request.ts`, compartida con
+      // "Probar webhook" (`webhook-test.ts`) — una sola fuente de verdad
+      // para la firma.
+      const { url, init, payload, unresolved: unresolvedPayloadTokens } = await buildWebhookRequest(output, data);
 
       // Registrar el intento de entrega antes de llamar a la red: se
       // conserva aunque la entrega falle (spec 024 §F2), para no perder el
       // rastro de qué se intentó enviar.
       result.outboundDeliveries.push({
-        url: output.url,
+        url,
         secret: output.secret,
         payload,
       });
 
-      const signature = await signPayload(
-        {
-          eventId: uuid(),
-          eventType: "flow.execution",
-          timestamp: nowIso(),
-          workspace: { org: "Hito" },
-          data: payload,
-        },
-        output.secret
-      );
-
       let response: Response;
       try {
-        response = await fetch(output.url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Hito-Signature": signature,
-            "X-Hito-Event": "flow.execution",
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(10_000),
-        });
+        response = await fetch(url, { ...init, signal: AbortSignal.timeout(10_000) });
       } catch (error) {
         // Un fallo de red ya no se traga: se relanza para que el catch del
         // loop principal lo cuente como error real del output (spec 024
         // §F2 — antes esto se registraba como "Ejecutado correctamente").
-        // `cause` se asigna a mano (en vez de vía el 2º argumento del
-        // constructor) porque el `lib` de tsconfig es ES2020 y no tipa esa
-        // sobrecarga, aunque el runtime sí la soporta.
+        // Transitorio por definición (spec 027 §E) — candidato a reintento
+        // si el output tiene `retry`. `cause` se asigna a mano (en vez de
+        // vía el 2º argumento del constructor) porque el `lib` de tsconfig
+        // es ES2020 y no tipa esa sobrecarga, aunque el runtime sí la
+        // soporta.
         const message = error instanceof Error ? error.message : String(error);
-        const wrapped = new Error(`Entrega fallida: ${message}`);
+        const wrapped = new TransientOutputError(`Entrega fallida: ${message}`);
         (wrapped as Error & { cause?: unknown }).cause = error;
         throw wrapped;
       }
       if (!response.ok) {
-        throw new Error(`El webhook respondió HTTP ${response.status}.`);
+        // HTTP ≥ 500 es transitorio (reintentable); 4xx es permanente y
+        // nunca se reintenta (spec 027 §E).
+        const message = `El webhook respondió HTTP ${response.status}.`;
+        if (response.status >= 500) throw new TransientOutputError(message);
+        throw new Error(message);
       }
 
-      return { mutatedProjectIds: [], outcome: "executed" };
+      let host: string;
+      try {
+        host = new URL(url).host;
+      } catch {
+        host = url;
+      }
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        // Nunca el secret ni el body completo — solo el host y las keys del
+        // payload (spec 026 §E, mismo criterio que 024 §F4).
+        resolved: { host, payloadKeys: Object.keys(payload).join(", ") },
+        unresolvedTokens: unresolvedPayloadTokens.length > 0 ? unresolvedPayloadTokens : undefined,
+      };
     }
 
     case "email": {
@@ -1038,11 +1309,19 @@ async function executeOutput(
       const proxyUrl = String(connection.config.proxyUrl ?? "");
       const fromEmail = String(connection.config.fromEmail ?? "");
 
+      const toResult = interpolate(output.to, data);
+      const subjectResult = interpolate(output.subject, data);
+      const bodyResult = interpolate(output.body, data);
       const emailData = {
-        to: interpolateString(output.to, data),
-        subject: interpolateString(output.subject, data),
-        htmlBody: interpolateString(output.body, data),
+        to: toResult.value,
+        subject: subjectResult.value,
+        htmlBody: bodyResult.value,
       };
+      const unresolvedTokens = [
+        ...toResult.unresolved,
+        ...subjectResult.unresolved,
+        ...bodyResult.unresolved,
+      ];
 
       result.emailDeliveries.push({
         proxyUrl,
@@ -1052,53 +1331,50 @@ async function executeOutput(
       });
 
       // `sendEmailViaAppsScript` nunca lanza — siempre resuelve
-      // `{success, error?}` (ya registra el intento en syncLogs por su
-      // cuenta). El código previo ignoraba ese resultado por completo, así
-      // que un envío fallido (proxy caído, HTTP≥400) quedaba invisible para
-      // el motor y se contaba como "Ejecutado correctamente" (spec 024
-      // §F2). Ahora si falla se relanza para que el catch del loop principal
-      // lo cuente como error real del output.
+      // `{success, error?, transient?}` (ya registra el intento en syncLogs
+      // por su cuenta). El código previo ignoraba ese resultado por
+      // completo, así que un envío fallido (proxy caído, HTTP≥400) quedaba
+      // invisible para el motor y se contaba como "Ejecutado correctamente"
+      // (spec 024 §F2). Ahora si falla se relanza para que el catch del
+      // loop principal lo cuente como error real del output; `transient`
+      // decide si el fallo es reintentable (spec 027 §E).
       const sendResult = await sendEmailViaAppsScript({ proxyUrl, fromEmail }, emailData);
       if (!sendResult.success) {
-        throw new Error(`Envío fallido: ${sendResult.error ?? "error desconocido"}`);
+        const message = `Envío fallido: ${sendResult.error ?? "error desconocido"}`;
+        if (sendResult.transient) throw new TransientOutputError(message);
+        throw new Error(message);
       }
 
-      return { mutatedProjectIds: [], outcome: "executed" };
+      // Nunca el body completo en la traza — solo destinatario y asunto
+      // (spec 026 §E, mismo criterio que 024 §F4).
+      return {
+        mutatedProjectIds: [],
+        outcome: "executed",
+        resolved: { to: truncateForTrace(emailData.to), subject: truncateForTrace(emailData.subject) },
+        unresolvedTokens: unresolvedTokens.length > 0 ? unresolvedTokens : undefined,
+      };
     }
   }
 }
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  return path.split(".").reduce<unknown>((current, key) => {
-    if (current && typeof current === "object" && key in (current as Record<string, unknown>)) {
-      return (current as Record<string, unknown>)[key];
-    }
-    return undefined;
-  }, obj);
-}
+/** `resolvePath`/`interpolateString`/`interpolateObject` ahora viven en
+ * `interpolation.ts` (spec 026 §A), fuente de verdad compartida con la
+ * validación de tokens de la UI y las vistas previas del canvas. Este archivo
+ * conserva los nombres previos como wrappers locales para no reescribir cada
+ * call site: la mayoría solo necesita el string/objeto interpolado, no la
+ * lista de tokens no resueltos (que sí se usa explícitamente donde hace
+ * falta para la traza — spec 026 §E, ver `executeOutput`). */
+const getNestedValue = resolvePath;
 
 function interpolateString(template: string, data: Record<string, unknown>): string {
-  return template.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (match, path) => {
-    const value = getNestedValue(data, path);
-    return value !== undefined ? String(value) : match;
-  });
+  return interpolate(template, data).value;
 }
 
 function interpolateObject(
   obj: Record<string, unknown>,
   data: Record<string, unknown>
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      result[key] = interpolateString(value, data);
-    } else if (typeof value === "object" && value !== null) {
-      result[key] = interpolateObject(value as Record<string, unknown>, data);
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
+  return interpolateObj(obj, data).value;
 }

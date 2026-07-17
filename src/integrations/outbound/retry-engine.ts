@@ -1,29 +1,11 @@
 import { integrationDb } from "@/storage/integration-db";
 import type { OutboundPayload } from "./dispatcher";
+import { calculateRetryDelay, DEFAULT_RETRY_CONFIG } from "./retry-delay";
 
-interface RetryConfig {
-  maxRetries: number;
-  baseDelayMs: number;
-  maxDelayMs: number;
-  jitterFactor: number;
-}
-
-const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 5,
-  baseDelayMs: 1_000,
-  maxDelayMs: 300_000,
-  jitterFactor: 0.2,
-};
-
-export function calculateRetryDelay(
-  attempt: number,
-  config: RetryConfig = DEFAULT_RETRY_CONFIG
-): number {
-  const exponential = config.baseDelayMs * Math.pow(2, attempt);
-  const capped = Math.min(exponential, config.maxDelayMs);
-  const jitter = 1 + (Math.random() * 2 - 1) * config.jitterFactor;
-  return Math.round(capped * jitter);
-}
+// El cálculo del delay vive en `retry-delay.ts` (puro, sin Dexie) para que
+// el motor de flujos lo reuse (spec 027 §E); se re-exporta desde aquí para
+// no romper los call sites previos.
+export { calculateRetryDelay } from "./retry-delay";
 
 let processorInterval: ReturnType<typeof setInterval> | null = null;
 
