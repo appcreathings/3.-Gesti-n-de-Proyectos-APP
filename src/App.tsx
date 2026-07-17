@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AppGate } from "@/components/layout/AppGate";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProjectsLayout } from "@/features/projects/ProjectsLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAppStore } from "@/store/useAppStore";
@@ -114,7 +115,12 @@ const DailyStandupPage = lazy(() =>
 );
 
 function page(el: ReactNode) {
-  return <Suspense fallback={<Loading />}>{el}</Suspense>;
+  return (
+    <Suspense fallback={<Loading />}>
+      <ScrollToTop />
+      {el}
+    </Suspense>
+  );
 }
 
 const router = createBrowserRouter([
