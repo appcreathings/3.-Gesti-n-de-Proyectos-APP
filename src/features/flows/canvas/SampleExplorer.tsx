@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Check, Braces, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   /** Registros traídos por la última "Probar conexión" del trigger. Si
@@ -8,6 +9,11 @@ interface Props {
    * (muestra persistida) + §B/E (sincronización reactiva con el
    * picker/validación). */
   sample: Record<string, unknown>[] | undefined;
+  /** Qué registro alimenta las vistas previas en vivo del resto del canvas
+   * (`InterpolationPreview`, spec 026 §D3). Solo se muestra el selector
+   * cuando hay más de un registro — con uno solo no hay nada que elegir. */
+  previewRecordIndex?: number;
+  onPreviewRecordIndexChange?: (index: number) => void;
 }
 
 interface FieldInfo {
@@ -50,7 +56,11 @@ function formatExample(value: unknown): string {
  * solo decía cuántos registros trajo, pero no dejaba ver qué campos
  * tenía ni copiar tokens — el usuario tenía que abrir el drawer de
  * Transformación para verlos. */
-export function SampleExplorer({ sample }: Props) {
+export function SampleExplorer({
+  sample,
+  previewRecordIndex = 0,
+  onPreviewRecordIndexChange,
+}: Props) {
   const [rawOpen, setRawOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -98,15 +108,31 @@ export function SampleExplorer({ sample }: Props) {
             {sample.length} registro{sample.length !== 1 ? "s" : ""}
           </Badge>
         </div>
-        <button
-          type="button"
-          onClick={() => setRawOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Braces className="size-3.5" />
-          JSON crudo
-          {rawOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {sample.length > 1 && onPreviewRecordIndexChange && (
+            <Select
+              value={String(Math.min(previewRecordIndex, sample.length - 1))}
+              onChange={(e) => onPreviewRecordIndexChange(Number(e.target.value))}
+              className="h-7 w-auto text-[10px]"
+              title="Registro usado en las vistas previas de los campos"
+            >
+              {sample.map((_, i) => (
+                <option key={i} value={i}>
+                  Registro {i + 1}
+                </option>
+              ))}
+            </Select>
+          )}
+          <button
+            type="button"
+            onClick={() => setRawOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Braces className="size-3.5" />
+            JSON crudo
+            {rawOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+          </button>
+        </div>
       </div>
 
       <p className="text-[10px] text-muted-foreground">

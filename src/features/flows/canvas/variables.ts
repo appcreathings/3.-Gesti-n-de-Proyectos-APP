@@ -1,5 +1,6 @@
 import type { Trigger, PollTrigger } from "@/domain/schemas/flow";
 import type { DomainEventType } from "@/automations/events";
+import { parseTokens } from "@/flows/interpolation";
 
 export interface AvailableVariable {
   /** Nombre del campo, tal como aparece en el registro (`record.<field>`). */
@@ -110,11 +111,12 @@ export function validateVariables(
 ): { valid: boolean; missing: string[] } {
   if (available.length === 0) return { valid: true, missing: [] };
   const availableFields = new Set(available.map((v) => v.field));
-  const TOKEN_RE = /\{\{(\w+(?:\.\w+)*)\}\}/g;
   const missing = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = TOKEN_RE.exec(template)) !== null) {
-    const path = m[1];
+  // Tokeniza con el mismo `parseTokens` que usa el motor para interpolar
+  // (spec 026 §A) — antes este archivo tenía su propio regex `\w`-only que
+  // nunca detectaba `{{Nombre Cliente}}`/`{{Teléfono}}` como huérfanos,
+  // aunque el motor tampoco los interpolara: doble fallo silencioso.
+  for (const { path } of parseTokens(template)) {
     const top = path.split(".")[0];
     if (!availableFields.has(path) && !availableFields.has(top)) {
       missing.add(path);

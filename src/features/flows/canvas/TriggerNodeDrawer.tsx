@@ -13,13 +13,23 @@ interface Props {
    * cuenta. El `syntheticFlow` construido aquí no lleva `lastSample`, así
    * que hay que pasarlo por separado. Spec 025 §A (ext). */
   sample?: Record<string, unknown>[];
+  /** Registro elegido para las vistas previas en vivo (spec 026 §D3). */
+  previewRecordIndex?: number;
+  onPreviewRecordIndexChange?: (index: number) => void;
 }
 
 /** Adapta `TriggerStep` (que históricamente opera sobre un `FlowRule`
  * completo) para editar solo el nodo trigger del canvas, reutilizando toda
  * su lógica existente: selector de evento, conexión de HubSpot, filtros,
  * campos y "probar conexión". El resto del `FlowRule` sintético nunca se lee. */
-export function TriggerNodeDrawer({ trigger, onChange, onSampleChange, sample }: Props) {
+export function TriggerNodeDrawer({
+  trigger,
+  onChange,
+  onSampleChange,
+  sample,
+  previewRecordIndex,
+  onPreviewRecordIndexChange,
+}: Props) {
   const syntheticFlow: FlowRule = { ...createEmptyFlow(""), trigger };
   return (
     <TriggerStep
@@ -29,6 +39,8 @@ export function TriggerNodeDrawer({ trigger, onChange, onSampleChange, sample }:
       }}
       onSampleChange={onSampleChange}
       sample={sample}
+      previewRecordIndex={previewRecordIndex}
+      onPreviewRecordIndexChange={onPreviewRecordIndexChange}
     />
   );
 }

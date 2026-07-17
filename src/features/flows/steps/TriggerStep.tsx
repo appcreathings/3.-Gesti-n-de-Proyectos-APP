@@ -33,6 +33,11 @@ interface Props {
    * sintéticamente en `TriggerNodeDrawer` sin `lastSample`, así que hay
    * que pasarlo por separado. Spec 025 §A (ext: explorador de muestra). */
   sample?: Record<string, unknown>[];
+  /** Qué registro de `sample` alimenta las vistas previas en vivo del resto
+   * del canvas — controlado por el selector "Registro N" del propio
+   * `SampleExplorer` (spec 026 §D3). */
+  previewRecordIndex?: number;
+  onPreviewRecordIndexChange?: (index: number) => void;
 }
 
 const TRIGGER_TYPES = [
@@ -87,7 +92,14 @@ const INTERVAL_OPTIONS = [
   { value: "1800000", label: "Cada 30 minutos" },
 ];
 
-export function TriggerStep({ flow, updateFlow, onSampleChange, sample }: Props) {
+export function TriggerStep({
+  flow,
+  updateFlow,
+  onSampleChange,
+  sample,
+  previewRecordIndex,
+  onPreviewRecordIndexChange,
+}: Props) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [guideProvider, setGuideProvider] = useState<"hubspot" | "google-sheets" | null>(null);
@@ -557,7 +569,11 @@ export function TriggerStep({ flow, updateFlow, onSampleChange, sample }: Props)
                   saber qué campos traía la muestra. Ahora puede explorarlos
                   aquí mismo y copiar tokens `{{campo}}` para pegarlos en
                   cualquier campo interpolable del flujo. */}
-                <SampleExplorer sample={displaySample} />
+                <SampleExplorer
+                  sample={displaySample}
+                  previewRecordIndex={previewRecordIndex}
+                  onPreviewRecordIndexChange={onPreviewRecordIndexChange}
+                />
               </div>
             );
           })()}

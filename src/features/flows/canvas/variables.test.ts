@@ -118,6 +118,23 @@ describe("validateVariables (spec 025 §B)", () => {
     expect(r.valid).toBe(false);
   });
 
+  // Spec 026 §A5: el tokenizador previo era `\w`-only y nunca detectaba
+  // columnas de Sheets con espacios/acentos como huérfanas — doble fallo
+  // silencioso junto con el motor (que tampoco las interpolaba).
+  it("detects a token with spaces (Sheets column) as missing when it's not in available", () => {
+    const r = validateVariables("{{Nombre Cliente}}", [{ field: "email" }]);
+    expect(r.valid).toBe(false);
+    expect(r.missing).toEqual(["Nombre Cliente"]);
+  });
+
+  it("recognizes a token with spaces/accents as valid once it's in available", () => {
+    const r = validateVariables("{{Nombre Cliente}} — {{Teléfono}}", [
+      { field: "Nombre Cliente" },
+      { field: "Teléfono" },
+    ]);
+    expect(r.valid).toBe(true);
+  });
+
   it("returns valid (no warn) when available is empty — avoid false positives when there is no information to validate against", () => {
     const r = validateVariables("Hola {{namae}}", []);
     expect(r.valid).toBe(true);
