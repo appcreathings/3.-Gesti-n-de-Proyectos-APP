@@ -21,7 +21,7 @@ export function AlternativaNotionPage() {
       <SeoArticle
         eyebrow="Comparativa"
         title="Hito: la alternativa local a Notion para proyectos y procesos"
-        intro="Notion es un cuaderno universal. Hito es específicamente gestión de proyectos, procesos (SOPs) y checklists — y vive en una carpeta de tu equipo. Si lo que necesitás es reemplazar las bases de datos de Notion sin entregar tu información, Hito está diseñado para eso."
+        intro="Notion es un cuaderno universal. Hito es específicamente gestión de proyectos, procesos (SOPs) y checklists — y vive en una carpeta de tu equipo. Si lo que necesitas es reemplazar las bases de datos de Notion sin entregar tu información, Hito está diseñado para eso."
         sections={[
           {
             heading: "Lo que Hito toma de Notion",
@@ -43,7 +43,7 @@ export function AlternativaNotionPage() {
                 <p>
                   No hay páginas libres, ni bases de datos customizables al infinito, ni
                   fórmulas tipo Excel. Hito cree que para gestión de proyectos la estructura
-                  debe ser la misma para todos los equipos — porque si no, perdés el tiempo
+                  debe ser la misma para todos los equipos — porque si no, pierdes el tiempo
                   diseñando tu propio sistema en lugar de usarlo.
                 </p>
               </>

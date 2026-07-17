@@ -1,7 +1,7 @@
 type Badge = { label: string; value: string; href?: string };
 
 const BADGES: Badge[] = [
-  { label: "License", value: "MIT", href: "https://github.com/hito-app/hito/blob/main/LICENSE" },
+  { label: "License", value: "MIT", href: "https://github.com/appcreathings/Gestion-de-Proyectos-APP/blob/main/LICENSE" },
   { label: "Type", value: "100% local-first" },
   { label: "Tracking", value: "ninguno" },
   { label: "Backend", value: "no hay" },

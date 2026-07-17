@@ -67,7 +67,7 @@ export function ChangelogPage() {
           </h1>
           <p className="mt-6 text-pretty text-lg leading-relaxed text-muted-foreground">
             Cada cambio visible en Hito queda registrado acá. Sin marketing, sin pildoras
-            retroactivas. Si querés saber qué cambió entre versiones, mirá el Git log
+            retroactivas. Si quieres saber qué cambió entre versiones, mira el Git log
             directamente.
           </p>
 

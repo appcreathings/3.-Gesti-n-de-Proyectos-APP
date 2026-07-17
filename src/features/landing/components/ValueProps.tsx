@@ -18,7 +18,7 @@ const STATS = [
     value: "0 KB",
     label: "enviados a la nube",
     description:
-      "Tus datos nunca viajan a un servidor ajeno. No hay backend, no hay empresa viendo lo que escribís.",
+      "Tus datos nunca viajan a un servidor ajeno. No hay backend, no hay empresa viendo lo que escribes.",
   },
   {
     icon: FileCode2,
@@ -32,7 +32,7 @@ const STATS = [
     value: "1 carpeta",
     label: "para todo tu equipo",
     description:
-      "Compartila por red local, Dropbox, Git, como prefieras. Sin límite de usuarios ni permisos que pedir.",
+      "Compártela por red local, Dropbox, Git, como prefieras. Sin límite de usuarios ni permisos que pedir.",
   },
   {
     icon: Heart,

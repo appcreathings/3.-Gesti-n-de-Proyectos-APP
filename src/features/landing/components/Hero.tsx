@@ -50,7 +50,7 @@ export function Hero() {
           </div>
 
           <h1 className="text-balance text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
-            Gestioná proyectos, procesos y equipos{" "}
+            Gestiona proyectos, procesos y equipos{" "}
             <span className="text-primary/70">sin rendir cuentas a la nube.</span>
           </h1>
 

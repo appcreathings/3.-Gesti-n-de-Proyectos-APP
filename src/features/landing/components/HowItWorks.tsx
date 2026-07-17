@@ -2,7 +2,7 @@
  * HowItWorks — 4 pasos para empezar + explicación de jerarquía.
  *
  * Sección dividida en 2 partes:
- * 1. Grid de 4 pasos: Elegí carpeta → Creá producto → Definí procesos → Gestioná tareas
+ * 1. Grid de 4 pasos: Elige carpeta → Crea producto → Define procesos → Gestiona tareas
  *    Cada paso tiene: número, icono, label y descripción corta.
  *    Flechas conectoras entre pasos en desktop.
  *
@@ -14,10 +14,10 @@ import { FolderOpen, Package, FileText, ListChecks, ArrowRight } from "lucide-re
 import { HierarchyLegend } from "@/components/HierarchyLegend";
 
 const STEPS = [
-  { icon: FolderOpen, label: "Elegí tu carpeta", desc: "Sin registro. Sin cuentas. Elegís una carpeta local y Hito crea tu espacio de trabajo." },
-  { icon: Package, label: "Creá un Producto", desc: "Agrupá proyectos bajo un mismo paraguas. Cada producto tiene su visión y objetivos." },
-  { icon: FileText, label: "Definí procesos", desc: "Documentá SOPs y checklists por área de proyecto. Todo reusable con plantillas." },
-  { icon: ListChecks, label: "Gestioná tareas", desc: "Kanban arrastrable, automatizaciones, y un dashboard que te muestra la salud de todo." },
+  { icon: FolderOpen, label: "Elige tu carpeta", desc: "Sin registro. Sin cuentas. Eliges una carpeta local y Hito crea tu espacio de trabajo." },
+  { icon: Package, label: "Crea un Producto", desc: "Agrupa proyectos bajo un mismo paraguas. Cada producto tiene su visión y objetivos." },
+  { icon: FileText, label: "Define procesos", desc: "Documenta SOPs y checklists por área de proyecto. Todo reusable con plantillas." },
+  { icon: ListChecks, label: "Gestiona tareas", desc: "Kanban arrastrable, automatizaciones, y un dashboard que te muestra la salud de todo." },
 ];
 
 export function HowItWorks() {
@@ -32,7 +32,7 @@ export function HowItWorks() {
             De decidir a ejecutar en 4 pasos.
           </h2>
           <p className="mt-4 text-pretty text-muted-foreground">
-            Sin onboarding eterno. Sin formularios. Elegís una carpeta y ya
+            Sin onboarding eterno. Sin formularios. Eliges una carpeta y ya
             estás operando.
           </p>
         </div>

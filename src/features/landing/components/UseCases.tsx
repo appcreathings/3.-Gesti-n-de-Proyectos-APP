@@ -42,7 +42,7 @@ const CASES = [
     industry: "Freelancer / solopreneur",
     team: "De 1 a 3 personas",
     story:
-      "Gestionás proyectos de distintos clientes sin mezclar información. Creás plantillas de checklist para tus procesos recurrentes y tenés un dashboard que te muestra el estado de todo tu negocio.",
+      "Gestionas proyectos de distintos clientes sin mezclar información. Creas plantillas de checklist para tus procesos recurrentes y tienes un dashboard que te muestra el estado de todo tu negocio.",
     metric: "Todo tu negocio en una carpeta",
   },
 ];

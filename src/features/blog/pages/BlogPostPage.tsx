@@ -13,7 +13,7 @@ export function BlogPostPage() {
   }
 
   const publishedDate = new Date(article.publishedAt).toLocaleDateString(
-    "es-AR",
+    "es-CO",
     {
       year: "numeric",
       month: "long",

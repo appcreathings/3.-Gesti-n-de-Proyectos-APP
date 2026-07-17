@@ -5,7 +5,7 @@ export function AlternativaTrelloPage() {
   return (
     <SeoPage
       title="Hito — Alternativa local-first a Trello (sin nube, sin cuenta, MIT)"
-      description="¿Buscás una alternativa a Trello que funcione offline y guarde tus datos en una carpeta de tu equipo? Hito es open source, local-first, y gratuita."
+      description="¿Buscas una alternativa a Trello que funcione offline y guarde tus datos en una carpeta de tu equipo? Hito es open source, local-first, y gratuita."
       path="/alternativa-trello"
       ogImageAlt="Hito como alternativa local-first a Trello: Kanban drag-and-drop, datos en .json."
       schemaJson={{
@@ -21,7 +21,7 @@ export function AlternativaTrelloPage() {
       <SeoArticle
         eyebrow="Comparativa"
         title="Hito: la alternativa a Trello que no te pide tus datos"
-        intro="Trello es una herramienta excelente para tableros Kanban. Pero tus tarjetas viven en sus servidores, y la versión gratis tiene límites que aparecen justo cuando un equipo empieza a escalar. Hito toma lo mejor de Trello (Kanban arrastrable, etiquetas, miembros) y lo guarda en archivos .json en una carpeta que vos controlás."
+        intro="Trello es una herramienta excelente para tableros Kanban. Pero tus tarjetas viven en sus servidores, y la versión gratis tiene límites que aparecen justo cuando un equipo empieza a escalar. Hito toma lo mejor de Trello (Kanban arrastrable, etiquetas, miembros) y lo guarda en archivos .json en una carpeta que tú controlas."
         sections={[
           {
             heading: "Qué comparten Hito y Trello",
@@ -44,14 +44,14 @@ export function AlternativaTrelloPage() {
             body: (
               <>
                 <p>
-                  En Trello, abrir un tablero nuevo es una decisión con consecuencias: dependés
+                  En Trello, abrir un tablero nuevo es una decisión con consecuencias: dependes
                   de su uptime, de su plan, de si te siguen dando el export a JSON. En Hito, abrir
                   un proyecto es crear un archivo <code>q3-lanzamiento.json</code> en una carpeta.
                 </p>
                 <p>
-                  Si mañana dejás de usar Hito, los archivos siguen ahí: legibles, editables con
-                  cualquier editor de texto, versionables con Git. Si necesitás migrar, ya
-                  tenés el formato abierto.
+                  Si mañana dejas de usar Hito, los archivos siguen ahí: legibles, editables con
+                  cualquier editor de texto, versionables con Git. Si necesitas migrar, ya
+                  tienes el formato abierto.
                 </p>
               </>
             ),

@@ -1,39 +1,45 @@
 /**
- * FeatureHighlights — Grid 2×3 con las 6 características principales.
+ * FeatureHighlights — Grid con las 7 características principales.
  *
  * Cada tarjeta muestra: icono (lucide-react), título y descripción corta.
  * La primera tarjeta (Kanban) ocupa 2 columnas en desktop para dar énfasis.
  *
- * Nota sobre el Asistente IA: esta tarjeta es un resumen. El detalle técnico
- * de MCP tools + RAG embeddings se desarrolla en AiAssistantSection.
+ * Notas de resumen: "Flujos e Integraciones" y "Asistente IA" son tarjetas
+ * resumen — su detalle técnico se desarrolla en FlowsIntegrationsSection y
+ * AiAssistantSection respectivamente.
  */
-import { KanbanSquare, Workflow, Sparkles, HardDriveDownload, ClipboardCheck, LayoutDashboard } from "lucide-react";
+import { KanbanSquare, Workflow, Sparkles, HardDriveDownload, ClipboardCheck, LayoutDashboard, Plug } from "lucide-react";
 
 const FEATURES = [
   {
     icon: KanbanSquare,
     title: "Kanban arrastrable",
-    body: "Tareas por estado con foco por área. Reordenás con mouse o teclado; el cambio se persiste al instante en tu JSON.",
+    body: "Tareas por estado con foco por área. Reordenas con mouse o teclado; comentarios y archivado por tarjeta. El cambio se persiste al instante en tu JSON.",
   },
   {
     icon: ClipboardCheck,
     title: "Checklists & SOPs",
-    body: "Documentá procesos con Markdown, creá checklists reutilizables y asigná responsables. Cada área tiene su propia documentación.",
+    body: "Documenta procesos con Markdown, crea checklists reutilizables y asigna responsables. Cada área tiene su propia documentación.",
   },
   {
     icon: Workflow,
     title: "Automatizaciones",
-    body: "Reglas trigger → condición → acción. Mové tareas, asigná plantillas, mandá recordatorios. Sin macros raras.",
+    body: "Reglas internas trigger → condición → acción dentro de un proyecto. Mueve tareas, asigna plantillas, manda recordatorios. Sin macros raras.",
+  },
+  {
+    icon: Plug,
+    title: "Flujos e Integraciones",
+    body: "Builder visual para conectar HubSpot, Google Sheets, Email y webhooks (entrantes y salientes, con firma HMAC). La alternativa local-first a Zapier o Make.",
   },
   {
     icon: LayoutDashboard,
     title: "Dashboard de portafolio",
-    body: "Vista global con KPIs, salud RAG por proyecto y distribución por estado. Identificá proyectos en riesgo de un vistazo.",
+    body: "Vista global con KPIs, salud RAG por proyecto, sprints/trimestres y distribución por estado. Identifica proyectos en riesgo de un vistazo.",
   },
   {
     icon: Sparkles,
     title: "Asistente IA con MCP + RAG",
-    body: "Gemini gestiona tus proyectos vía MCP tools (lectura/escritura). El sistema RAG genera embeddings locales para dar contexto semántico sin enviar datos a la nube.",
+    body: "Gemini gestiona tus proyectos vía MCP tools (lectura/escritura). El sistema RAG genera embeddings locales para dar contexto semántico, con fallback automático entre modelos si uno se queda sin cuota.",
   },
   {
     icon: HardDriveDownload,
@@ -51,7 +57,7 @@ export function FeatureHighlights() {
             Características
           </p>
           <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            Todo lo que necesitás para operar, en un solo lugar.
+            Todo lo que necesitas para operar, en un solo lugar.
           </h2>
           <p className="mt-4 text-pretty text-muted-foreground">
             Productos, proyectos, procesos (SOPs), checklists, tareas y reglas

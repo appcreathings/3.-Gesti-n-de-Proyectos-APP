@@ -5,7 +5,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
     slug: "gestion-proyectos-sin-nube",
     title: "Gestión de proyectos sin nube: por qué la soberanía de datos es una ventaja",
     excerpt:
-      "Descubrí por qué cada vez más equipos eligen un gestor de proyectos sin nube. Control total, privacidad real y datos que siempre podés migrar.",
+      "Descubre por qué cada vez más equipos eligen un gestor de proyectos sin nube. Control total, privacidad real y datos que siempre puedes migrar.",
     category: "privacidad",
     categoryLabel: "Privacidad",
     publishedAt: "2026-07-05",
@@ -41,13 +41,13 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 datos nunca se envían a servidores de terceros. En lugar de una
                 base de datos remota, tus proyectos, tareas, procesos y checklists
                 viven en archivos locales —por ejemplo, archivos{" "}
-                <code>.json</code> dentro de una carpeta que vos elegís en tu
+                <code>.json</code> dentro de una carpeta que tú eliges en tu
                 equipo.
               </p>
               <p>
-                Eso no significa que no puedas compartir el trabajo. Podés usar
+                Eso no significa que no puedas compartir el trabajo. Puedes usar
                 Git, Dropbox, una red local o cualquier medio que ya utilices.
-                La diferencia es que vos decidís dónde y cómo se sincronizan los
+                La diferencia es que tú decides dónde y cómo se sincronizan los
                 datos, no un tercero.
               </p>
             </>
@@ -81,10 +81,10 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
                 <li>
                   <strong>Privacidad real:</strong> tus datos nunca salen de tu
-                  dispositivo a menos que vos lo decidas.
+                  dispositivo a menos que tú lo decidas.
                 </li>
                 <li>
-                  <strong>Control total:</strong> podés abrir, editar, versionar y
+                  <strong>Control total:</strong> puedes abrir, editar, versionar y
                   respaldar tus archivos con cualquier herramienta.
                 </li>
                 <li>
@@ -96,7 +96,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   operando sin internet.
                 </li>
                 <li>
-                  <strong>Migrabilidad garantizada:</strong> si mañana cambiás de
+                  <strong>Migrabilidad garantizada:</strong> si mañana cambias de
                   herramienta, tus datos ya están en un formato abierto.
                 </li>
               </ol>
@@ -110,8 +110,8 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               <p>
                 Trabajar con datos locales no es un retroceso tecnológico. Es una
                 decisión de arquitectura que devuelve el control al usuario. Tus
-                proyectos viven en archivos que podés abrir, versionar, respaldar
-                y migrar. No dependés del uptime de un tercero ni de una política
+                proyectos viven en archivos que puedes abrir, versionar, respaldar
+                y migrar. No dependes del uptime de un tercero ni de una política
                 de exportación que puede cambiar mañana.
               </p>
               <p>
@@ -137,7 +137,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               <p>
                 Hito nace de esa premisa: una herramienta de gestión que funciona
                 offline, guarda todo en archivos legibles y te permite trabajar
-                sin renunciar al control. Si buscás una alternativa a Notion o una
+                sin renunciar al control. Si buscas una alternativa a Notion o una
                 alternativa a Trello sin depender de la nube, el modelo local-first
                 es la respuesta más honesta.
               </p>
@@ -154,7 +154,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                     ¿Un gestor de proyectos sin nube funciona para equipos?
                   </dt>
                   <dd className="text-muted-foreground">
-                    Sí. Como los datos son archivos, podés compartir la carpeta por
+                    Sí. Como los datos son archivos, puedes compartir la carpeta por
                     Git, Dropbox, Drive o red local. Cada persona abre la misma
                     carpeta desde su app.
                   </dd>
@@ -215,14 +215,14 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       ),
       sections: [
         {
-          heading: "Empezá por el dolor, no por el procedimiento",
+          heading: "Empieza por el dolor, no por el procedimiento",
           body: (
             <>
               <p>
                 La mejor documentación responde a una pregunta concreta: "¿cómo
                 hacemos X cuando pasa Y?". Si no hay una situación recurrente que
                 cause fricción, cualquier SOP será teatro. Antes de escribir,
-                identificá los tres errores que más se repiten o las tres tareas
+                identifica los tres errores que más se repiten o las tres tareas
                 que más le cuestan a alguien nuevo.
               </p>
               <p>
@@ -261,7 +261,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
           ),
         },
         {
-          heading: "Conectá el proceso al proyecto",
+          heading: "Conecta el proceso al proyecto",
           body: (
             <>
               <p>
@@ -304,10 +304,10 @@ export const BLOG_ARTICLES: BlogArticle[] = [
             <>
               <p>
                 Las tareas repetitivas son el mejor lugar para empezar. Si todos
-                los meses hacés un lanzamiento, una reunión de retro o una
-                auditoría de seguridad, convertí esos pasos en una plantilla de
-                checklist. Así no tenés que recordar qué preguntar ni qué revisar:
-                la plantilla lo hace por vos.
+                los meses haces un lanzamiento, una reunión de retro o una
+                auditoría de seguridad, convierte esos pasos en una plantilla de
+                checklist. Así no tienes que recordar qué preguntar ni qué revisar:
+                la plantilla lo hace por ti.
               </p>
               <p>
                 En Hito, las plantillas de checklist se guardan en la biblioteca y
@@ -328,7 +328,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   </dt>
                   <dd className="text-muted-foreground">
                     Lo suficiente para que alguien nuevo lo entienda. De uno a
-                    tres minutos de lectura es ideal. Si es más largo, dividilo en
+                    tres minutos de lectura es ideal. Si es más largo, divídelo en
                     subtareas.
                   </dd>
                 </div>
@@ -381,9 +381,9 @@ export const BLOG_ARTICLES: BlogArticle[] = [
           máquina el estado de tus proyectos, pedirle que resuma tareas
           bloqueadas o que sugiera el próximo paso. Pero detrás de esa comodidad
           hay una pregunta incómoda: ¿dónde quedan tus datos cuando se los
-          contás? Si querés usar un{" "}
+          cuentas? Si quieres usar un{" "}
           <strong>asistente de IA para proyectos</strong> sin convertirte en el
-          producto, necesitás entender cómo se procesa la información.
+          producto, necesitas entender cómo se procesa la información.
         </>
       ),
       sections: [
@@ -399,8 +399,8 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 clientes, tu estrategia o tus procesos internos.
               </p>
               <p>
-                No se trata de no usar IA. Se trata de usarla de forma que vos
-                decidas qué compartís, cuándo y bajo qué términos.
+                No se trata de no usar IA. Se trata de usarla de forma que tú
+                decidas qué compartes, cuándo y bajo qué términos.
               </p>
             </>
           ),
@@ -418,7 +418,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   espacio de trabajo local, no una copia en la nube.
                 </li>
                 <li>
-                  <strong>Vos controlás la clave:</strong> usás tu propia API key
+                  <strong>Tú controlas la clave:</strong> usas tu propia API key
                   del proveedor del modelo, configurada solo en tu navegador.
                 </li>
                 <li>
@@ -469,7 +469,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 Hito elige el primer camino. El asistente tiene acceso a tu
                 espacio de trabajo local y usa herramientas específicas para
                 responder, sin mover tu base de datos completa a ningún servidor.
-                Vos decidís si activarlo, con qué modelo y cuándo desactivarlo.
+                Tú decides si activarlo, con qué modelo y cuándo desactivarlo.
               </p>
             </>
           ),
@@ -486,7 +486,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   <dd className="text-muted-foreground">
                     Depende del proveedor y de tu configuración. Usar tu propia
                     API key con opciones de privacidad desactivadas reduce el
-                    riesgo, pero siempre revisá los términos del modelo.
+                    riesgo, pero siempre revisa los términos del modelo.
                   </dd>
                 </div>
                 <div>
@@ -520,7 +520,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
     slug: "organizar-proyectos-tareas-jerarquia",
     title: "Cómo organizar proyectos y tareas: una jerarquía simple para equipos",
     excerpt:
-      "No necesitás más apps: necesitás una estructura clara. Descubrí una jerarquía práctica para organizar proyectos, áreas, procesos y tareas.",
+      "No necesitas más apps: necesitas una estructura clara. Descubre una jerarquía práctica para organizar proyectos, áreas, procesos y tareas.",
     category: "productividad",
     categoryLabel: "Productividad",
     publishedAt: "2026-07-05",
@@ -552,7 +552,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
           body: (
             <>
               <p>
-                Pensá tu trabajo en cinco niveles: <strong>Producto</strong>{" "}
+                Piensa tu trabajo en cinco niveles: <strong>Producto</strong>{" "}
                 (el paraguas estratégico), <strong>Proyecto</strong> (un esfuerzo
                 concreto con inicio y fin), <strong>Área</strong> (una dimensión
                 del proyecto, como diseño o legal), <strong>Proceso</strong> (cómo
@@ -578,7 +578,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 tarea responde "¿qué hago hoy?".
               </p>
               <p>
-                Si mezclás esos niveles, terminás con reuniones de producto que
+                Si mezclas esos niveles, terminas con reuniones de producto que
                 discuten tareas, o con tareas sueltas que no se sabe a qué
                 proyecto pertenecen. La claridad empieza por separar bien esas
                 conversaciones.
@@ -591,9 +591,9 @@ export const BLOG_ARTICLES: BlogArticle[] = [
           body: (
             <>
               <p>
-                Una buena jerarquía no solo organiza: acelera. Cuando sabés dónde
-                vive cada decisión, no perdés tiempo buscando. Cuando un proyecto
-                está enfermo, podés ver en qué nivel falla: ¿falta estrategia,
+                Una buena jerarquía no solo organiza: acelera. Cuando sabes dónde
+                vive cada decisión, no pierdes tiempo buscando. Cuando un proyecto
+                está enfermo, puedes ver en qué nivel falla: ¿falta estrategia,
                 recursos, documentación o ejecución?
               </p>
               <p>
@@ -643,7 +643,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                     ¿Qué pasa si un proyecto no pertenece a un producto?
                   </dt>
                   <dd className="text-muted-foreground">
-                    Podés tener proyectos sueltos, pero conviene agruparlos bajo
+                    Puedes tener proyectos sueltos, pero conviene agruparlos bajo
                     un producto ficticio o interno para mantener la jerarquía.
                   </dd>
                 </div>
@@ -688,7 +688,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
           algo en una app, se dispara una acción en otra. Son poderosas, pero
           también frágiles. Dependen de que ambas apps estén online, de que la
           integración siga soportada y de que tus datos viajen por servidores que
-          no controlás. Para muchos equipos, eso es más riesgo del que parece.
+          no controlas. Para muchos equipos, eso es más riesgo del que parece.
           Existe otra forma: <strong>automatizar tareas sin nube</strong>, con
           reglas que se ejecutan sobre tus propios archivos.
         </>
@@ -767,7 +767,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               <p>
                 En un mundo híbrido de trabajo, no siempre hay conexión
                 confiable. Las automatizaciones locales no se detienen porque el
-                Wi-Fi falló: se ejecutan cuando usás la app, y se aplican a tus
+                Wi-Fi falló: se ejecutan cuando usas la app, y se aplican a tus
                 archivos locales.
               </p>
               <p>
@@ -790,7 +790,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   </dt>
                   <dd className="text-muted-foreground">
                     Mínimos. Las reglas se evalúan sobre JSON locales y solo
-                    cuando disparás un evento relevante.
+                    cuando disparas un evento relevante.
                   </dd>
                 </div>
                 <div>
@@ -862,9 +862,9 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 punto en el tiempo, no un rango.
               </p>
               <p>
-                Pensalo así: si tu proyecto es un viaje, las tareas son los
+                Piénsalo así: si tu proyecto es un viaje, las tareas son los
                 pasos que das y los hitos son los carteles que te indican que
-                llegaste a cada pueblo del camino. No caminás "el cartel": el
+                llegaste a cada pueblo del camino. No caminas "el cartel": el
                 cartel te confirma que llegaste.
               </p>
             </>
@@ -929,7 +929,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 </li>
               </ul>
               <p>
-                Notá que ninguno de estos hitos dice <em>cómo</em> se logró. Solo
+                Nota que ninguno de estos hitos dice <em>cómo</em> se logró. Solo
                 dicen que algo importante se completó y se puede verificar.
               </p>
             </>
@@ -976,14 +976,14 @@ export const BLOG_ARTICLES: BlogArticle[] = [
             <>
               <p>
                 Trackear hitos no requiere herramientas complejas. Lo que
-                necesitás es visibilidad: saber en un vistazo qué hitos se
+                necesitas es visibilidad: saber en un vistazo qué hitos se
                 cumplieron, cuáles están en riesgo y cuáles aún no empezaron.
               </p>
               <p>
                 Una forma simple es usar una vista de proyecto donde los hitos
                 aparezcan como marcas en una línea de tiempo, con un estado
-                claro: pendiente, en progreso o completado. No necesitás un
-                diagrama de Gantt de 200 filas; necesitás claridad sobre los
+                claro: pendiente, en progreso o completado. No necesitas un
+                diagrama de Gantt de 200 filas; necesitas claridad sobre los
                 puntos que importan.
               </p>
               <p>
@@ -1028,7 +1028,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   <dd className="text-muted-foreground">
                     No. Un proyecto de dos semanas también puede tener 2 o 3
                     hitos. La escala cambia, pero la función es la misma: saber
-                    si estás avanzando hacia donde querés.
+                    si estás avanzando hacia donde quieres.
                   </dd>
                 </div>
               </dl>
@@ -1078,7 +1078,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 El Hito Project es una forma de entender la gestión de proyectos
                 donde el <strong>hito</strong> es la unidad central de progreso.
                 No es una metodología cerrada con certificaciones y manuales de
-                400 páginas. Es un principio simple: si no podés verificar que
+                400 páginas. Es un principio simple: si no puedes verificar que
                 avanzaste, no avanzaste.
               </p>
               <p>
@@ -1115,13 +1115,13 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 </li>
                 <li>
                   <strong>Puntos de control sin microgestión:</strong> no
-                  necesitás preguntar "¿cómo vas?" cada dos horas. El hito te
+                  necesitas preguntar "¿cómo vas?" cada dos horas. El hito te
                   dice si se llegó o no.
                 </li>
               </ol>
               <p>
                 Para equipos pequeños y medianos, esto es especialmente valioso:
-                no tenés un PM dedicado ni herramientas enterprise. Necesitás
+                no tienes un PM dedicado ni herramientas enterprise. Necesitas
                 algo simple que funcione y que no te esclavice.
               </p>
             </>
@@ -1148,7 +1148,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   </dt>
                   <dd className="text-muted-foreground">
                     El estado del proyecto debe ser legible en un vistazo. Si
-                    necesitás tres reuniones para saber dónde estás, la
+                    necesitas tres reuniones para saber dónde estás, la
                     herramienta no te está ayudando.
                   </dd>
                 </div>
@@ -1167,9 +1167,9 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                     4. Control local
                   </dt>
                   <dd className="text-muted-foreground">
-                    Tus datos viven en archivos que vos controlás. No en
+                    Tus datos viven en archivos que tú controlas. No en
                     servidores de terceros, no en planes premium, no en
-                    exportaciones parciales. Si mañana querés migrar, tus datos
+                    exportaciones parciales. Si mañana quieres migrar, tus datos
                     ya están en un formato abierto.
                   </dd>
                 </div>
@@ -1193,11 +1193,11 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               <p>
                 Cuando un área completa su checklist, eso es un hito. Cuando un
                 proceso se ejecuta y se marca como terminado, eso es otro hito.
-                No necesitás configurar un módulo de "milestones" aparte: la
+                No necesitas configurar un módulo de "milestones" aparte: la
                 estructura del proyecto ya te los da.
               </p>
               <p>
-                Además, como todo es local-first, podés versionar tus proyectos
+                Además, como todo es local-first, puedes versionar tus proyectos
                 con Git, compartir la carpeta del equipo por los medios que ya
                 usan y trabajar sin internet. La filosofía del Hito Project no
                 es solo un concepto: es la arquitectura de la herramienta.
@@ -1217,13 +1217,13 @@ export const BLOG_ARTICLES: BlogArticle[] = [
               </p>
               <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
                 <li>
-                  <strong>Sin microgestión:</strong> no necesitás registrar cada
+                  <strong>Sin microgestión:</strong> no necesitas registrar cada
                   minuto de trabajo. Los hitos marcan el progreso, no las horas
                   facturadas.
                 </li>
                 <li>
                   <strong>Sin dependencias de nube:</strong> tus datos son
-                  archivos JSON en tu equipo. No dependés del uptime de un
+                  archivos JSON en tu equipo. No dependes del uptime de un
                   tercero ni de que renueven una integración.
                 </li>
                 <li>
@@ -1234,16 +1234,16 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                 <li>
                   <strong>Sin fricción de onboarding:</strong> no hay que crear
                   cuenta, verificar email ni configurar un workspace en la nube.
-                  Abrís la app y empezás a trabajar.
+                  Abres la app y empiezas a trabajar.
                 </li>
               </ul>
               <p>
                 Esto no significa que el Hito Project sea para todos. Si tu
                 equipo tiene 50 personas y necesita SSO, audit logs
                 distribuidos y compliance SOC2, hay herramientas mejores para
-                eso. Pero si sos un equipo de 1 a 15 personas que valora la
+                eso. Pero si eres un equipo de 1 a 15 personas que valora la
                 claridad, la privacidad y el control, esta filosofía está
-                pensada para vos.
+                pensada para ti.
               </p>
             </>
           ),
@@ -1259,7 +1259,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                   </dt>
                   <dd className="text-muted-foreground">
                     Es ambos. La filosofía de gestionar por hitos es el
-                    principio; la app Hito es la implementación concreta. Podés
+                    principio; la app Hito es la implementación concreta. Puedes
                     aplicar el principio con cualquier herramienta, pero Hito
                     está diseñada desde cero para que sea natural.
                   </dd>
@@ -1279,7 +1279,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
                     ¿Cómo comparto proyectos con mi equipo?
                   </dt>
                   <dd className="text-muted-foreground">
-                    Como compartís cualquier carpeta: Git, Dropbox, Drive, red
+                    Como compartes cualquier carpeta: Git, Dropbox, Drive, red
                     local. Cada persona abre la misma carpeta desde su app. No
                     hay servidores de por medio.
                   </dd>

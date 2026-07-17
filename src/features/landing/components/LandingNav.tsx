@@ -8,6 +8,7 @@ import { ROUTES } from "@/routes/paths";
 const NAV_LINKS: { label: string; to: string }[] = [
   { to: "/#como-funciona", label: "Cómo funciona" },
   { to: "/#caracteristicas", label: "Características" },
+  { to: "/#flujos", label: "Flujos" },
   { to: "/#uso", label: "Casos de uso" },
   { to: "/#faq", label: "FAQ" },
   { to: "/blogs", label: "Blog" },

@@ -16,6 +16,8 @@ import { StickyCta } from "./components/StickyCta";
 import { TrustBadges } from "./components/TrustBadges";
 import { Reveal } from "./components/Reveal";
 import { AiAssistantSection } from "./components/AiAssistantSection";
+import { FlowsIntegrationsSection } from "./components/FlowsIntegrationsSection";
+import { BlogTeaser } from "./components/BlogTeaser";
 
 /**
  * LandingPage — Página pública de marketing/onboarding en "/".
@@ -30,11 +32,13 @@ import { AiAssistantSection } from "./components/AiAssistantSection";
  * │ ProductMockup       → Mockup visual del producto         │
  * │ ValueProps          → 4 pilares: privacidad, JSON, etc.  │
  * │ HowItWorks          → 4 pasos + jerarquía de entidades   │
- * │ FeatureHighlights   → 6 features (Kanban, IA, SOPs…)    │
+ * │ FeatureHighlights   → 7 features (Kanban, IA, SOPs…)    │
+ * │ FlowsIntegrationsSection → Detalle Flujos: builder, HubSpot/Sheets/Email/Webhooks │
  * │ AiAssistantSection  → Detalle IA: MCP, RAG, embeddings   │
  * │ Comparison          → Tabla vs Trello/Notion/ClickUp     │
  * │ UseCases            → 4 casos de uso por industria       │
  * │ Faq                 → Acordeón con 8 preguntas           │
+ * │ BlogTeaser          → CTA a /blogs con 3 artículos       │
  * │ FinalCta            → CTA final con métricas             │
  * │ LandingFooter       → Footer con links y legal           │
  * └─────────────────────────────────────────────────────────┘
@@ -54,10 +58,10 @@ export function LandingPage() {
         <title>Hito — Gestión de proyectos, procesos (SOPs) y checklists 100% local-first</title>
         <meta name="description" content="Hito gestiona proyectos, procesos, checklists y tareas con privacidad total. Local-first: tus datos nunca salen de tu equipo. Sin nube, sin cuenta, sin suscripción. Kanban, automatizaciones, asistente IA y PWA offline. Gratuito y open source (MIT)." />
         <meta property="og:type" content="website" />
-        <meta property="og:locale" content="es_AR" />
+        <meta property="og:locale" content="es_CO" />
         <meta property="og:site_name" content="Hito" />
         <meta property="og:title" content="Hito — Gestión de proyectos, procesos y checklists 100% local-first" />
-        <meta property="og:description" content="Gestioná productos, proyectos, SOPs y checklists con privacidad total. Tus datos viven en tu equipo, no en la nube. Gratuito, open source, offline-first." />
+        <meta property="og:description" content="Gestiona productos, proyectos, SOPs y checklists con privacidad total. Tus datos viven en tu equipo, no en la nube. Gratuito, open source, offline-first." />
         <meta property="og:url" content="https://hito.autos/" />
         <meta property="og:image" content="https://hito.autos/og-image.png" />
         <meta property="og:image:width" content="1200" />
@@ -66,7 +70,7 @@ export function LandingPage() {
         <meta name="twitter:site" content="@hito" />
         <meta name="twitter:creator" content="@hito" />
         <meta name="twitter:title" content="Hito — Gestión de proyectos, procesos y checklists 100% local-first" />
-        <meta name="twitter:description" content="Gestioná proyectos, SOPs y checklists sin rendir cuentas a la nube. Local-first, open source, offline." />
+        <meta name="twitter:description" content="Gestiona proyectos, SOPs y checklists sin rendir cuentas a la nube. Local-first, open source, offline." />
         <meta name="twitter:image" content="https://hito.autos/og-image.png" />
         <meta name="application-name" content="Hito" />
         <link rel="canonical" href="https://hito.autos/" />
@@ -80,7 +84,7 @@ export function LandingPage() {
             "logo": "https://hito.autos/icon.svg",
             "description": "Gestor de proyectos, procesos y checklists local-first y open source.",
             "sameAs": [
-              "https://github.com/hito-app/hito"
+              "https://github.com/appcreathings/Gestion-de-Proyectos-APP"
             ]
           })}
         </script>
@@ -90,7 +94,7 @@ export function LandingPage() {
             "@type": "WebSite",
             "name": "Hito",
             "url": "https://hito.autos/",
-            "inLanguage": "es-AR",
+            "inLanguage": "es-CO",
             "publisher": { "@type": "Organization", "name": "Hito" }
           })}
         </script>
@@ -104,7 +108,7 @@ export function LandingPage() {
                 "name": "¿Mis datos están seguros en Hito?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sí. Hito es local-first: tus datos nunca se envían a ningún servidor. Viven en archivos .json dentro de una carpeta que vos elegís en tu equipo. No hay backend, no hay nube, no hay terceros con acceso."
+                  "text": "Sí. Hito es local-first: tus datos nunca se envían a ningún servidor. Viven en archivos .json dentro de una carpeta que tú eliges en tu equipo. No hay backend, no hay nube, no hay terceros con acceso."
                 }
               },
               {
@@ -112,7 +116,7 @@ export function LandingPage() {
                 "name": "¿Puedo compartir la carpeta con mi equipo?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sí. Como los datos son archivos .json en una carpeta local, podés compartirla por red, Dropbox, Google Drive, Git o cualquier medio que ya uses. Cada persona abre la misma carpeta desde su Hito."
+                  "text": "Sí. Como los datos son archivos .json en una carpeta local, puedes compartirla por red, Dropbox, Google Drive, Git o cualquier medio que ya uses. Cada persona abre la misma carpeta desde su Hito."
                 }
               },
               {
@@ -120,7 +124,7 @@ export function LandingPage() {
                 "name": "¿Hito funciona sin internet?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sí. Hito es una PWA (Progressive Web App) que funciona completamente offline. Una vez instalada, podés gestionar proyectos, procesos y tareas sin conexión. Los datos se sincronizan cuando volvés a estar online si compartís la carpeta."
+                  "text": "Sí. Hito es una PWA (Progressive Web App) que funciona completamente offline. Una vez instalada, puedes gestionar proyectos, procesos y tareas sin conexión. Los datos se sincronizan cuando vuelves a estar online si compartes la carpeta."
                 }
               },
               {
@@ -128,7 +132,7 @@ export function LandingPage() {
                 "name": "¿Hito es realmente gratis?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sí. Hito es 100% gratuito y open source bajo licencia MIT. No hay planes pagos, no hay suscripciones, no hay límites ocultos. Podés usarlo para proyectos personales, profesionales o comerciales sin restricciones."
+                  "text": "Sí. Hito es 100% gratuito y open source bajo licencia MIT. No hay planes pagos, no hay suscripciones, no hay límites ocultos. Puedes usarlo para proyectos personales, profesionales o comerciales sin restricciones."
                 }
               },
               {
@@ -136,7 +140,7 @@ export function LandingPage() {
                 "name": "¿Qué diferencia a Hito de Trello, Notion o ClickUp?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "La diferencia fundamental es la privacidad y el control de datos. Trello, Notion y ClickUp guardan tus datos en sus servidores. Hito es local-first: tus datos viven en tu equipo, son archivos .json legibles y versionables con Git. No necesitás cuenta, no hay límite de usuarios, y funcionás offline."
+                  "text": "La diferencia fundamental es la privacidad y el control de datos. Trello, Notion y ClickUp guardan tus datos en sus servidores. Hito es local-first: tus datos viven en tu equipo, son archivos .json legibles y versionables con Git. No necesitas cuenta, no hay límite de usuarios, y funcionas offline."
                 }
               },
               {
@@ -144,7 +148,7 @@ export function LandingPage() {
                 "name": "¿Cómo funciona el asistente de IA sin comprometer mi privacidad?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "El asistente usa Gemini con arquitectura MCP + RAG local. Tu API key se guarda en IndexedDB, nunca en el workspace exportable. Los embeddings se generan y almacenan localmente. El modelo solo recibe el contexto semántico de tu consulta, no todo tu workspace. Podés desactivar el asistente o el RAG en cualquier momento."
+                  "text": "El asistente usa Gemini con arquitectura MCP + RAG local. Tu API key se guarda en IndexedDB, nunca en el workspace exportable. Los embeddings se generan y almacenan localmente. El modelo solo recibe el contexto semántico de tu consulta, no todo tu workspace. Puedes desactivar el asistente o el RAG en cualquier momento."
                 }
               },
               {
@@ -175,10 +179,12 @@ export function LandingPage() {
         <Reveal delay={50}><ValueProps /></Reveal>
         <Reveal delay={100}><HowItWorks /></Reveal>
         <Reveal delay={150}><FeatureHighlights /></Reveal>
+        <Reveal delay={175}><FlowsIntegrationsSection /></Reveal>
         <Reveal delay={200}><AiAssistantSection /></Reveal>
         <Reveal delay={250}><Comparison /></Reveal>
         <Reveal delay={300}><UseCases /></Reveal>
         <Reveal delay={350}><Faq /></Reveal>
+        <Reveal delay={375}><BlogTeaser /></Reveal>
         <Reveal delay={200}><FinalCta /></Reveal>
       </main>
       <LandingFooter />

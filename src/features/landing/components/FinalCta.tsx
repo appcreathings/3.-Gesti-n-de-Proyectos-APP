@@ -28,7 +28,7 @@ export function FinalCta() {
 
       <div className="mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
         <p className="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          Empezá hoy
+          Empieza hoy
         </p>
 
         <h2 className="mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -36,7 +36,7 @@ export function FinalCta() {
         </h2>
 
         <p className="mx-auto mt-6 max-w-xl text-pretty text-muted-foreground sm:text-lg">
-            Elegís una carpeta, nombrás un producto, y Hito empieza a guardar.
+            Eliges una carpeta, nombras un producto, y Hito empieza a guardar.
             Nada de formularios, verificaciones de email ni setup guiado de 17
             pasos. Tus datos, tu máquina, tus reglas.
         </p>

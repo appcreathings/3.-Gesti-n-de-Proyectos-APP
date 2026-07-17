@@ -21,14 +21,14 @@ export function GestorOfflinePage() {
       <SeoArticle
         eyebrow="Funcionalidad"
         title="Un gestor de proyectos que funciona sin internet"
-        intro="Hito es una PWA (Progressive Web App) instalable: una vez cargada, no necesita internet para funcionar. Tus proyectos, procesos, checklists y tareas viven en una carpeta local que vos elegís. La nube no es un prerrequisito para operar."
+        intro="Hito es una PWA (Progressive Web App) instalable: una vez cargada, no necesita internet para funcionar. Tus proyectos, procesos, checklists y tareas viven en una carpeta local que tú eliges. La nube no es un prerrequisito para operar."
         sections={[
           {
             heading: "Cómo funciona offline",
             body: (
               <>
                 <p>
-                  Cuando instalás Hito, el navegador cachea la app. Después, abrir Hito es
+                  Cuando instalas Hito, el navegador cachea la app. Después, abrir Hito es
                   abrir una aplicación nativa: ícono, splash screen, sin barra del navegador.
                   Los datos se leen y escriben directamente sobre tu carpeta de archivos
                   <code> .json</code> (vía File System Access API) o sobre IndexedDB si tu
@@ -38,13 +38,13 @@ export function GestorOfflinePage() {
             ),
           },
           {
-            heading: "Qué pasa cuando volvés a tener internet",
+            heading: "Qué pasa cuando vuelves a tener internet",
             body: (
               <>
                 <p>
                   Nada mágico. Hito no sincroniza con un servidor porque no hay servidor. Si
-                  compartís la carpeta con tu equipo (por red, Dropbox, Git, lo que sea), la
-                  sincronización la hace la herramienta que ya usás para compartir archivos.
+                  compartes la carpeta con tu equipo (por red, Dropbox, Git, lo que sea), la
+                  sincronización la hace la herramienta que ya usas para compartir archivos.
                   Hito respeta ese flujo: no inventa uno propio.
                 </p>
               </>

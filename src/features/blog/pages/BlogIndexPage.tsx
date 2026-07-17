@@ -1,6 +1,9 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { SeoPage } from "@/features/seo/SeoPage";
+import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/routes/paths";
 import { BLOG_ARTICLES } from "../data/articles";
 import { BLOG_CATEGORIES } from "../data/categories";
 import { BlogCard } from "../components/BlogCard";
@@ -39,6 +42,20 @@ export function BlogIndexPage() {
             Reflexiones sobre gestión de proyectos, soberanía de datos,
             automatización y cómo organizar el trabajo sin perder el control.
           </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link to={ROUTES.dashboard}>
+              <Button size="lg" className="h-11 gap-2 px-6">
+                Probar Hito — sin registro
+                <ArrowRight className="size-4" />
+              </Button>
+            </Link>
+            <Link
+              to={ROUTES.landing}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Conocer el producto →
+            </Link>
+          </div>
         </div>
       </div>
 

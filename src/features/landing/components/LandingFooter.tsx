@@ -9,7 +9,7 @@ type FooterLink = {
   external?: boolean;
 };
 
-const GITHUB_URL = "https://github.com/hito-app/hito";
+const GITHUB_URL = "https://github.com/appcreathings/Gestion-de-Proyectos-APP";
 const DOCS_URL = "https://hito.autos/docs";
 
 const COLUMNS: { title: string; links: FooterLink[] }[] = [
@@ -18,6 +18,7 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: "Cómo funciona", to: "/#como-funciona" },
       { label: "Características", to: "/#caracteristicas" },
+      { label: "Flujos e integraciones", to: "/#flujos" },
       { label: "Casos de uso", to: "/#uso" },
       { label: "FAQ", to: "/#faq" },
     ],
@@ -35,7 +36,7 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
     title: "Legal",
     links: [
       { label: "Licencia MIT", href: `${GITHUB_URL}/blob/main/LICENSE`, external: true },
-      { label: "Privacidad", href: `${DOCS_URL}/privacidad`, external: true },
+      { label: "Privacidad", href: `${DOCS_URL}/ajustes-y-datos`, external: true },
     ],
   },
 ];

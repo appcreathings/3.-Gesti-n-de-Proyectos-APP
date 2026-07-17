@@ -34,7 +34,7 @@ export function SeoPage({
         <meta name="description" content={description} />
         <link rel="canonical" href={url} />
         <meta property="og:type" content="website" />
-        <meta property="og:locale" content="es_AR" />
+        <meta property="og:locale" content="es_CO" />
         <meta property="og:site_name" content="Hito" />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />

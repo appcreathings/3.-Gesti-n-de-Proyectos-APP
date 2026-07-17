@@ -35,7 +35,7 @@ export function SeoArticle({ eyebrow, title, intro, sections, cta }: SeoArticleP
 
         <div className="mt-16 rounded-2xl border border-border/60 bg-muted/30 p-8">
           <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Empezá
+            Empieza
           </p>
           <h3 className="mt-2 text-2xl font-semibold tracking-tight">
             ¿Listo para tener el control de tus datos y proyectos?

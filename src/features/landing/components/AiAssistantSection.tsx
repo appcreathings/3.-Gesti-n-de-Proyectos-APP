@@ -64,7 +64,7 @@ const FLOW_STEPS = [
   {
     icon: Brain,
     label: "Consulta",
-    desc: "Escribís en lenguaje natural: \"¿Qué proyectos están estancados?\"",
+    desc: "Escribes en lenguaje natural: \"¿Qué proyectos están estancados?\"",
   },
   {
     icon: Search,
@@ -79,7 +79,7 @@ const FLOW_STEPS = [
   {
     icon: Zap,
     label: "Respuesta",
-    desc: "Respuesta accionable con datos actualizados. Puede escribir si se lo pedís.",
+    desc: "Respuesta accionable con datos actualizados. Puede escribir si se lo pides.",
   },
 ];
 
@@ -173,7 +173,7 @@ export function AiAssistantSection() {
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               La API key de Gemini se guarda en IndexedDB de tu dispositivo, nunca en el workspace exportable.
               Los embeddings se generan y almacenan localmente. El modelo solo recibe el contexto semántico
-              de tu consulta y los datos que las herramientas MCP leen bajo tu supervisión. Podés desactivar
+              de tu consulta y los datos que las herramientas MCP leen bajo tu supervisión. Puedes desactivar
               el RAG o el asistente completo en cualquier momento desde la configuración.
             </p>
           </div>
