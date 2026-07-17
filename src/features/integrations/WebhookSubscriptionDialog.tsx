@@ -19,6 +19,7 @@ import {
 } from "@/integrations/outbound/dispatcher";
 import type { WebhookSubscription } from "@/storage/integration-db";
 import { EVENT_TRIGGERS, triggerLabel } from "@/domain/labels";
+import { WebhookSignatureGuide } from "@/features/flows/canvas/WebhookSignatureGuide";
 
 interface Props {
   open: boolean;
@@ -38,6 +39,7 @@ export function WebhookSubscriptionDialog({
   const [events, setEvents] = useState<string[]>([]);
   const [secret, setSecret] = useState("");
   const [copied, setCopied] = useState(false);
+  const [signatureGuideOpen, setSignatureGuideOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -162,7 +164,14 @@ export function WebhookSubscriptionDialog({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Este secret se usa para firmar los payloads con HMAC-SHA256.
+                Este secret se usa para firmar los payloads con HMAC-SHA256.{" "}
+                <button
+                  type="button"
+                  onClick={() => setSignatureGuideOpen(true)}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  ¿Cómo verifico esta firma?
+                </button>
               </p>
             </div>
           </div>
@@ -180,6 +189,8 @@ export function WebhookSubscriptionDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <WebhookSignatureGuide open={signatureGuideOpen} onOpenChange={setSignatureGuideOpen} />
     </Dialog>
   );
 }

@@ -23,6 +23,7 @@ import { interpolateObject } from "@/flows/interpolation";
 import { testWebhook, type WebhookTestResult } from "@/flows/webhook-test";
 import { deriveAvailableVariables, INTERNAL_TARGET_FIELDS } from "./variables";
 import { InterpolableField } from "./InterpolableField";
+import { WebhookSignatureGuide } from "./WebhookSignatureGuide";
 
 interface Props {
   output: Output;
@@ -144,6 +145,7 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
     { status: "idle" } | { status: "loading" } | { status: "result"; result: WebhookTestResult }
   >({ status: "idle" });
   const [confirmWebhookTestOpen, setConfirmWebhookTestOpen] = useState(false);
+  const [signatureGuideOpen, setSignatureGuideOpen] = useState(false);
 
   // Filas editables de `createPerson.data`/`webhook.payload` (spec 026 §C3
   // — bug encontrado al construir el editor de payload). Ambos son
@@ -710,7 +712,16 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
               onChange={(e) => onChange({ secret: e.target.value })}
               placeholder="whsec_..."
             />
-            <p className="text-xs text-muted-foreground">Se usa para firmar el payload con HMAC-SHA256</p>
+            <p className="text-xs text-muted-foreground">
+              Se usa para firmar el payload con HMAC-SHA256.{" "}
+              <button
+                type="button"
+                onClick={() => setSignatureGuideOpen(true)}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                ¿Cómo verifico esta firma?
+              </button>
+            </p>
           </div>
 
           <RetryFields retry={output.retry} onChange={(retry) => onChange({ retry })} />
@@ -851,6 +862,8 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
               });
             }}
           />
+
+          <WebhookSignatureGuide open={signatureGuideOpen} onOpenChange={setSignatureGuideOpen} />
         </div>
       );
     }
