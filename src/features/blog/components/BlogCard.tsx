@@ -9,7 +9,7 @@ type BlogCardProps = {
 
 export function BlogCard({ article }: BlogCardProps) {
   return (
-    <article className="group flex flex-col rounded-2xl border border-border/60 bg-background p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/[0.02]">
+    <article className="group relative flex flex-col rounded-2xl border border-border/60 bg-background p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/[0.02]">
       <div className="mb-4 flex items-center justify-between">
         <CategoryBadge category={article.category} />
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
