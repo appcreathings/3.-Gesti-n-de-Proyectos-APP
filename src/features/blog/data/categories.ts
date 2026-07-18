@@ -28,4 +28,8 @@ export const BLOG_CATEGORIES: Record<
     label: "Pensamiento",
     description: "Ideas, principios y reflexiones sobre cómo trabajamos.",
   },
+  comparativas: {
+    label: "Comparativas",
+    description: "Hito frente a otras herramientas, con honestidad.",
+  },
 };

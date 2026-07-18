@@ -6,4 +6,5 @@ export const BLOG_SLUGS = [
   "automatizar-tareas-sin-nube",
   "que-es-un-hito-gestion-proyectos",
   "hito-project-gestion-por-hitos",
+  "hito-vs-trello",
 ] as const;

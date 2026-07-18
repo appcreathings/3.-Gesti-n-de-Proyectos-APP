@@ -691,6 +691,232 @@ export const DOC_MODULES: DocModule[] = [
       ],
     },
   },
+  {
+    slug: "proceso-publicar-articulo-blog",
+    title: "Cómo publicar un artículo del blog",
+    excerpt:
+      "El flujo para pasar un borrador en Markdown a un artículo publicado en /blogs: dónde vive el contenido, cómo convertirlo y cómo verificar.",
+    group: "empezar",
+    seo: {
+      title: "Cómo publicar un artículo del blog en Hito — Documentación",
+      description:
+        "Flujo para convertir un borrador Markdown en un artículo del blog: estructura de BlogArticle, conversión a ReactNode, registro de slug y verificación.",
+      ogImageAlt: "Proceso de publicación del blog.",
+    },
+    content: {
+      eyebrow: "Publicar contenido",
+      intro: (
+        <>
+          Los artículos del blog no se cargan desde un CMS: son datos tipados que
+          viven en el código. Este documento explica el proceso end-to-end para
+          convertir un borrador (<code>.md</code>) en un artículo publicado en{" "}
+          <code>/blogs/:slug</code>, y luego documentarlo aquí mismo.
+        </>
+      ),
+      sections: [
+        {
+          heading: "1. Dónde vive el contenido del blog",
+          body: (
+            <>
+              <p>
+                Todo el blog se define en <code>src/features/blog</code>. Los
+                archivos clave son:
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <code>data/articles.tsx</code> — el array{" "}
+                  <code>BLOG_ARTICLES</code> con cada artículo (tipo{" "}
+                  <code>BlogArticle</code>).
+                </li>
+                <li>
+                  <code>data/slugs.ts</code> — <code>BLOG_SLUGS</code>, la lista
+                  de slugs usada para el prerender/SSG del sitemap.
+                </li>
+                <li>
+                  <code>data/categories.ts</code> — catálogo de categorías
+                  (<code>BlogCategory</code>); cada artículo debe usar una
+                  categoría de aquí.
+                </li>
+                <li>
+                  <code>types.ts</code> — la forma de <code>BlogArticle</code> y
+                  la unión <code>BlogCategory</code>.
+                </li>
+              </ul>
+              <p>
+                El render lo resuelve dinámicamente{" "}
+                <code>BlogPostPage</code> vía <code>getArticleBySlug(slug)</code>,
+                así que <strong>no hace falta tocar rutas ni páginas</strong> al
+                agregar un post.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "2. La forma de un BlogArticle",
+          body: (
+            <>
+              <p>
+                Cada entrada tiene metadatos planos y un bloque{" "}
+                <code>content</code> con JSX:
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  <code>slug</code> — URL final (<code>/blogs/&lt;slug&gt;</code>).
+                  Sin barras ni prefijos.
+                </li>
+                <li>
+                  <code>title</code> / <code>excerpt</code> — título y resumen de
+                  la tarjeta y del listado.
+                </li>
+                <li>
+                  <code>category</code> — un valor de <code>BlogCategory</code>{" "}
+                  (p. ej. <code>"comparativas"</code>).
+                </li>
+                <li>
+                  <code>categoryLabel</code> — texto visible del chip de
+                  categoría.
+                </li>
+                <li>
+                  <code>publishedAt</code> — fecha ISO (<code>YYYY-MM-DD</code>);
+                  ordena los "recientes".
+                </li>
+                <li>
+                  <code>readingTime</code> — texto libre, p. ej.{" "}
+                  <code>"9 min"</code>.
+                </li>
+                <li>
+                  <code>featured</code> — <code>true</code> lo destaca en el
+                  índice.
+                </li>
+                <li>
+                  <code>seo</code> — <code>title</code>, <code>description</code>{" "}
+                  y opcional <code>ogImageAlt</code> para meta tags.
+                </li>
+                <li>
+                  <code>content.eyebrow</code> / <code>intro</code> /{" "}
+                  <code>sections[]</code> — el cuerpo como <code>ReactNode</code>.
+                </li>
+              </ul>
+            </>
+          ),
+        },
+        {
+          heading: "3. Convertir Markdown a ReactNode",
+          body: (
+            <>
+              <p>
+                El borrador llega en Markdown (frontmatter + cuerpo). El cuerpo
+                se reescribe a mano como JSX siguiendo el estilo de los artículos
+                existentes:
+              </p>
+              <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  Párrafos → <code>&lt;p&gt;</code>.
+                </li>
+                <li>
+                  Listas con viñetas →{" "}
+                  <code>&lt;ul className="list-disc space-y-2 pl-6 text-muted-foreground"&gt;</code>.
+                </li>
+                <li>
+                  Listas numeradas →{" "}
+                  <code>&lt;ol className="list-decimal space-y-2 pl-6 text-muted-foreground"&gt;</code>.
+                </li>
+                <li>
+                  Tablas comparativas → <code>&lt;table&gt;</code> con{" "}
+                  <code>thead</code>/<code>tbody</code> y bordes{" "}
+                  <code>border-border/60</code>.
+                </li>
+                <li>
+                  Notas tipo <code>&gt; ℹ️</code> →{" "}
+                  <code>&lt;blockquote className="border-l-2 border-border/60 pl-4 italic"&gt;</code>.
+                </li>
+                <li>
+                  Enlaces <code>[texto](url)</code> →{" "}
+                  <code>&lt;a href="url" target="_blank" rel="noopener noreferrer"&gt;texto&lt;/a&gt;</code>.
+                </li>
+                <li>
+                  Subtítulos dentro de una sección →{" "}
+                  <code>&lt;h3 className="mt-6 text-lg font-semibold tracking-tight text-foreground"&gt;</code>.
+                </li>
+              </ul>
+              <p>
+                Cada <code>##</code> del Markdown se convierte en un objeto de{" "}
+                <code>sections</code> con <code>heading</code> y <code>body</code>.
+                El <code>intro</code> suele ser el párrafo de apertura ("En una
+                línea…").
+              </p>
+              <blockquote className="border-l-2 border-border/60 pl-4 italic">
+                Las secciones marcadas como "no publicar" (p. ej. "Notas de
+                edición") se descartan: el blog solo debe contener contenido
+                final.
+              </blockquote>
+            </>
+          ),
+        },
+        {
+          heading: "4. Registrar el slug y la categoría",
+          body: (
+            <>
+              <p>
+                Dos pasos que se olvidan fácilmente y rompen el prerender:
+              </p>
+              <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  Agregar el <code>slug</code> al array <code>BLOG_SLUGS</code> en{" "}
+                  <code>data/slugs.ts</code>.
+                </li>
+                <li>
+                  Si usás una categoría nueva, añadirla a la unión{" "}
+                  <code>BlogCategory</code> (en <code>types.ts</code>) y darle de
+                  alta en <code>data/categories.ts</code> con su{" "}
+                  <code>label</code> y <code>description</code>.
+                </li>
+              </ol>
+            </>
+          ),
+        },
+        {
+          heading: "5. Borrar el borrador y verificar",
+          body: (
+            <>
+              <p>Una vez migrado el contenido al código:</p>
+              <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
+                <li>
+                  Eliminá el archivo fuente <code>public/post.md</code> (el
+                  contenido ya vive en <code>articles.tsx</code>).
+                </li>
+                <li>
+                  Verificá que compila y que el lint pasa:
+                </li>
+              </ol>
+              <pre className="overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-4 text-sm">
+                <code>npm run lint && npm run typecheck && npm run build</code>
+              </pre>
+              <p>
+                Si todo pasa, el artículo queda disponible en{" "}
+                <code>/blogs/&lt;slug&gt;</code> y aparece en el índice y en el
+                sitemap.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "Resumen del flujo",
+          body: (
+            <ol className="list-decimal space-y-2 pl-6 text-muted-foreground">
+              <li>Borrador en <code>public/post.md</code> (Markdown + frontmatter).</li>
+              <li>Mapear frontmatter → campos planos de <code>BlogArticle</code>.</li>
+              <li>Convertir el cuerpo a <code>sections</code> de <code>ReactNode</code> (descartar notas internas).</li>
+              <li>Append al array <code>BLOG_ARTICLES</code> en <code>articles.tsx</code>.</li>
+              <li>Registrar slug en <code>slugs.ts</code> (y categoría si es nueva).</li>
+              <li>Borrar <code>post.md</code>.</li>
+              <li>Verificar con <code>lint</code> + <code>typecheck</code> + <code>build</code>.</li>
+            </ol>
+          ),
+        },
+      ],
+    },
+  },
 ];
 
 export function getModuleBySlug(slug: string): DocModule | undefined {
