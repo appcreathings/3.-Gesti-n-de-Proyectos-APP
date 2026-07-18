@@ -10,4 +10,5 @@ export const BLOG_SLUGS = [
   "alternativas-a-notion",
   "migrar-trello-a-hito",
   "que-es-mcp",
+  "local-first-guia-definitiva-2026",
 ] as const;
