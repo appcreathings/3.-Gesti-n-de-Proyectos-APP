@@ -7,4 +7,5 @@ export const BLOG_SLUGS = [
   "que-es-un-hito-gestion-proyectos",
   "hito-project-gestion-por-hitos",
   "hito-vs-trello",
+  "alternativas-a-notion",
 ] as const;
