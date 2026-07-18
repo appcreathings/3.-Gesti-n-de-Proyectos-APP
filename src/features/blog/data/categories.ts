@@ -32,4 +32,8 @@ export const BLOG_CATEGORIES: Record<
     label: "Comparativas",
     description: "Hito frente a otras herramientas, con honestidad.",
   },
+  implementacion: {
+    label: "Implementación",
+    description: "Guías paso a paso para adoptar y migrar a Hito.",
+  },
 };

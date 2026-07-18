@@ -7,7 +7,8 @@ export type BlogCategory =
   | "inteligencia-artificial"
   | "productividad"
   | "pensamiento"
-  | "comparativas";
+  | "comparativas"
+  | "implementacion";
 
 export type BlogArticle = {
   slug: string;
