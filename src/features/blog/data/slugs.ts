@@ -9,4 +9,5 @@ export const BLOG_SLUGS = [
   "hito-vs-trello",
   "alternativas-a-notion",
   "migrar-trello-a-hito",
+  "que-es-mcp",
 ] as const;
