@@ -57,7 +57,8 @@ export interface ImproveOptions {
 }
 
 export type ImproveResult =
-  { ok: true; data: AiImproveResult } | { ok: false; error: AiErrorKind };
+  | { ok: true; data: AiImproveResult }
+  | { ok: false; error: AiErrorKind; rawMessage?: string };
 
 export function parseImproveResponse(text: string): ImproveResult {
   if (!text.trim()) {
@@ -137,7 +138,11 @@ export async function runImprove(options: ImproveOptions): Promise<ImproveResult
       return { ok: false, error: "aborted" };
     }
     rateLimiter.recordRequest(model);
-    return { ok: false, error: classifyAiError(e) };
+    return {
+      ok: false,
+      error: classifyAiError(e),
+      rawMessage: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -149,7 +154,7 @@ export interface ImproveOptionsWithFallback extends ImproveOptions {
 
 export type ImproveResultWithMeta =
   | { ok: true; data: AiImproveResult; modelUsed?: string; fallbackChain?: string[] }
-  | { ok: false; error: AiErrorKind; modelUsed?: string; fallbackChain?: string[] };
+  | { ok: false; error: AiErrorKind; modelUsed?: string; fallbackChain?: string[]; rawMessage?: string };
 
 export async function runImproveWithFallback(
   options: ImproveOptionsWithFallback,
@@ -181,6 +186,7 @@ export async function runImproveWithFallback(
 
   const groupModels = getModelsByGroup(fallbackGroup);
   const fallbackChain: string[] = [];
+  let lastRawMessage: string | undefined;
 
   for (const modelDef of groupModels) {
     if (!rateLimiter.canMakeRequest(modelDef.id)) {
@@ -207,6 +213,7 @@ export async function runImproveWithFallback(
         result.error === "quota-exhausted"
       ) {
         rateLimiter.markSaturated(modelDef.id, 60);
+        if (result.rawMessage) lastRawMessage = result.rawMessage;
         if (onFallback) {
           const nextModel = groupModels.find(
             (m) => m.priority > modelDef.priority && rateLimiter.canMakeRequest(m.id),
@@ -228,5 +235,6 @@ export async function runImproveWithFallback(
     ok: false,
     error: "all-models-exhausted",
     fallbackChain,
+    rawMessage: lastRawMessage,
   };
 }

@@ -36,6 +36,9 @@ interface ChatState {
   messages: ChatMessage[];
   status: ChatStatus;
   error: AiErrorKind | null;
+  /** Mensaje crudo del SDK (ApiError.message) del último error, para el detalle técnico
+   * colapsable en el AssistantPanel. Vive solo en la sesión de React (Principio I). spec 031 §6. */
+  errorDetail: string | null;
   hydrated: boolean;
 
   toggleOpen: (v?: boolean) => void;
@@ -62,6 +65,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   status: "idle",
   error: null,
+  errorDetail: null,
   hydrated: false,
 
   toggleOpen(v) {
@@ -95,6 +99,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       status: "streaming",
       error: null,
+      errorDetail: null,
       messages: [
         ...get().messages,
         { id: uuid(), role: "user", parts: [{ kind: "text", text: trimmed }] },
@@ -118,9 +123,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ),
       );
 
+    // RAG es una mejora opcional: si falla (cuota, red, embeddings, lo que sea), el turno del
+    // agente continúa sin contexto semántico (spec 031 §4). Mismo patrón best-effort que
+    // `hydrateFromIdb`/`persistSnapshot` en este archivo.
     const ragContext =
       config.ragEnabled && config.apiKey
-        ? await buildRagContext(trimmed, config.apiKey)
+        ? await buildRagContext(trimmed, config.apiKey).catch(() => "")
         : "";
     const result = await runAgentTurn({
       apiKey: config.apiKey,
@@ -217,6 +225,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       status: result.error && result.error !== "aborted" ? "error" : "idle",
       error: result.error && result.error !== "aborted" ? result.error : null,
+      errorDetail:
+        result.error && result.error !== "aborted" && result.rawMessage
+          ? result.rawMessage
+          : null,
     });
     await persistSnapshot(get().messages);
   },
@@ -248,7 +260,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async newConversation() {
     get().stop();
     geminiHistory = [];
-    set({ messages: [], status: "idle", error: null });
+    set({ messages: [], status: "idle", error: null, errorDetail: null });
     await idbDel(IDB_KEY).catch(() => undefined);
   },
 }));

@@ -23,6 +23,7 @@ export function AssistantPanel() {
   const messages = useChatStore((s) => s.messages);
   const status = useChatStore((s) => s.status);
   const error = useChatStore((s) => s.error);
+  const errorDetail = useChatStore((s) => s.errorDetail);
   const send = useChatStore((s) => s.send);
   const stop = useChatStore((s) => s.stop);
   const newConversation = useChatStore((s) => s.newConversation);
@@ -171,6 +172,16 @@ export function AssistantPanel() {
                 Todos los modelos del grupo {config.fallbackGroup} están sin cuota.
                 Espera un momento o cambia el grupo de fallback en Ajustes.
               </span>
+            )}
+            {errorDetail && (
+              <details className="mt-1 text-muted-foreground">
+                <summary className="cursor-pointer text-[11px] underline-offset-2 hover:underline">
+                  Ver detalle técnico
+                </summary>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/60 p-2 text-[10px]">
+                  {errorDetail}
+                </pre>
+              </details>
             )}
           </div>
         </div>

@@ -42,6 +42,10 @@ export interface AgentTurnResult {
   history: Content[];
   roundsExceeded: boolean;
   error?: AiErrorKind;
+  /** Mensaje crudo del último error del SDK (ApiError.message), para mostrar como detalle
+   * técnico colapsable en la UI. Vive solo en la sesión del cliente (no se envía a ningún
+   * servicio externo, Principio I). spec 031 §6. */
+  rawMessage?: string;
   modelSwitch?: FallbackEvent;
 }
 
@@ -57,17 +61,6 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       return rateLimiter.canMakeRequest(preferredModel) ? preferredModel : null;
     }
     const selection = modelSelector.select(preferredModel, fallbackGroup);
-    if (selection.fallbackEvent) {
-      lastFallbackEvent = selection.fallbackEvent;
-      callbacks.onModelSwitch?.(selection.fallbackEvent);
-    }
-    return selection.modelId;
-  }
-
-  async function handleRateLimit(excludedId: string): Promise<string | null> {
-    rateLimiter.markSaturated(excludedId);
-    if (!autoFallback) return null;
-    const selection = modelSelector.selectAfterRateLimit(preferredModel, fallbackGroup);
     if (selection.fallbackEvent) {
       lastFallbackEvent = selection.fallbackEvent;
       callbacks.onModelSwitch?.(selection.fallbackEvent);
@@ -96,48 +89,99 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     };
   }
   currentModelId = resolved;
+  // `chat` se inicializa con el modelo resuelto y se reasigna dentro de `attemptTurn` en cada
+  // fallback. El `let` con valor undefined es seguro porque `attemptTurn` siempre lo reescribe
+  // antes de usarlo para enviar el stream; el único uso previo es `chat.getHistory(true)` que
+  // aparece únicamente dentro de `attemptTurn` después de la reasignación.
   let chat = createChatWithModel(currentModelId, opts.history);
+
+  /** Un intento puntual contra `modelId`. Devuelve el resultado clasificado en vez de lanzar,
+   * para que el bucle de fallback decida si probar otro modelo o cortar.
+   * Reemplaza al bloque try/catch de reintento único de specs 006/012 (ver design.md §3). */
+  async function attemptTurn(
+    modelId: string,
+    message: PartListUnion,
+  ): Promise<{ ok: true; calls: FunctionCall[] } | { ok: false; kind: AiErrorKind; rawMessage?: string }> {
+    const history = chat.getHistory(true);
+    chat = createChatWithModel(modelId, history);
+    try {
+      const stream = await chat.sendMessageStream({ message });
+      const calls: FunctionCall[] = [];
+      for await (const chunk of stream) {
+        if (signal?.aborted) throw new DOMException("aborted", "AbortError");
+        if (chunk.text) callbacks.onTextDelta(chunk.text);
+        if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
+      }
+      return { ok: true, calls };
+    } catch (e) {
+      return {
+        ok: false,
+        kind: classifyAiError(e),
+        rawMessage: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
 
   let message: PartListUnion = opts.userMessage;
   let roundsExceeded = false;
+  // Conserva el último mensaje crudo del SDK para reportarlo como detalle técnico aunque el
+  // fallback recorra varios modelos antes de rendirse (spec 031 §6).
+  let lastRawMessage: string | undefined;
 
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      let calls: FunctionCall[] = [];
+      // Bucle de fallback real: recorre el grupo completo (corrección de bug de reintento único,
+      // spec 031). `tried` acumula todos los modelos probados en este round para que
+      // modelSelector.select() no los vuelva a ofrecer.
+      const tried = new Set<string>();
+      let modelId: string = currentModelId;
+      tried.add(modelId);
+      let outcome = await attemptTurn(modelId, message);
 
-      try {
-        const stream = await chat.sendMessageStream({ message });
-        for await (const chunk of stream) {
-          if (signal?.aborted) throw new DOMException("aborted", "AbortError");
-          if (chunk.text) callbacks.onTextDelta(chunk.text);
-          if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
+      while (!outcome.ok) {
+        // Solo los errores que pueden ser de un modelo específico ameritan probar otro.
+        // project-quota-zero / invalid-key / offline / unknown / aborted cortan en el primer fallo.
+        if (outcome.kind !== "rate-limit" && outcome.kind !== "quota-exhausted") {
+          return {
+            history: chat.getHistory(true),
+            roundsExceeded,
+            error: outcome.kind,
+            rawMessage: outcome.rawMessage,
+            modelSwitch: lastFallbackEvent,
+          };
         }
-      } catch (e) {
-        const kind = classifyAiError(e);
-        if (kind === "rate-limit" && currentModelId) {
-          const fallbackId = await handleRateLimit(currentModelId);
-          if (fallbackId) {
-            currentModelId = fallbackId;
-            chat = createChatWithModel(currentModelId, chat.getHistory(true));
-            const stream = await chat.sendMessageStream({ message });
-            calls = [];
-            for await (const chunk of stream) {
-              if (signal?.aborted) throw new DOMException("aborted", "AbortError");
-              if (chunk.text) callbacks.onTextDelta(chunk.text);
-              if (chunk.functionCalls?.length) calls.push(...chunk.functionCalls);
-            }
-          } else {
-            return {
-              history: chat.getHistory(true),
-              roundsExceeded,
-              error: "all-models-exhausted",
-              modelSwitch: lastFallbackEvent,
-            };
-          }
-        } else {
-          throw e;
+        rateLimiter.markSaturated(modelId, 60);
+        lastRawMessage = outcome.rawMessage ?? lastRawMessage;
+        if (!autoFallback) {
+          return {
+            history: chat.getHistory(true),
+            roundsExceeded,
+            error: outcome.kind,
+            rawMessage: outcome.rawMessage,
+            modelSwitch: lastFallbackEvent,
+          };
         }
+        const selection = modelSelector.select(preferredModel, fallbackGroup, tried);
+        if (!selection.modelId) {
+          return {
+            history: chat.getHistory(true),
+            roundsExceeded,
+            error: "all-models-exhausted",
+            rawMessage: lastRawMessage,
+            modelSwitch: lastFallbackEvent,
+          };
+        }
+        if (selection.fallbackEvent) {
+          lastFallbackEvent = selection.fallbackEvent;
+          callbacks.onModelSwitch?.(selection.fallbackEvent);
+        }
+        modelId = selection.modelId;
+        tried.add(modelId);
+        currentModelId = modelId;
+        outcome = await attemptTurn(modelId, message);
       }
+
+      const calls = outcome.calls;
 
       if (calls.length === 0) {
         rateLimiter.recordRequest(currentModelId ?? preferredModel);
@@ -166,6 +210,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       history: chat.getHistory(true),
       roundsExceeded,
       error: classifyAiError(e),
+      rawMessage: e instanceof Error ? e.message : String(e),
       modelSwitch: lastFallbackEvent,
     };
   }

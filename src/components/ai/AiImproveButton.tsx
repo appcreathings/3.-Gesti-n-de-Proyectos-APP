@@ -22,6 +22,7 @@ export function AiImproveButton({ entityType, fields, onApply }: AiImproveButton
     isLoading,
     error,
     errorType,
+    errorDetail,
     result,
     acceptedIndices,
     rejectedIndices,
@@ -94,6 +95,7 @@ export function AiImproveButton({ entityType, fields, onApply }: AiImproveButton
           isLoading={false}
           error={error}
           errorType={errorType}
+          errorDetail={errorDetail}
           suggestions={[]}
           summary=""
           acceptedIndices={new Set()}

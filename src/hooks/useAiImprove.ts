@@ -20,6 +20,7 @@ export interface UseAiImproveReturn {
   isLoading: boolean;
   error: string | null;
   errorType: AiErrorKind | null;
+  errorDetail: string | null;
   result: AiImproveResult | null;
   acceptedIndices: Set<number>;
   rejectedIndices: Set<number>;
@@ -44,6 +45,7 @@ export function useAiImprove({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<AiErrorKind | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [result, setResult] = useState<AiImproveResult | null>(null);
   const [acceptedIndices, setAcceptedIndices] = useState<Set<number>>(new Set());
   const [rejectedIndices, setRejectedIndices] = useState<Set<number>>(new Set());
@@ -70,6 +72,7 @@ export function useAiImprove({
     setIsLoading(true);
     setError(null);
     setErrorType(null);
+    setErrorDetail(null);
     setResult(null);
     setAcceptedIndices(new Set());
     setRejectedIndices(new Set());
@@ -99,10 +102,16 @@ export function useAiImprove({
       setResult(res.data);
       setCurrentModel(res.modelUsed ?? config.model);
     } else {
+      // Mantenemos el mapeo local (contextual, "Asistente IA" → "IA") pero heredamos el caso
+      // project-quota-zero del módulo central para no duplicar el texto accionable.
       const messages: Record<string, string> = {
         "invalid-key": "La API key no es válida. Revísala en Ajustes → IA.",
         "rate-limit": "Límite de peticiones alcanzado. Espera un momento.",
         "quota-exhausted": "Cuota de tokens agotada. Cambia de modelo o espera.",
+        "project-quota-zero":
+          "Tu proyecto de Google Cloud tiene la cuota en 0 en la región asignada — no es un " +
+          "límite temporal. Revisa las cuotas en Google Cloud Console o crea una API key en otro " +
+          "proyecto desde AI Studio.",
         "all-models-exhausted": "Todos los modelos alcanzaron su límite.",
         offline: "Sin conexión a internet.",
         aborted: "Solicitud cancelada.",
@@ -110,6 +119,7 @@ export function useAiImprove({
       };
       setError(messages[res.error] ?? "Error desconocido");
       setErrorType(res.error);
+      setErrorDetail(res.rawMessage ?? null);
     }
   }, [config.apiKey, config.model, config.autoFallback, config.fallbackGroup, entityType, fields]);
 
@@ -176,6 +186,7 @@ export function useAiImprove({
     setIsLoading(false);
     setError(null);
     setErrorType(null);
+    setErrorDetail(null);
     setResult(null);
     setAcceptedIndices(new Set());
     setRejectedIndices(new Set());
@@ -197,6 +208,7 @@ export function useAiImprove({
     isLoading,
     error,
     errorType,
+    errorDetail,
     result,
     acceptedIndices,
     rejectedIndices,

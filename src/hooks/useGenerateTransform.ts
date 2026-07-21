@@ -18,6 +18,9 @@ const ERROR_MESSAGES: Record<AiErrorKind, string> = {
   "invalid-key": "La API key no es válida. Revísala en Ajustes → IA.",
   "rate-limit": "Límite de peticiones alcanzado. Espera un momento.",
   "quota-exhausted": "Cuota de tokens agotada. Cambia de modelo o espera.",
+  "project-quota-zero":
+    "Tu proyecto de Google Cloud tiene la cuota en 0 en la región asignada — no es un límite temporal. " +
+    "Revisa las cuotas en Google Cloud Console o crea una API key en otro proyecto desde AI Studio.",
   "all-models-exhausted": "Todos los modelos alcanzaron su límite.",
   offline: "Sin conexión a internet.",
   aborted: "Solicitud cancelada.",

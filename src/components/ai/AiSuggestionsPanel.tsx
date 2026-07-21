@@ -17,6 +17,9 @@ export interface AiSuggestionsPanelProps {
   onRetry: () => void;
   onClose: () => void;
   errorType?: AiErrorKind | null;
+  /** Mensaje crudo del SDK (ApiError.message) para el detalle técnico colapsable.
+   * Vive solo en el estado de React de la sesión (Principio I, spec 031 §6). */
+  errorDetail?: string | null;
   onGoToSettings?: () => void;
   onChangeModel?: () => void;
   currentModel?: string;
@@ -38,6 +41,7 @@ export function AiSuggestionsPanel({
   onRetry,
   onClose,
   errorType,
+  errorDetail,
   onGoToSettings,
   onChangeModel,
   currentModel,
@@ -77,6 +81,16 @@ export function AiSuggestionsPanel({
               <p className="mt-1 text-xs text-muted-foreground">
                 Intento {fallbackAttempt} de {totalAttempts} modelos intentados
               </p>
+            )}
+            {errorDetail && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:underline">
+                  Ver detalle técnico
+                </summary>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/60 p-2 text-[10px]">
+                  {errorDetail}
+                </pre>
+              </details>
             )}
           </div>
         </div>
@@ -246,6 +260,10 @@ function getErrorActions(errorType: AiErrorKind | null | undefined): ErrorAction
     case "rate-limit":
     case "quota-exhausted":
       return { showSettings: true, showChangeModel: true, showRetry: true };
+    case "project-quota-zero":
+      // Cambiar de modelo no ayuda (la cuota es de proyecto/región, no por modelo). Reintentar
+      // tampoco: la cuota está en 0. Llevamos al usuario a Ajustes para que cambie de API key.
+      return { showSettings: true, showChangeModel: false, showRetry: false };
     case "all-models-exhausted":
       return { showSettings: true, showChangeModel: false, showRetry: true };
     case "offline":

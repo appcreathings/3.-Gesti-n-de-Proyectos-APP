@@ -71,18 +71,6 @@ export class ModelSelector {
     return { modelId: null, switched: false, reason: "none-available" };
   }
 
-  selectAfterRateLimit(
-    preferredId: string,
-    groupOverride?: string,
-  ): ModelSelection {
-    const excluded = new Set<string>();
-    const status = this.limiter.getStatus(preferredId);
-    if (status.saturated) {
-      excluded.add(preferredId);
-    }
-    return this.select(preferredId, groupOverride, excluded);
-  }
-
   private resolveChainModels(chain: FallbackChain): ModelDefinition[] {
     const models: ModelDefinition[] = [];
     const seen = new Set<string>();

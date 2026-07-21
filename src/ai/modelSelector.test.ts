@@ -53,20 +53,23 @@ describe("ModelSelector", () => {
     expect(result.modelId).toMatch(/gemini-3\.1-flash-lite|gemma-4/);
   });
 
-  it("selectAfterRateLimit excluye el modelo saturado", () => {
-    limiter.markSaturated("gemini-2.5-flash", 60);
-    const result = selector.selectAfterRateLimit("gemini-2.5-flash");
+  it("respeta excludeIds para saltar modelos ya probados en un bucle de fallback", () => {
+    // Simula el `tried` acumulativo del nuevo bucle de agent.ts (spec 031).
+    const tried = new Set<string>(["gemini-2.5-flash", "gemini-2.5-flash-lite"]);
+    const result = selector.select("gemini-2.5-flash", undefined, tried);
     expect(result.modelId).not.toBe("gemini-2.5-flash");
+    expect(result.modelId).not.toBe("gemini-2.5-flash-lite");
     expect(result.switched).toBe(true);
   });
 
-  it("selectAfterRateLimit devuelve null si todos están saturados", () => {
-    limiter.markSaturated("gemini-2.5-flash", 60);
-    limiter.markSaturated("gemini-2.5-flash-lite", 60);
-    limiter.markSaturated("gemini-3-flash", 60);
-    limiter.markSaturated("gemini-3.5-flash", 60);
-
-    const result = selector.selectAfterRateLimit("gemini-2.5-flash");
+  it("devuelve none-available cuando excludeIds cubre todo el grupo", () => {
+    const tried = new Set<string>([
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-3-flash",
+      "gemini-3.5-flash",
+    ]);
+    const result = selector.select("gemini-2.5-flash", undefined, tried);
     expect(result.modelId).toBeNull();
     expect(result.reason).toBe("none-available");
   });

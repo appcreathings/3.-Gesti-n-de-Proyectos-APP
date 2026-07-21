@@ -1,9 +1,9 @@
 import { createClient } from "@/ai/gemini/client";
+import { classifyAiError } from "@/ai/gemini/errors";
+import { getModelsByGroup } from "@/ai/models";
 import { rateLimiter } from "@/ai/rateLimiter";
 import { loadEmbeddings } from "./store";
 import type { SearchResult, RagEntry } from "./types";
-
-const EMBEDDING_MODEL = "gemini-embedding-001";
 
 export function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0;
@@ -18,22 +18,49 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
+/**
+ * Embedding de un texto probando los modelos del grupo "embedding" en orden (gemini-embedding-001,
+ * luego gemini-embedding-2). Solo cae al siguiente modelo ante errores de cuota transitorios
+ * (`rate-limit`/`quota-exhausted`); otros (project-quota-zero, invalid-key, offline, unknown) se
+ * relanzan directo porque probar otro modelo no va a ayudar.
+ *
+ * Mismo patrón que `runImproveWithFallback` (`src/ai/improve.ts`, spec 012). spec 031 §5.
+ */
 export async function embedText(
   text: string,
   apiKey: string,
 ): Promise<number[]> {
-  if (!rateLimiter.canMakeRequest(EMBEDDING_MODEL)) {
-    throw new Error("rate-limit");
+  const candidates = getModelsByGroup("embedding");
+  let lastError: unknown = new Error("no embedding models available");
+
+  for (const modelDef of candidates) {
+    if (!rateLimiter.canMakeRequest(modelDef.id)) {
+      // Saltamos modelos saturados en el rate limiter local; seguimos al siguiente candidato.
+      continue;
+    }
+    try {
+      const ai = await createClient(apiKey);
+      const response = await ai.models.embedContent({
+        model: `models/${modelDef.id}`,
+        contents: [text],
+      });
+      const embedding = response.embeddings?.[0]?.values;
+      if (!embedding) throw new Error("No embedding returned");
+      rateLimiter.recordRequest(modelDef.id, Math.ceil(text.length / 4));
+      return embedding;
+    } catch (e) {
+      lastError = e;
+      const kind = classifyAiError(e);
+      if (kind === "rate-limit" || kind === "quota-exhausted") {
+        rateLimiter.markSaturated(modelDef.id, 60);
+        continue; // probar el siguiente modelo de embedding
+      }
+      // project-quota-zero / invalid-key / offline / aborted / unknown: no tiene caso probar
+      // el otro modelo — la causa raíz afecta a todos (misma cuenta/proyecto/región o misma red).
+      throw e;
+    }
   }
-  const ai = await createClient(apiKey);
-  const response = await ai.models.embedContent({
-    model: `models/${EMBEDDING_MODEL}`,
-    contents: [text],
-  });
-  const embedding = response.embeddings?.[0]?.values;
-  if (!embedding) throw new Error("No embedding returned");
-  rateLimiter.recordRequest(EMBEDDING_MODEL, Math.ceil(text.length / 4));
-  return embedding;
+  throw lastError;
 }
 
 export async function semanticSearch(
