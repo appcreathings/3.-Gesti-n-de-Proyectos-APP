@@ -102,7 +102,12 @@ export function validateFlow(flow: FlowRule, deps: ValidateFlowDeps): FlowIssue[
 
   // ── Trigger ────────────────────────────────────────────────────────────
   if (flow.trigger.type === "poll" && !flow.trigger.config.connectionId) {
-    const provider = flow.trigger.provider === "hubspot" ? "HubSpot" : "Google Sheets";
+    const provider =
+      flow.trigger.provider === "hubspot"
+        ? "HubSpot"
+        : flow.trigger.provider === "inbox"
+        ? "Make/Zapier (inbox)"
+        : "Google Sheets";
     issues.push({
       severity: "error",
       nodeKind: "trigger",

@@ -4,6 +4,7 @@ import { pollHubSpot, type HubSpotConfig } from "@/integrations/inbound/hubspot-
 import { pollHubSpotDeals } from "@/integrations/inbound/hubspot-deals-poller";
 import { pollHubSpotTickets } from "@/integrations/inbound/hubspot-tickets-poller";
 import { pollGoogleSheets, type GoogleSheetsConfig } from "@/integrations/inbound/sheets-poller";
+import { drainInbox } from "@/integrations/inbound/inbox-poller";
 
 export interface ManualPollFetchResult {
   ok: boolean;
@@ -63,6 +64,22 @@ export async function fetchPollSampleForFlow(trigger: PollTrigger): Promise<Manu
 
     const result = await poller(config, null);
     if (!result.success) return { ok: false, error: result.error ?? "Error desconocido al traer datos de HubSpot." };
+    return { ok: true, records: result.records ?? [] };
+  }
+
+  if (trigger.provider === "inbox") {
+    // El secreto del inbox es opcional; si el vault está bloqueado o no hay
+    // secreto, se drena igual (un inbox abierto no lo exige).
+    let secret: string | null;
+    try {
+      secret = await resolveConnectionSecret(trigger.config.connectionId);
+    } catch {
+      secret = null;
+    }
+    // "Ejecutar ahora" drena SIN avanzar el cursor real del poll (cursor null),
+    // así trae lo pendiente como muestra sin consumir el watermark de producción.
+    const result = await drainInbox({ proxyUrl, secret }, null);
+    if (!result.success) return { ok: false, error: result.error ?? "Error desconocido al drenar el inbox." };
     return { ok: true, records: result.records ?? [] };
   }
 

@@ -38,6 +38,9 @@ interface ProviderMeta {
   label: string;
   secretLabel?: string;
   secretPlaceholder?: string;
+  /** El secreto se muestra/cifra pero no es obligatorio para guardar (ej. el
+   * inbox de Make/Zapier, que puede ser abierto). */
+  secretOptional?: boolean;
   fields: ProviderField[];
 }
 
@@ -84,6 +87,24 @@ export const PROVIDER_META: Record<ConnectionProvider, ProviderMeta> = {
         required: true,
       },
       { key: "fromEmail", label: "Email remitente", placeholder: "notificaciones@tuempresa.com" },
+    ],
+  },
+  "webhook-inbox": {
+    // El secreto del inbox es OPCIONAL (un inbox abierto no lo requiere), así
+    // que se pide como secreto cifrado (`secretLabel`) pero el `canSave` no lo
+    // exige — a diferencia de HubSpot, esta conexión no marca `required` sobre
+    // el secreto y `needsSecret` solo controla si se muestra/cifra el campo.
+    label: "Make/Zapier (inbox)",
+    secretLabel: "Secreto del inbox (opcional)",
+    secretPlaceholder: "un-token-compartido-con-make-zapier",
+    secretOptional: true,
+    fields: [
+      {
+        key: "proxyUrl",
+        label: "Proxy URL del inbox",
+        placeholder: "https://script.google.com/macros/s/.../exec",
+        required: true,
+      },
     ],
   },
 };
@@ -148,7 +169,7 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
   const canSave =
     name.trim().length > 0 &&
     meta.fields.filter((f) => f.required).every((f) => (fieldValues[f.key] ?? "").trim().length > 0) &&
-    (!needsSecret || isEditing || secretValue.trim().length > 0);
+    (!needsSecret || meta.secretOptional || isEditing || secretValue.trim().length > 0);
 
   async function resolveSecretForProbe(): Promise<string | null> {
     if (!needsSecret) return null;
@@ -203,7 +224,10 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
           secret: needsSecret && secretTouched && secretValue.trim() ? secretValue.trim() : undefined,
         });
       } else {
-        if (needsSecret && !useVaultStore.getState().isUnlocked) {
+        // Solo se exige el vault si de verdad hay un secreto que cifrar — un
+        // inbox abierto (secreto opcional vacío) no lo necesita.
+        const secretToSave = needsSecret && secretValue.trim() ? secretValue.trim() : undefined;
+        if (secretToSave && !useVaultStore.getState().isUnlocked) {
           alert("Desbloquea el vault para guardar credenciales.");
           return;
         }
@@ -211,7 +235,7 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
           provider,
           name: name.trim(),
           config,
-          secret: needsSecret ? secretValue.trim() : undefined,
+          secret: secretToSave,
         });
       }
       onSaved();

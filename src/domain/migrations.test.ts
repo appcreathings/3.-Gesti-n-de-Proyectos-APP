@@ -45,11 +45,11 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v14, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v14 with no projects-specific change — spec 024's notifyOnFailure, 025's lastSample, 026's matchSource and 027's tags/conditionMode/onErrorPolicy/retry only touched `flows`)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v15, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v15 with no projects-specific change — spec 024/025/026/027/032 only touched `flows`)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(14);
+    expect(value.schemaVersion).toBe(15);
   });
 });
 
@@ -168,6 +168,39 @@ describe("flows v13 -> v14 (spec 027: tags/conditionMode/onErrorPolicy/retry, id
       flows: [{ id: "flow-b", name: "Demo v14", trigger: { type: "event", event: "task.added" }, outputs: [] }],
     };
     const { migrated } = migrateRecord("flows", doc, 14, MIGRATIONS);
+    expect(migrated).toBe(false);
+  });
+});
+
+describe("flows v14 -> v15 (spec 032: provider 'inbox' + webhook payloadShape, identity step)", () => {
+  it("converges a v14 doc to v15 without touching inner flows", () => {
+    const doc = {
+      schemaVersion: 14,
+      flows: [
+        {
+          id: "flow-a",
+          name: "Demo",
+          trigger: { type: "event", event: "task.statusChanged" },
+          outputs: [{ type: "webhook", url: "https://example.com/hook", secret: "s" }],
+        },
+      ],
+    };
+
+    const { value, migrated } = migrateRecord("flows", doc, 15, MIGRATIONS);
+    expect(migrated).toBe(true);
+    expect(value.schemaVersion).toBe(15);
+    const flow = (value as { flows: Record<string, unknown>[] }).flows[0];
+    // Identity step: el webhook existente no gana `payloadShape` — el motor lo
+    // trata como "bare" (body plano histórico, ahora firmado sobre el body real).
+    expect((flow.outputs as Record<string, unknown>[])[0]).not.toHaveProperty("payloadShape");
+  });
+
+  it("is idempotent: a v15 doc is not touched", () => {
+    const doc = {
+      schemaVersion: 15,
+      flows: [{ id: "flow-c", name: "Demo v15", trigger: { type: "event", event: "task.added" }, outputs: [] }],
+    };
+    const { migrated } = migrateRecord("flows", doc, 15, MIGRATIONS);
     expect(migrated).toBe(false);
   });
 });

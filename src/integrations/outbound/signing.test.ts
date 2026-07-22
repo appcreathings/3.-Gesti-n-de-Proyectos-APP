@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { signPayload, verifyPayloadSignature } from "./signing";
+import { signPayload, verifyPayloadSignature, signRaw, verifyRaw } from "./signing";
 import type { OutboundPayload } from "./dispatcher";
 
 describe("signing", () => {
@@ -50,7 +50,34 @@ describe("signing", () => {
   it("rejects invalid signature", async () => {
     const signature = await signPayload(payload, secret);
     const isValid = await verifyPayloadSignature(payload, "wrong-secret", signature);
-    
+
     expect(isValid).toBe(false);
+  });
+
+  // Spec 032 §A — signRaw firma el string crudo del body real que se envía.
+  describe("signRaw / verifyRaw", () => {
+    it("round-trips a raw body string", async () => {
+      const raw = '{"a":1,"b":"x"}';
+      const sig = await signRaw(raw, secret);
+      expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/);
+      expect(await verifyRaw(raw, secret, sig)).toBe(true);
+    });
+
+    it("fails verification if a single byte of the body changes", async () => {
+      const sig = await signRaw('{"a":1}', secret);
+      expect(await verifyRaw('{"a":2}', secret, sig)).toBe(false);
+    });
+
+    it("fails verification with the wrong secret", async () => {
+      const raw = '{"a":1}';
+      const sig = await signRaw(raw, secret);
+      expect(await verifyRaw(raw, "otro", sig)).toBe(false);
+    });
+
+    it("signPayload is signRaw over the JSON of the payload (compat)", async () => {
+      const viaPayload = await signPayload(payload, secret);
+      const viaRaw = await signRaw(JSON.stringify(payload), secret);
+      expect(viaPayload).toBe(viaRaw);
+    });
   });
 });

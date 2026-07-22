@@ -59,6 +59,12 @@ const TRIGGER_TYPES = [
     icon: "📊",
     description: "Leer una hoja de cálculo",
   },
+  {
+    value: "poll-inbox",
+    label: "Cuando Make/Zapier envíe datos",
+    icon: "🔁",
+    description: "Recibir por un inbox (webhook entrante)",
+  },
 ];
 
 // Debe ser un subconjunto de `EventTriggerSchema.event` (domain/schemas/flow.ts),
@@ -102,9 +108,10 @@ export function TriggerStep({
 }: Props) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [guideProvider, setGuideProvider] = useState<"hubspot" | "google-sheets" | null>(null);
+  const [guideProvider, setGuideProvider] = useState<"hubspot" | "google-sheets" | "webhook-inbox" | null>(null);
   const [hubspotConnections, setHubspotConnections] = useState<IntegrationConnection[]>([]);
   const [sheetsConnections, setSheetsConnections] = useState<IntegrationConnection[]>([]);
+  const [inboxConnections, setInboxConnections] = useState<IntegrationConnection[]>([]);
 
   // Preferimos la `sample` viva (estado del canvas, poblada al pulsar
   // "Probar conexión") sobre `flow.lastSample` (persistida en el FlowRule).
@@ -117,6 +124,7 @@ export function TriggerStep({
   useEffect(() => {
     getConnections("hubspot").then(setHubspotConnections);
     getConnections("google-sheets").then(setSheetsConnections);
+    getConnections("webhook-inbox").then(setInboxConnections);
   }, []);
 
   const activeTriggerValue =
@@ -145,6 +153,13 @@ export function TriggerStep({
         newTrigger = {
           type: "poll",
           provider: "google-sheets",
+          config: { connectionId: "", fields: [], filters: [], intervalMs: 300000 },
+        };
+        break;
+      case "poll-inbox":
+        newTrigger = {
+          type: "poll",
+          provider: "inbox",
           config: { connectionId: "", fields: [], filters: [], intervalMs: 300000 },
         };
         break;
@@ -201,7 +216,12 @@ export function TriggerStep({
   const handleTestConnection = async () => {
     if (flow.trigger.type !== "poll") return;
     const pollTrigger = flow.trigger as PollTrigger;
-    const connections = pollTrigger.provider === "hubspot" ? hubspotConnections : sheetsConnections;
+    const connections =
+      pollTrigger.provider === "hubspot"
+        ? hubspotConnections
+        : pollTrigger.provider === "inbox"
+        ? inboxConnections
+        : sheetsConnections;
     const connection = connections.find((c) => c.id === pollTrigger.config.connectionId);
 
     if (!connection) {
@@ -227,9 +247,14 @@ export function TriggerStep({
       const operation =
         pollTrigger.provider === "hubspot"
           ? (pollTrigger.config.objectType ?? "contacts")
+          : pollTrigger.provider === "inbox"
+          ? "drain"
           : "read";
+      // El trigger usa provider "inbox"; la conexión vive bajo el
+      // ConnectionProvider "webhook-inbox".
+      const probeProvider = pollTrigger.provider === "inbox" ? "webhook-inbox" : pollTrigger.provider;
       const result = await runConnectionProbe(
-        pollTrigger.provider,
+        probeProvider,
         connection.config,
         secret,
         { operation },
@@ -319,8 +344,20 @@ export function TriggerStep({
           {flow.trigger.type === "poll" && (() => {
             const pollTrigger = flow.trigger as PollTrigger;
             const isHubspot = pollTrigger.provider === "hubspot";
-            const providerLabel = isHubspot ? "HubSpot" : "Google Sheets";
-            const connections = isHubspot ? hubspotConnections : sheetsConnections;
+            const isInbox = pollTrigger.provider === "inbox";
+            const providerLabel = isHubspot
+              ? "HubSpot"
+              : isInbox
+              ? "Make/Zapier (inbox)"
+              : "Google Sheets";
+            const connections = isHubspot
+              ? hubspotConnections
+              : isInbox
+              ? inboxConnections
+              : sheetsConnections;
+            const setupText = isInbox
+              ? "Para recibir datos de Make/Zapier necesitas desplegar un proxy inbox en Google Apps Script y pegar su URL en el módulo Webhook de Make / paso Webhooks de Zapier."
+              : `Para conectar con ${providerLabel} necesitas crear un proxy en Google Apps Script.`;
             return (
               <div className="space-y-6">
                 {/* Setup Guide */}
@@ -331,14 +368,16 @@ export function TriggerStep({
                       <p className="text-sm font-medium text-blue-900">
                         Configuración requerida
                       </p>
-                      <p className="mt-1 text-xs text-blue-700">
-                        Para conectar con {providerLabel} necesitas crear un proxy en Google Apps Script.
-                      </p>
+                      <p className="mt-1 text-xs text-blue-700">{setupText}</p>
                       <Button
                         size="sm"
                         variant="outline"
                         className="mt-2"
-                        onClick={() => setGuideProvider(pollTrigger.provider)}
+                        onClick={() =>
+                          setGuideProvider(
+                            pollTrigger.provider === "inbox" ? "webhook-inbox" : pollTrigger.provider
+                          )
+                        }
                       >
                         Ver guía paso a paso
                       </Button>
@@ -508,11 +547,20 @@ export function TriggerStep({
                   </>
                 )}
 
-                {!isHubspot && (
+                {!isHubspot && !isInbox && (
                   <p className="text-xs text-muted-foreground">
                     Se traen todas las columnas de la hoja (según el rango y la fila de encabezados
                     configurados en la conexión) — el mapeo a campos de Hito se hace en el paso de
                     Transformación.
+                  </p>
+                )}
+
+                {isInbox && (
+                  <p className="text-xs text-muted-foreground">
+                    Cada entrega que Make/Zapier empuje al inbox llega como un registro (con los
+                    campos de su JSON, más <code className="rounded bg-muted px-1 py-0.5 font-mono">deliveryId</code> y{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono">receivedAt</code>). El
+                    drenado corre solo con Hito abierto; al reabrir se recupera lo pendiente.
                   </p>
                 )}
 

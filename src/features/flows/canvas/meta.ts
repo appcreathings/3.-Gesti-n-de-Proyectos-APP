@@ -61,7 +61,10 @@ export function defaultOutputForType(type: Output["type"]): Output {
     case "createNotification":
       return { type: "createNotification", severity: "info", message: "" };
     case "webhook":
-      return { type: "webhook", url: "", secret: "" };
+      // Los webhooks nuevos nacen en modo "envelope" (firma verificable +
+      // anti-replay, spec 032 §A); los guardados antes de 032 se tratan como
+      // "bare" por el default del schema (ausente = "bare").
+      return { type: "webhook", url: "", secret: "", payloadShape: "envelope" };
     case "email":
       return { type: "email", connectionId: "", to: "", subject: "", body: "" };
     case "setField":

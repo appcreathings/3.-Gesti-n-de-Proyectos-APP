@@ -52,6 +52,7 @@ const REQUIRES_LABEL: Record<FlowTemplate["requires"][number], string> = {
   hubspot: "HubSpot",
   "google-sheets": "Google Sheets",
   email: "Email",
+  "webhook-inbox": "Inbox Make/Zapier",
 };
 
 export function FlowsPage() {

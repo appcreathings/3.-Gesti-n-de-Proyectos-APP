@@ -90,6 +90,13 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
   // webhook/email outputs gained `retry`. All optional with engine-side
   // defaults (no tags, "continue", "all", no retry), so existing v13
   // records need no data transformation and keep behaving identically.
+  // v14 -> v15 (spec 032, single shared bump): `PollTrigger.provider` gained
+  // "inbox" (recibir datos desde Make/Zapier vía inbox-polling) y
+  // `WebhookOutput` gained `payloadShape` ("envelope"|"bare"). Ambos
+  // opcionales con default del motor (`payloadShape` ausente = "bare", el
+  // shape de body histórico), así que los flujos v14 corren idéntico —
+  // ningún flujo existente usa el provider "inbox" y sus webhooks siguen
+  // enviando el body plano de siempre (ahora firmado sobre el body real).
   flows: [
     { to: 8, up: migrateFlowsDocV7ToV8 },
     { to: 9, up: (data) => data },
@@ -98,6 +105,7 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
     { to: 12, up: (data) => data },
     { to: 13, up: (data) => data },
     { to: 14, up: (data) => data },
+    { to: 15, up: (data) => data },
   ],
 };
 

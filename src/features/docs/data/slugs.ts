@@ -7,6 +7,7 @@ export const DOC_SLUGS = [
   "mis-tareas-y-daily",
   "tipos-y-plantillas",
   "automatizaciones-y-flujos",
+  "conectar-make-zapier-n8n",
   "asistente-ia",
   "dashboard-y-portafolio",
   "notificaciones",

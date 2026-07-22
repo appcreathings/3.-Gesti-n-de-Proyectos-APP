@@ -178,10 +178,18 @@ export function WebhookSignatureGuide({ open, onOpenChange }: WebhookSignatureGu
               , calculado como HMAC-SHA256 del cuerpo de la petición usando el{" "}
               <strong>Secret</strong> que configuraste arriba como clave.
             </p>
-            <p>El cuerpo enviado (body) tiene esta forma:</p>
+            <p>
+              En modo <strong>Envelope firmado</strong> (recomendado), el cuerpo enviado (body)
+              tiene esta forma:
+            </p>
             <pre className="max-h-40 overflow-auto rounded-lg border border-border bg-muted/20 p-3 text-xs">
               <code className="font-mono">{ENVELOPE_EXAMPLE}</code>
             </pre>
+            <p className="text-xs text-muted-foreground">
+              En modo <strong>Payload plano</strong>, el body es directamente el registro/campos
+              (sin el envelope). En ambos casos la firma cubre el body exacto que se envía, así que
+              la verificación es idéntica: <code className="rounded bg-muted px-1 py-0.5 font-mono">HMAC(body_crudo)</code>.
+            </p>
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
               <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-warning" />
               <p className="text-xs text-muted-foreground">
@@ -192,10 +200,13 @@ export function WebhookSignatureGuide({ open, onOpenChange }: WebhookSignatureGu
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              El campo <code className="rounded bg-muted px-1 py-0.5 font-mono">timestamp</code>{" "}
-              es solo informativo — no hay un mecanismo anti-replay aparte. Si te importa
-              rechazar eventos reenviados, tendrás que implementar esa validación tú mismo del
-              lado del receptor.
+              Cada envío incluye también los headers{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono">X-Hito-Delivery</code>{" "}
+              (id único de la entrega) y{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono">X-Hito-Timestamp</code>{" "}
+              (ISO). Para rechazar reenvíos (replay), compara ese timestamp contra la hora actual y
+              descarta lo que caiga fuera de una ventana corta (por ejemplo, 5 minutos), además de
+              verificar la firma.
             </p>
           </div>
 

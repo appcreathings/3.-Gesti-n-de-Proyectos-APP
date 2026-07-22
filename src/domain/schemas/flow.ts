@@ -43,7 +43,11 @@ export type PollFilter = z.infer<typeof PollFilterSchema>;
 // viven ahí, cifrados con el vault.
 export const PollTriggerSchema = z.object({
   type: z.literal("poll"),
-  provider: z.enum(["hubspot", "google-sheets"]),
+  // "inbox" (spec 032 §B) recibe datos empujados desde Make/Zapier/n8n: el
+  // iPaaS hace POST a un proxy Apps Script del usuario que acumula las
+  // entregas, y Hito las drena por polling (mismo mecanismo local-first que
+  // HubSpot/Sheets). Para "inbox", `objectType`/`fields` no aplican.
+  provider: z.enum(["hubspot", "google-sheets", "inbox"]),
   config: z.object({
     /** Puede quedar vacío ("sin conexión elegida aún") — típico en flujos
      * migrados de v7 (spec 020 §D) y en plantillas recién instanciadas
@@ -225,6 +229,15 @@ export const WebhookOutputSchema = z.object({
   secret: z.string(),
   payload: z.record(z.unknown()).optional(),
   retry: RetryPolicySchema.optional(),
+  /** Forma del body enviado (spec 032 §A). "envelope" envuelve el payload en
+   * `{ id, type, timestamp, workspace, data }` (patrón GitHub/Stripe,
+   * verificable + anti-replay vía `X-Hito-Timestamp`); "bare" envía el payload
+   * plano. En AMBOS modos la firma HMAC cubre el body exacto que se envía, así
+   * que ambos son verificables — la diferencia es solo el shape. Ausente =
+   * "bare" (retrocompat con webhooks guardados antes de 032, que ya esperaban
+   * el body plano en su escenario de Make); la UI de creación default
+   * "envelope". */
+  payloadShape: z.enum(["envelope", "bare"]).optional(),
 });
 export type WebhookOutput = z.infer<typeof WebhookOutputSchema>;
 

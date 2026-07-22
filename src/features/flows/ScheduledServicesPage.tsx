@@ -78,7 +78,17 @@ export function ScheduledServicesPage() {
         />
 
         <div className="grid gap-6">
-          <Panel label="Entrada" title="Polling de conexiones" description="Registros activos que sondean HubSpot/Sheets periódicamente.">
+          <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 p-4 text-sm">
+            <Radio className="mt-0.5 size-4 shrink-0 text-warning" />
+            <p className="text-muted-foreground">
+              El sondeo de conexiones y la recepción vía <strong>inbox</strong> (Make/Zapier) funcionan{" "}
+              <strong>solo mientras Hito está abierto</strong> en una pestaña. Al reabrir, Hito recupera
+              lo pendiente (catch-up), hasta el límite de retención del proxy — Hito no es un consumidor
+              24/7, es la contraparte honesta del modelo local-first.
+            </p>
+          </div>
+
+          <Panel label="Entrada" title="Polling de conexiones" description="Registros activos que sondean HubSpot/Sheets/inbox periódicamente.">
             {pollingRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Sin polling activo — no hay flujos de tipo poll habilitados en esta pestaña.

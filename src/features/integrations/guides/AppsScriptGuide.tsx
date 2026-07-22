@@ -232,6 +232,108 @@ function jsonResponse(data, statusCode) {
 }
 `;
 
+const INBOX_CODE = `/**
+ * Hito Inbox Proxy
+ *
+ * Recibe datos que Make / Zapier / n8n empujan hacia Hito y los acumula en una
+ * pestaña de esta hoja ("_hito_inbox"). Hito los drena por polling desde el
+ * navegador (no hay servidor de Hito escuchando webhooks). Corre bajo tu propia
+ * cuenta de Google.
+ *
+ * INSTRUCCIONES:
+ * 1. Crea (o abre) una Google Sheet y pega este código en Extensiones → Apps Script
+ * 2. Opcional: define un secreto compartido en INBOX_SECRET (abajo)
+ * 3. Despliega como Web App (acceso "Cualquier persona")
+ * 4. Copia la URL /exec:
+ *      - pégala en Hito, en la conexión "Make/Zapier (inbox)"
+ *      - pégala también en el módulo Webhook de Make / paso Webhooks de Zapier
+ */
+
+const INBOX_SECRET = ""; // opcional: exige ?secret=... a quien encola. Vacío = abierto.
+const SHEET_NAME = "_hito_inbox";
+const MAX_ROWS = 500; // retención FIFO; más viejas se descartan
+
+function doPost(e) {
+  var body = e.postData ? e.postData.contents : "";
+  var parsed = safeJson(body);
+
+  // Drenado (lo llama Hito): { action: "drain", cursor, max, secret? }
+  if (parsed && parsed.action === "drain") {
+    if (INBOX_SECRET && parsed.secret !== INBOX_SECRET) {
+      return json({ status: 401, data: { error: "bad secret" } });
+    }
+    return drain(parsed);
+  }
+
+  // Ingreso (lo llama Make/Zapier): cualquier otro POST
+  if (INBOX_SECRET && e.parameter.secret !== INBOX_SECRET) {
+    return json({ status: 401, data: { error: "bad secret" } });
+  }
+  var delivery = {
+    deliveryId: Utilities.getUuid(),
+    receivedAt: new Date().toISOString(),
+    body: parsed !== null ? parsed : { raw: body }
+  };
+  appendDelivery(delivery);
+  return json({ status: 200, data: { deliveryId: delivery.deliveryId } });
+}
+
+function doGet(e) {
+  return json({ status: 200, data: { ok: true } });
+}
+
+function drain(req) {
+  var cursor = req.cursor || "";
+  var max = req.max || 100;
+  var sheet = getSheet();
+  var values = sheet.getDataRange().getValues(); // [[receivedAt, deliveryId, bodyJson], ...]
+  var pending = [];
+  for (var i = 1; i < values.length; i++) {
+    var receivedAt = values[i][0];
+    if (receivedAt > cursor) {
+      pending.push({ receivedAt: receivedAt, deliveryId: values[i][1], body: safeJson(values[i][2]) });
+    }
+  }
+  pending.sort(function (a, b) { return a.receivedAt < b.receivedAt ? -1 : 1; });
+  var batch = pending.slice(0, max);
+  var nextCursor = batch.length ? batch[batch.length - 1].receivedAt : cursor;
+  return json({ status: 200, data: { deliveries: batch, nextCursor: nextCursor, backlog: pending.length } });
+}
+
+function appendDelivery(delivery) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheet();
+    sheet.appendRow([delivery.receivedAt, delivery.deliveryId, JSON.stringify(delivery.body)]);
+    var rows = sheet.getLastRow();
+    if (rows > MAX_ROWS + 1) {
+      sheet.deleteRows(2, rows - (MAX_ROWS + 1)); // borra las más viejas (fila 1 = header)
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow(["receivedAt", "deliveryId", "body"]);
+  }
+  return sheet;
+}
+
+function safeJson(s) {
+  try { return JSON.parse(s); } catch (err) { return null; }
+}
+
+function json(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+`;
+
 const PROVIDER_CONTENT = {
   hubspot: {
     label: "HubSpot",
@@ -253,6 +355,13 @@ const PROVIDER_CONTENT = {
     code: EMAIL_CODE,
     why: "La acción \"Enviar email\" de un Flujo necesita un servicio de correo del lado del servidor — un navegador no puede autenticarse con un servidor SMTP sin exponer una contraseña. Este proxy usa tu propia cuenta de Google (MailApp) para enviar.",
     secure: "Sí. Corre en tu cuenta de Google; Hito nunca ve ni guarda una contraseña de correo. El límite de envíos por día lo define tu cuenta de Gmail/Workspace (Apps Script hereda esa cuota).",
+  },
+  "webhook-inbox": {
+    label: "Make/Zapier (inbox)",
+    projectName: "Hito Inbox Proxy",
+    code: INBOX_CODE,
+    why: "Hito corre en tu navegador y no puede recibir webhooks pasivos (eso requeriría un servidor). Este proxy acumula lo que Make/Zapier/n8n empujan en una hoja tuya, y Hito lo drena por polling — el mismo modelo local-first que HubSpot/Sheets, pero al revés.",
+    secure: "Sí. El buffer vive en una hoja de tu propia cuenta de Google. Puedes exigir un secreto compartido (INBOX_SECRET) para que solo tu escenario de Make/Zapier pueda encolar.",
   },
 } satisfies Record<ConnectionProvider, { label: string; projectName: string; code: string; why: string; secure: string }>;
 
@@ -679,6 +788,14 @@ export function AppsScriptGuide({ open, onOpenChange, provider }: AppsScriptGuid
                         {" "}(el <strong>Email remitente</strong> es solo referencia visual — el envío
                         real sale siempre desde tu cuenta de Google, MailApp no permite falsificar el
                         remitente)
+                      </>
+                    )}
+                    {provider === "webhook-inbox" && (
+                      <>
+                        {" "}(y si definiste un <strong>secreto</strong> en <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">INBOX_SECRET</code>,
+                        pégalo también). <strong>Además</strong>, pega esta misma URL en el módulo{" "}
+                        <strong>Webhook</strong> de Make o el paso <strong>Webhooks</strong> de Zapier —
+                        ahí es donde tu escenario empujará los datos hacia Hito
                       </>
                     )}
                     .

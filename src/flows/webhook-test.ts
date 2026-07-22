@@ -8,6 +8,14 @@ export interface WebhookTestResult {
    * devolvió alguno — suficiente para diagnosticar sin inflar la UI. */
   responseText?: string;
   error?: string;
+  /** Firma HMAC enviada (spec 032 §A) — la UI la muestra para que el usuario
+   * la pegue en su verificador de Make/Zapier. */
+  signature?: string;
+  /** Body crudo exacto firmado y enviado — el receptor debe verificar sobre
+   * este string, no sobre un re-`JSON.stringify` (que reordena claves). */
+  rawBody?: string;
+  deliveryId?: string;
+  timestamp?: string;
 }
 
 /**
@@ -22,14 +30,18 @@ export async function testWebhook(
   output: WebhookOutput,
   sampleRecord: Record<string, unknown>
 ): Promise<WebhookTestResult> {
-  const { url, init } = await buildWebhookRequest(output, sampleRecord);
+  const { url, init, signature, rawBody, deliveryId, timestamp } = await buildWebhookRequest(
+    output,
+    sampleRecord
+  );
+  const meta = { signature, rawBody, deliveryId, timestamp };
 
   let response: Response;
   try {
     response = await fetch(url, { ...init, signal: AbortSignal.timeout(10_000) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, error: message };
+    return { ok: false, error: message, ...meta };
   }
 
   let responseText: string | undefined;
@@ -40,5 +52,5 @@ export async function testWebhook(
     responseText = undefined;
   }
 
-  return { ok: response.ok, status: response.status, responseText };
+  return { ok: response.ok, status: response.status, responseText, ...meta };
 }

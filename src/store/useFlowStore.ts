@@ -69,6 +69,9 @@ async function registerPollTrigger(trigger: FlowRule["trigger"]): Promise<void> 
     if (trigger.provider === "hubspot") {
       const { registerHubSpotPolling } = await import("@/integrations/inbound/hubspot-polling-manager");
       await registerHubSpotPolling(trigger);
+    } else if (trigger.provider === "inbox") {
+      const { registerInboxPolling } = await import("@/integrations/inbound/inbox-polling-manager");
+      await registerInboxPolling(trigger);
     } else {
       const { registerSheetsPolling } = await import("@/integrations/inbound/sheets-polling-manager");
       await registerSheetsPolling(trigger);
@@ -84,6 +87,9 @@ async function unregisterPollTrigger(trigger: FlowRule["trigger"]): Promise<void
     if (trigger.provider === "hubspot") {
       const { unregisterHubSpotPolling } = await import("@/integrations/inbound/hubspot-polling-manager");
       unregisterHubSpotPolling(trigger);
+    } else if (trigger.provider === "inbox") {
+      const { unregisterInboxPolling } = await import("@/integrations/inbound/inbox-polling-manager");
+      unregisterInboxPolling(trigger);
     } else {
       const { unregisterSheetsPolling } = await import("@/integrations/inbound/sheets-polling-manager");
       unregisterSheetsPolling(trigger);

@@ -19,8 +19,8 @@ export interface FlowTemplate {
   id: string;
   name: string;
   description: string;
-  category: "CRM" | "Hojas de cálculo" | "Interno" | "Notificaciones";
-  requires: ("hubspot" | "google-sheets" | "email")[];
+  category: "CRM" | "Hojas de cálculo" | "Interno" | "Notificaciones" | "Make/Zapier";
+  requires: ("hubspot" | "google-sheets" | "email" | "webhook-inbox")[];
   build: () => FlowRule;
 }
 
@@ -175,6 +175,62 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
             evento: "proyecto.creado",
             proyectoId: "{{projectId}}",
             tipoId: "{{typeId||sin tipo}}",
+          },
+        },
+      ],
+    }),
+  },
+  {
+    id: "make-inbox-to-task",
+    name: "Make/Zapier → crear tarea",
+    description:
+      "Recibe datos empujados desde Make, Zapier o n8n (vía un inbox) y crea una tarea en el proyecto que elijas. Deduplicada por el id de la entrega. Ajusta {{titulo}} al campo real que envíe tu escenario.",
+    category: "Make/Zapier",
+    requires: ["webhook-inbox"],
+    build: () => ({
+      ...baseFlow("Make/Zapier → crear tarea"),
+      trigger: {
+        type: "poll",
+        provider: "inbox",
+        config: { connectionId: "", fields: [], filters: [], intervalMs: POLL_INTERVAL_MS },
+      },
+      outputs: [
+        {
+          type: "createTask",
+          title: "{{titulo||Entrada desde Make/Zapier}}",
+          projectRef: "explicit",
+          priority: "medium",
+          description: "{{detalle||}}",
+          dedupeKey: "{{deliveryId}}",
+        },
+      ],
+    }),
+  },
+  {
+    id: "task-done-to-make",
+    name: "Tarea completada → avisar a Make/Zapier",
+    description:
+      'Cuando una tarea pasa a "Terminada", envía un webhook firmado (envelope verificable) a tu escenario de Make/Zapier.',
+    category: "Make/Zapier",
+    requires: [],
+    build: () => ({
+      ...baseFlow("Tarea completada → avisar a Make/Zapier"),
+      trigger: { type: "event", event: "task.statusChanged" },
+      logic: {
+        conditions: [{ field: "to", op: "==", value: "done" }],
+        mapping: [],
+      },
+      outputs: [
+        {
+          type: "webhook",
+          url: "",
+          secret: "",
+          payloadShape: "envelope",
+          payload: {
+            evento: "tarea.completada",
+            tareaId: "{{taskId}}",
+            proyectoId: "{{projectId}}",
+            estado: "{{to}}",
           },
         },
       ],

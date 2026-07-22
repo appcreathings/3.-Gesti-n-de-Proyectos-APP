@@ -116,6 +116,7 @@ export function IntegrationsPage() {
             <TabsTrigger value="hubspot">HubSpot</TabsTrigger>
             <TabsTrigger value="sheets">Google Sheets</TabsTrigger>
             <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+            <TabsTrigger value="inbox">Inbox</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
             <TabsTrigger value="security">Seguridad</TabsTrigger>
           </TabsList>
@@ -239,6 +240,30 @@ export function IntegrationsPage() {
                 )}
               </div>
             </Panel>
+          </TabsContent>
+
+          <TabsContent value="inbox">
+            <div className="grid gap-6">
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-warning" />
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">Recibir datos desde Make, Zapier o n8n (entrada)</p>
+                    <p className="text-muted-foreground">
+                      Make/Zapier hacen POST a un proxy inbox tuyo (Apps Script) que acumula las
+                      entregas; Hito las drena por polling. Úsalo con un trigger "Cuando Make/Zapier
+                      envíe datos" en un Flujo. Corre solo con Hito abierto; al reabrir hay catch-up.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <ProviderConnectionsPanel
+                provider="webhook-inbox"
+                description="Cola de entrada para lo que Make/Zapier/n8n empujen hacia Hito. La frecuencia de drenado se configura por Flujo."
+                onOpenGuide={() => setGuideProvider("webhook-inbox")}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="email">

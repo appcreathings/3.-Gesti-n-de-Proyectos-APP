@@ -12,8 +12,8 @@ import { FlowRuleSchema } from "@/domain/schemas/flow";
  * completar (conexión/proyecto/destinatario), señalados por `validateFlow`.
  */
 describe("FLOW_TEMPLATES (spec 027 §C)", () => {
-  it("defines the 6 curated v1 templates with unique ids", () => {
-    expect(FLOW_TEMPLATES).toHaveLength(6);
+  it("defines the curated templates with unique ids (6 de spec 027 + 2 round-trip de spec 032)", () => {
+    expect(FLOW_TEMPLATES).toHaveLength(8);
     const ids = FLOW_TEMPLATES.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -44,6 +44,10 @@ describe("FLOW_TEMPLATES (spec 027 §C)", () => {
     "task-done-email": ["conexión de email", "destinatario"],
     "project-created-webhook": ["URL"],
     "big-deal-notification": ["conexión"],
+    // Spec 032: inbox sin conexión + createTask explícito sin proyecto destino.
+    "make-inbox-to-task": ["conexión", "proyecto destino"],
+    // Webhook sin URL (mismo caso que project-created-webhook).
+    "task-done-to-make": ["URL"],
   };
 
   it.each(FLOW_TEMPLATES.map((t) => [t.id, t] as const))(

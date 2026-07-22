@@ -342,6 +342,24 @@ describe("FlowEngine", () => {
       // Misma conexión + mismo objectType → misma key (determinístico).
       expect(pollTriggerKey(hubspotA)).toBe(pollTriggerKey({ ...hubspotA }));
     });
+
+    it("keys inbox triggers by connectionId (spec 032 §B) without colliding with other providers", () => {
+      const inboxA: PollTrigger = {
+        type: "poll",
+        provider: "inbox",
+        config: { connectionId: "conn-a", fields: [], filters: [], intervalMs: 300_000 },
+      };
+      const inboxB: PollTrigger = { ...inboxA, config: { ...inboxA.config, connectionId: "conn-b" } };
+      expect(pollTriggerKey(inboxA)).toBe("inbox:conn-a");
+      expect(pollTriggerKey(inboxA)).not.toBe(pollTriggerKey(inboxB));
+      // No colisiona con un HubSpot/Sheets que compartiera el connectionId.
+      const sheets: PollTrigger = {
+        type: "poll",
+        provider: "google-sheets",
+        config: { connectionId: "conn-a", fields: [], filters: [], intervalMs: 300_000 },
+      };
+      expect(pollTriggerKey(inboxA)).not.toBe(pollTriggerKey(sheets));
+    });
   });
 
   describe("Poll Trigger", () => {

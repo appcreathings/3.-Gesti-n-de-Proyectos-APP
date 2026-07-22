@@ -15,8 +15,10 @@ export interface IntegrationConfig {
 }
 
 /** Proveedores externos con conexión reutilizable (spec 020 — Integraciones =
- * conexiones, Flujos = automatizaciones que las referencian por `id`). */
-export type ConnectionProvider = "hubspot" | "google-sheets" | "email";
+ * conexiones, Flujos = automatizaciones que las referencian por `id`).
+ * `webhook-inbox` (spec 032 §B) es un proxy Apps Script del usuario que acumula
+ * las entregas empujadas por Make/Zapier/n8n; Hito las drena por polling. */
+export type ConnectionProvider = "hubspot" | "google-sheets" | "email" | "webhook-inbox";
 
 /** Una conexión configurada una sola vez y reutilizable desde cualquier Flujo
  * vía `connectionId`. Los campos no sensibles (URLs, ids) van en `config` en

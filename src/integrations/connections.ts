@@ -127,12 +127,18 @@ export async function testConnection(
 export type HubSpotProbeOperation = "contacts" | "deals" | "tickets" | "search" | "custom";
 export type SheetsProbeOperation = "read";
 export type EmailProbeOperation = "ping" | "send-test";
-export type ProbeOperation = HubSpotProbeOperation | SheetsProbeOperation | EmailProbeOperation;
+export type InboxProbeOperation = "drain";
+export type ProbeOperation =
+  | HubSpotProbeOperation
+  | SheetsProbeOperation
+  | EmailProbeOperation
+  | InboxProbeOperation;
 
 const DEFAULT_PROBE_OPERATION: Record<ConnectionProvider, ProbeOperation> = {
   hubspot: "contacts",
   "google-sheets": "read",
   email: "ping",
+  "webhook-inbox": "drain",
 };
 
 /** Operaciones que el Explorador de conexión ofrece, por proveedor (spec 023
@@ -150,6 +156,7 @@ export const PROBE_OPERATIONS_BY_PROVIDER: Record<ConnectionProvider, { value: P
     { value: "ping", label: "Verificar alcance (sin enviar correo)" },
     { value: "send-test", label: "Enviar correo de prueba" },
   ],
+  "webhook-inbox": [{ value: "drain", label: "Ver entregas pendientes de Make/Zapier" }],
 };
 
 export interface ConnectionProbeOptions {
@@ -261,6 +268,33 @@ export async function runConnectionProbe(
     return {
       ok: true,
       detail: `Conexión con Sheets verificada — ${Math.max(rows.length - headerRow, 0)} fila(s) de datos encontradas.`,
+      raw: result.data,
+      records,
+    };
+  }
+
+  if (provider === "webhook-inbox") {
+    // Probar = drenar la cola SIN avanzar cursor (cursor vacío) para mostrar
+    // una muestra real de lo que Make/Zapier ya empujó, sin consumirlo (el
+    // proxy no borra al drenar; el poll real usa su propio cursor). Alimenta el
+    // picker de variables igual que HubSpot/Sheets.
+    const result = await postToProxy<{ deliveries?: { deliveryId: string; receivedAt: string; body: unknown }[]; backlog?: number }>(
+      proxyUrl,
+      { action: "drain", cursor: "", max: SAMPLE_SIZE, ...(secret ? { secret } : {}) }
+    );
+    if (!result.ok) return { ok: false, detail: result.message };
+    const deliveries = result.data.deliveries ?? [];
+    const records = deliveries.map((d) => {
+      const body = d.body && typeof d.body === "object" && !Array.isArray(d.body) ? d.body : { value: d.body };
+      return { deliveryId: d.deliveryId, receivedAt: d.receivedAt, ...(body as Record<string, unknown>) };
+    });
+    const backlog = result.data.backlog ?? deliveries.length;
+    return {
+      ok: true,
+      detail:
+        deliveries.length > 0
+          ? `Inbox alcanzable — ${backlog} entrega(s) pendiente(s).`
+          : "Inbox alcanzable — sin entregas pendientes aún. Envía un POST de prueba desde Make/Zapier.",
       raw: result.data,
       records,
     };

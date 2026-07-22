@@ -420,6 +420,10 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
  * conexión equivocada, porque el despacho también usa esta misma key. */
 export function pollTriggerKey(trigger: PollTrigger): string {
   if (trigger.provider === "google-sheets") return `google-sheets:${trigger.config.connectionId}`;
+  // Inbox (spec 032 §B): datos empujados desde Make/Zapier a un proxy que Hito
+  // drena. Como HubSpot/Sheets, la key incluye `connectionId` para que dos
+  // Flujos inbox con conexiones distintas no colisionen (hereda 024 §F10).
+  if (trigger.provider === "inbox") return `inbox:${trigger.config.connectionId}`;
   const objectType = trigger.config.objectType ?? "contacts";
   return `hubspot:${trigger.config.connectionId}:${objectType}`;
 }
@@ -1282,12 +1286,26 @@ async function executeOutput(
       } catch {
         host = url;
       }
+      // Spec 032 §C: capturar el status y un fragmento de la respuesta real de
+      // Make/Zapier en la traza — así "¿mi escenario recibió el webhook?" deja
+      // de ser un misterio. Nunca el secret ni el body completo (criterio 026
+      // §E / 024 §F4).
+      let responseSnippet: string;
+      try {
+        const text = await response.text();
+        responseSnippet = text.length > 200 ? `${text.slice(0, 197)}...` : text;
+      } catch {
+        responseSnippet = "";
+      }
       return {
         mutatedProjectIds: [],
         outcome: "executed",
-        // Nunca el secret ni el body completo — solo el host y las keys del
-        // payload (spec 026 §E, mismo criterio que 024 §F4).
-        resolved: { host, payloadKeys: Object.keys(payload).join(", ") },
+        resolved: {
+          host,
+          payloadKeys: Object.keys(payload).join(", "),
+          status: String(response.status),
+          ...(responseSnippet ? { response: responseSnippet } : {}),
+        },
         unresolvedTokens: unresolvedPayloadTokens.length > 0 ? unresolvedPayloadTokens : undefined,
       };
     }

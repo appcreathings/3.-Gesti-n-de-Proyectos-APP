@@ -724,6 +724,22 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
             </p>
           </div>
 
+          <div className="grid gap-2">
+            <Label>Formato del envío</Label>
+            <Select
+              value={output.payloadShape ?? "bare"}
+              onChange={(e) => onChange({ payloadShape: e.target.value as "envelope" | "bare" })}
+            >
+              <option value="envelope">Envelope firmado (recomendado)</option>
+              <option value="bare">Payload plano</option>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {(output.payloadShape ?? "bare") === "envelope"
+                ? "El body se envuelve en { eventId, eventType, timestamp, workspace, data } — verificable y con anti-replay."
+                : "El body es el payload plano. Compatible con escenarios de Make/Zapier que ya esperaban ese shape."}
+            </p>
+          </div>
+
           <RetryFields retry={output.retry} onChange={(retry) => onChange({ retry })} />
 
           <div className="grid gap-2">

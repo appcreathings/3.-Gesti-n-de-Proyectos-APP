@@ -544,6 +544,84 @@ export const DOC_MODULES: DocModule[] = [
     },
   },
   {
+    slug: "conectar-make-zapier-n8n",
+    title: "Conectar con Make, Zapier y n8n",
+    excerpt:
+      "El round-trip completo: enviar webhooks firmados verificables a Make/Zapier y recibir datos de vuelta con un inbox, sin montar un servidor.",
+    group: "plantillas-ia",
+    seo: {
+      title: "Conectar Hito con Make, Zapier y n8n — Documentación",
+      description:
+        "Cómo integrar Hito con Make, Zapier o n8n en las dos direcciones: webhooks salientes con firma HMAC verificable, y entrada de datos vía inbox-polling, todo local-first.",
+    },
+    content: {
+      eyebrow: "Plantillas, automatización e IA",
+      intro: (
+        <>
+          Hito corre <strong>en tu navegador</strong>, sin servidor propio. Eso define cómo se conecta
+          con un iPaaS como Make, Zapier o n8n: la <strong>salida</strong> (Hito → iPaaS) es un POST
+          directo firmado; la <strong>entrada</strong> (iPaaS → Hito) usa un <strong>inbox</strong> que
+          acumula lo que te empujan y que Hito drena por sondeo. Ambas direcciones sin montar
+          infraestructura.
+        </>
+      ),
+      sections: [
+        {
+          heading: "Salida: webhooks firmados y verificables",
+          body: (
+            <p>
+              La acción <strong>Webhook</strong> de un Flujo envía un POST al endpoint de tu escenario
+              (el módulo <em>Webhooks</em> de Make o el paso <em>Webhooks</em> de Zapier). En modo{" "}
+              <strong>Envelope firmado</strong> (recomendado), el body viaja envuelto en{" "}
+              <code>{"{ eventId, eventType, timestamp, workspace, data }"}</code> y se firma con
+              HMAC-SHA256 sobre <strong>los bytes exactos que se envían</strong>. Tu receptor verifica{" "}
+              <code>X-Hito-Signature</code> con el mismo secreto y rechaza lo manipulado; el header{" "}
+              <code>X-Hito-Timestamp</code> permite rechazar reenvíos (replay). El editor del webhook
+              trae la receta copy-paste de verificación para Express, Python, Zapier y Make.
+            </p>
+          ),
+        },
+        {
+          heading: "Entrada: recibir datos con un inbox",
+          body: (
+            <p>
+              Como un navegador no puede recibir webhooks pasivos, Make/Zapier hacen POST a un{" "}
+              <strong>proxy inbox</strong> tuyo (un Web App de Google Apps Script, mismo modelo que
+              HubSpot/Sheets) que <strong>acumula</strong> las entregas. Creás una conexión{" "}
+              <strong>Make/Zapier (inbox)</strong> en <Link to="/docs/ajustes-y-datos">Integraciones</Link>{" "}
+              con la URL del proxy, y en un Flujo elegís el disparador{" "}
+              <strong>"Cuando Make/Zapier envíe datos"</strong>. Hito drena el inbox en cada sondeo y
+              corre el Flujo con cada entrega como registro (con sus campos, más{" "}
+              <code>deliveryId</code> y <code>receivedAt</code>).
+            </p>
+          ),
+        },
+        {
+          heading: "Sin duplicados y con recuperación",
+          body: (
+            <p>
+              Cada entrega trae un <code>deliveryId</code> único: si un sondeo se repite, Hito no vuelve
+              a crear la tarea (deduplicación). El sondeo y el drenado del inbox corren{" "}
+              <strong>solo con Hito abierto</strong> en una pestaña; al reabrir, Hito recupera lo que
+              se acumuló mientras estuvo cerrado (catch-up), hasta el límite de retención del proxy.
+            </p>
+          ),
+        },
+        {
+          heading: "Empezar desde una plantilla",
+          body: (
+            <p>
+              En <Link to="/docs/automatizaciones-y-flujos">Flujos</Link> hay dos plantillas de
+              round-trip: <strong>"Make/Zapier → crear tarea"</strong> (entrada por inbox) y{" "}
+              <strong>"Tarea completada → avisar a Make/Zapier"</strong> (salida firmada). Se crean
+              inactivas y la validación te dice exactamente qué conexión completar antes de activar.
+            </p>
+          ),
+        },
+      ],
+    },
+  },
+  {
     slug: "dashboard-y-portafolio",
     title: "Dashboard y portafolio",
     excerpt:
