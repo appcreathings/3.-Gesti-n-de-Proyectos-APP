@@ -1,4 +1,5 @@
 import type { Trigger, PollTrigger } from "@/domain/schemas/flow";
+import type { FlowNodeData } from "@/flows/graph";
 import type { DomainEventType } from "@/automations/events";
 import { parseTokens } from "@/flows/interpolation";
 
@@ -123,6 +124,54 @@ export function validateVariables(
     }
   }
   return { valid: missing.size === 0, missing: Array.from(missing) };
+}
+
+/** Recorre recursivamente todos los valores string de un objeto (payload de
+ * output, arrays anidados, sub-objetos) invocando `visit` con cada uno. Se usa
+ * para descubrir qué tokens `{{campo}}` referencia un output sin conocer su
+ * forma exacta (spec 036 §C5). */
+function walkStrings(value: unknown, visit: (s: string) => void): void {
+  if (typeof value === "string") {
+    visit(value);
+  } else if (Array.isArray(value)) {
+    for (const v of value) walkStrings(v, visit);
+  } else if (value && typeof value === "object") {
+    for (const v of Object.values(value)) walkStrings(v, visit);
+  }
+}
+
+/** Variables que un nodo consume, para pintarlas como chips en el canvas
+ * (spec 036 §C5 / HU-06). Devuelve los paths crudos (sin `{{}}`), deduplicados,
+ * en orden de aparición:
+ *  - `condition` → el `field` comparado (path directo, no un token).
+ *  - `transform` → tokens `{{...}}` del código JS + los `source` del mapeo.
+ *  - `action` → tokens `{{...}}` de cualquier string interpolable del output
+ *    (título, mensaje, asunto, cuerpo, url, datos de persona, etc.).
+ *  - `trigger` → ninguna (es el origen de las variables, no las consume).
+ * Puro y sin DOM — testeable en unidad. */
+export function nodeUsedVariables(data: FlowNodeData): string[] {
+  const seen = new Set<string>();
+  switch (data.kind) {
+    case "condition":
+      if (data.condition.field) seen.add(data.condition.field);
+      break;
+    case "transform":
+      if (data.transformCode) {
+        for (const t of parseTokens(data.transformCode)) seen.add(t.path);
+      }
+      for (const m of data.mapping) {
+        if (m.source) seen.add(m.source);
+      }
+      break;
+    case "action":
+      walkStrings(data.output, (s) => {
+        for (const t of parseTokens(s)) seen.add(t.path);
+      });
+      break;
+    case "trigger":
+      break;
+  }
+  return Array.from(seen);
 }
 
 export type InternalEntity = "task" | "project" | "person";

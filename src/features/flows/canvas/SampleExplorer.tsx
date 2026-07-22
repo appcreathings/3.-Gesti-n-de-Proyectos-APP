@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Check, Braces, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { sampleFields, type SampleFieldInfo } from "./useSampleFields";
 
 interface Props {
   /** Registros traídos por la última "Probar conexión" del trigger. Si
@@ -14,34 +15,6 @@ interface Props {
    * cuando hay más de un registro — con uno solo no hay nada que elegir. */
   previewRecordIndex?: number;
   onPreviewRecordIndexChange?: (index: number) => void;
-}
-
-interface FieldInfo {
-  /** Path completo del campo (ej. "email", "record.email"). */
-  path: string;
-  /** Valor de ejemplo (del primer registro que lo tenga). */
-  example: string;
-  /** Tipo inferido del valor: "string" | "number" | "boolean" | "object" |
-   * "array" | "null" | "unknown". */
-  type: string;
-  /** En cuántos de los N registros aparece el campo (para detectar
-   * campos que solo a veces vienen). */
-  presence: string;
-}
-
-/** Detecta el tipo JS de un valor — usado para mostrar un ícono/tipo
- * junto al nombre del campo en el explorador. */
-function detectType(value: unknown): string {
-  if (value === null || value === undefined) return "null";
-  if (Array.isArray(value)) return "array";
-  return typeof value;
-}
-
-/** Formatea el ejemplo truncado para que quepa en la UI sin romper layout. */
-function formatExample(value: unknown): string {
-  if (value === null || value === undefined) return "(vacío)";
-  const str = typeof value === "string" ? value : JSON.stringify(value);
-  return str.length > 60 ? `${str.slice(0, 57)}...` : str;
 }
 
 /** Explorador de la muestra traída por "Probar conexión" en el nodo
@@ -64,29 +37,7 @@ export function SampleExplorer({
   const [rawOpen, setRawOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const fields = useMemo<FieldInfo[]>(() => {
-    if (!sample || sample.length === 0) return [];
-    const total = sample.length;
-    const fieldMap = new Map<string, { example: unknown; count: number; type: string }>();
-    for (const record of sample) {
-      for (const [key, value] of Object.entries(record)) {
-        const existing = fieldMap.get(key);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          fieldMap.set(key, { example: value, count: 1, type: detectType(value) });
-        }
-      }
-    }
-    return Array.from(fieldMap.entries())
-      .map(([path, info]) => ({
-        path,
-        example: formatExample(info.example),
-        type: info.type,
-        presence: `${info.count}/${total}`,
-      }))
-      .sort((a, b) => a.path.localeCompare(b.path));
-  }, [sample]);
+  const fields = useMemo<SampleFieldInfo[]>(() => sampleFields(sample), [sample]);
 
   if (!sample || sample.length === 0 || fields.length === 0) return null;
 

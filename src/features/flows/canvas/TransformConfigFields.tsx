@@ -9,7 +9,10 @@ import {
   ChevronUp,
   Wand2,
   Sparkles,
+  ExternalLink,
+  ArrowRight,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -22,6 +25,7 @@ import {
   suggestFieldMappingPairs,
   type AvailableVariable,
 } from "./variables";
+import { MDN_JS_GUIDE_URL, TRANSFORM_SNIPPETS, applySnippet } from "./transformSnippets";
 // Nota: en spec 025 §B se evaluó usar `VariableValidationHint` aquí también,
 // pero NO aplica en este paso del editor:
 //  - `mapping[*].source` es un path crudo ("amount", "properties.dealname"),
@@ -146,6 +150,9 @@ export function TransformConfigFields({ mapping, transformCode, trigger, sample,
     error?: string;
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Ejemplos de código plegados por defecto (CA-07.2) — ayuda a demanda, sin
+  // ruido para quien ya sabe qué escribir.
+  const [examplesOpen, setExamplesOpen] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
   const generateTransform = useGenerateTransform();
 
@@ -225,7 +232,15 @@ export function TransformConfigFields({ mapping, transformCode, trigger, sample,
     <div className="space-y-6">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Mapeo de campos</h3>
+          {/* CA-07.4: separación explícita entre la ruta sin código (mapeo) y
+              la avanzada (JavaScript), para que cada usuario sepa cuál es la
+              suya sin tener que probar. */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Mapeo de campos</h3>
+            <Badge variant="secondary" className="text-[10px]">
+              Sin código
+            </Badge>
+          </div>
           {hasRealSample && (
             <button
               type="button"
@@ -308,13 +323,90 @@ export function TransformConfigFields({ mapping, transformCode, trigger, sample,
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold">Transformación (código, opcional)</h3>
+      {/* CA-07.4: la línea divisoria y el encabezado marcan dónde termina la
+          ruta sin código y empieza la avanzada. */}
+      <div className="space-y-3 border-t border-border pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Transformación (código, opcional)</h3>
+            <Badge variant="outline" className="text-[10px]">
+              Avanzado
+            </Badge>
+          </div>
+          {/* CA-07.1: documentación de JavaScript, en español, en pestaña nueva. */}
+          <a
+            href={MDN_JS_GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title="Guía de JavaScript en MDN (se abre en una pestaña nueva)"
+          >
+            <ExternalLink className="size-3.5" />
+            Aprender JavaScript
+          </a>
+        </div>
         <p className="text-xs text-muted-foreground">
-          Código JavaScript para transformaciones complejas. El parámetro{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">record</code> contiene los
-          datos de entrada (ya mapeados, si hay mapeo).
+          Código JavaScript para transformaciones complejas. Si el mapeo de arriba te alcanza, no
+          necesitas esta sección.
         </p>
+
+        {/* CA-07.2: contrato explícito entra/sale — el "código a ciegas" venía
+            sobre todo de no saber qué hay que devolver. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Entra</span>
+            <code className="rounded bg-background px-1.5 py-0.5 font-mono">record</code>
+          </div>
+          <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">tu código lo modifica</span>
+          </div>
+          <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Sale</span>
+            <code className="rounded bg-background px-1.5 py-0.5 font-mono">return record;</code>
+          </div>
+        </div>
+
+        {/* CA-07.2: ejemplos plegables que se insertan con un clic. */}
+        <div className="rounded-lg border border-border">
+          <button
+            type="button"
+            onClick={() => setExamplesOpen((v) => !v)}
+            aria-expanded={examplesOpen}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs font-medium hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span>Ejemplos listos para usar</span>
+            {examplesOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </button>
+          {examplesOpen && (
+            <div className="space-y-2 border-t border-border p-3">
+              {TRANSFORM_SNIPPETS.map((s) => (
+                <div key={s.label} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-xs font-medium">{s.label}</p>
+                    <pre className="overflow-x-auto rounded bg-muted/40 p-2 text-[10px]">
+                      <code>{s.body}</code>
+                    </pre>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => onChange({ transformCode: applySnippet(transformCode, s.body) })}
+                    title={`Insertar el ejemplo "${s.label}" en el código`}
+                  >
+                    Usar
+                  </Button>
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground">
+                Los ejemplos usan nombres de campo de muestra — ajústalos a los tuyos (los ves en el
+                panel de Variables del canvas).
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
           <div className="flex items-center gap-2">

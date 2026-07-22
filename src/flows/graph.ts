@@ -56,6 +56,12 @@ export interface FlowGraphNode {
   type: FlowNodeKind;
   position: { x: number; y: number };
   data: FlowNodeData;
+  /** Los nodos trigger y transform son fijos: no se pueden borrar desde el
+   * canvas (spec 036 §B). React Flow respeta `node.deletable === false` y
+   * nunca emite el cambio de borrado por teclado para ellos. Se persiste en
+   * `flow.graph` (passthrough) — compatible hacia atrás: los flujos guardados
+   * sin este campo se normalizan al sembrar el canvas (`seedCanvasNodes`). */
+  deletable?: boolean;
 }
 export interface FlowGraphEdge {
   id: string;
@@ -109,6 +115,7 @@ export function buildGraphFromRule(rule: FlowRule): BuiltGraph {
     type: "trigger",
     position: { x: COLUMN_X.trigger, y: ROW_Y0 },
     data: { kind: "trigger", trigger: rule.trigger },
+    deletable: false,
   });
 
   rule.logic.conditions.forEach((condition, i) => {
@@ -129,6 +136,7 @@ export function buildGraphFromRule(rule: FlowRule): BuiltGraph {
       mapping: rule.logic.mapping,
       transformCode: rule.logic.transformCode,
     },
+    deletable: false,
   });
 
   rule.outputs.forEach((output, i) => {
@@ -183,6 +191,78 @@ export function graphFromPersisted(graph: FlowGraph): BuiltGraph {
     nodes: graph.nodes as unknown as FlowGraphNode[],
     edges: graph.edges as unknown as FlowGraphEdge[],
   };
+}
+
+/** Orden canónico de las columnas del pipeline — es también el orden lógico
+ * de ejecución (trigger → condiciones → transform → acciones). */
+const KIND_ORDER: Record<FlowNodeKind, number> = {
+  trigger: 0,
+  condition: 1,
+  transform: 2,
+  action: 3,
+};
+
+/** Reordena el array de nodos por columna (kind) y, dentro de cada columna,
+ * por su posición vertical (`position.y` ascendente) — así "más arriba = antes"
+ * se vuelve la fuente de verdad del orden lógico que `compileGraphToRule`
+ * deriva del orden de aparición por tipo (spec 036 §B). Se aplica al soltar un
+ * nodo (`onNodeDragStop`). No cambia posiciones ni ids: solo el orden del
+ * array. `Array.sort` es estable, así que empates de `y` conservan el orden
+ * previo. */
+export function sortNodesByColumnAndY<
+  T extends { data: FlowNodeData; position: { y: number } },
+>(nodes: T[]): T[] {
+  return [...nodes].sort((a, b) => {
+    const ka = KIND_ORDER[a.data.kind];
+    const kb = KIND_ORDER[b.data.kind];
+    if (ka !== kb) return ka - kb;
+    return a.position.y - b.position.y;
+  });
+}
+
+/** `y` de un nodo nuevo insertado desde el botón "＋" de una arista
+ * (spec 036 §B, CA-03.4). Como el orden lógico se deriva de la posición
+ * vertical (`sortNodesByColumnAndY`), basta con calcular una `y` correcta y
+ * dejar que el sort recomponga el orden del array:
+ *  - Si `targetId` pertenece a la columna `kind`, el nodo nuevo va justo
+ *    encima: punto medio con el nodo anterior de esa columna, o media fila por
+ *    encima si el target era el primero.
+ *  - Si no (típico: el transform cierra la cadena de condiciones), se apila
+ *    debajo del último nodo de la columna.
+ *  - Columna vacía → la primera fila. */
+export function insertionY(
+  nodes: FlowGraphNode[],
+  kind: "condition" | "action",
+  targetId: string,
+): number {
+  const column = nodes
+    .filter((n) => n.data.kind === kind)
+    .sort((a, b) => a.position.y - b.position.y);
+  if (column.length === 0) return ROW_Y0;
+
+  const targetIdx = column.findIndex((n) => n.id === targetId);
+  if (targetIdx === -1) return column[column.length - 1].position.y + ROW_HEIGHT;
+
+  const target = column[targetIdx];
+  const prev = column[targetIdx - 1];
+  return prev
+    ? (prev.position.y + target.position.y) / 2
+    : target.position.y - ROW_HEIGHT / 2;
+}
+
+/** Normaliza los nodos al sembrar el canvas: garantiza que trigger/transform
+ * queden `deletable: false` aunque el grafo persistido se haya guardado antes
+ * de spec 036 (retrocompat — R2). No toca condition/action (borrables por
+ * defecto en React Flow). Genérico para operar sobre `CanvasNode` o
+ * `FlowGraphNode`. */
+export function seedCanvasNodes<T extends { data: FlowNodeData; deletable?: boolean }>(
+  nodes: T[],
+): T[] {
+  return nodes.map((n) =>
+    (n.data.kind === "trigger" || n.data.kind === "transform") && n.deletable !== false
+      ? { ...n, deletable: false }
+      : n,
+  );
 }
 
 export function newConditionNode(nodes: FlowGraphNode[]): FlowGraphNode {

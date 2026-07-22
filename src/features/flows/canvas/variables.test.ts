@@ -5,9 +5,11 @@ import {
   suggestFieldMappingPairs,
   INTERNAL_TARGET_FIELDS,
   validateVariables,
+  nodeUsedVariables,
   HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE,
 } from "./variables";
 import type { Trigger } from "@/domain/schemas/flow";
+import type { FlowNodeData } from "@/flows/graph";
 
 const eventTrigger: Trigger = { type: "event", event: "task.statusChanged" };
 const pollTrigger: Trigger = {
@@ -177,5 +179,86 @@ describe("suggestFieldMappingPairs", () => {
   it("skips variables with no plausible internal match", () => {
     const pairs = suggestFieldMappingPairs([{ field: "some_random_hubspot_property" }]);
     expect(pairs).toEqual([]);
+  });
+});
+
+describe("nodeUsedVariables (spec 036 §C5)", () => {
+  it("returns the condition field (raw path, not a token)", () => {
+    const data: FlowNodeData = { kind: "condition", condition: { field: "amount", op: ">", value: 1000 } };
+    expect(nodeUsedVariables(data)).toEqual(["amount"]);
+  });
+
+  it("returns nothing for an unconfigured condition (empty field)", () => {
+    const data: FlowNodeData = { kind: "condition", condition: { field: "", op: "==", value: "" } };
+    expect(nodeUsedVariables(data)).toEqual([]);
+  });
+
+  it("returns nothing for a trigger node (it is the source of variables)", () => {
+    const data: FlowNodeData = { kind: "trigger", trigger: { type: "event", event: "task.added" } };
+    expect(nodeUsedVariables(data)).toEqual([]);
+  });
+
+  it("collects transform tokens from both the code and the mapping sources", () => {
+    const data: FlowNodeData = {
+      kind: "transform",
+      mapping: [
+        { source: "email", target: "email" },
+        { source: "properties.amount", target: "estimate" },
+        { source: "", target: "ignored" },
+      ],
+      transformCode: "record.full = `${record.firstname} {{lastname}}`; return record;",
+    };
+    const used = nodeUsedVariables(data);
+    // Token from the code + non-empty mapping sources.
+    expect(used).toContain("lastname");
+    expect(used).toContain("email");
+    expect(used).toContain("properties.amount");
+    // Empty mapping source is skipped.
+    expect(used).not.toContain("");
+  });
+
+  it("returns nothing for a transform with no code and no mapping", () => {
+    const data: FlowNodeData = { kind: "transform", mapping: [] };
+    expect(nodeUsedVariables(data)).toEqual([]);
+  });
+
+  it("collects tokens from interpolable action strings (title, message)", () => {
+    const data: FlowNodeData = {
+      kind: "action",
+      output: { type: "createTask", title: "Deal {{dealname}} — {{amount}}", projectRef: "explicit" },
+    };
+    const used = nodeUsedVariables(data);
+    expect(used.sort()).toEqual(["amount", "dealname"]);
+  });
+
+  it("walks nested action strings (createPerson.data record and arrays)", () => {
+    const data: FlowNodeData = {
+      kind: "action",
+      output: {
+        type: "createPerson",
+        matchField: "email",
+        ifNotFound: "create",
+        data: { email: "{{email}}", name: "{{firstname}} {{lastname}}" },
+      },
+    };
+    const used = nodeUsedVariables(data);
+    expect(used.sort()).toEqual(["email", "firstname", "lastname"]);
+  });
+
+  it("dedupes a token used in more than one field", () => {
+    const data: FlowNodeData = {
+      kind: "action",
+      output: { type: "email", connectionId: "c", to: "{{email}}", subject: "Hi {{name}}", body: "{{name}} — {{email}}" },
+    };
+    const used = nodeUsedVariables(data);
+    expect(used.sort()).toEqual(["email", "name"]);
+  });
+
+  it("returns nothing when action strings have no tokens", () => {
+    const data: FlowNodeData = {
+      kind: "action",
+      output: { type: "createNotification", severity: "info", message: "Static message" },
+    };
+    expect(nodeUsedVariables(data)).toEqual([]);
   });
 });
