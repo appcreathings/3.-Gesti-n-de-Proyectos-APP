@@ -111,4 +111,49 @@ describe("buildWebhookRequest", () => {
     const tampered = JSON.stringify({ amount: 999999 });
     expect(await verifyRaw(tampered, "s", request.signature)).toBe(false);
   });
+
+  // Spec 034 §A — webhook "limpio": sin secreto ⇒ sin firma ni headers X-Hito-*.
+  it("does not sign and sends no X-Hito-* headers when the secret is empty", async () => {
+    const output: WebhookOutput = { type: "webhook", url: "https://x.co/h", secret: "" };
+    const request = await buildWebhookRequest(output, { name: "ACME", amount: 5000 });
+
+    const headers = request.init.headers as Record<string, string>;
+    expect(request.signature).toBe("");
+    expect(headers["X-Hito-Signature"]).toBeUndefined();
+    expect(headers["X-Hito-Event"]).toBeUndefined();
+    expect(headers["X-Hito-Delivery"]).toBeUndefined();
+    expect(headers["X-Hito-Timestamp"]).toBeUndefined();
+    // Solo Content-Type + el body plano exacto.
+    expect(Object.keys(headers)).toEqual(["Content-Type"]);
+    expect(headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(request.init.body as string)).toEqual({ name: "ACME", amount: 5000 });
+  });
+
+  it("treats a whitespace-only secret as empty (no signature)", async () => {
+    const output: WebhookOutput = { type: "webhook", url: "https://x.co/h", secret: "   " };
+    const request = await buildWebhookRequest(output, { a: 1 });
+
+    const headers = request.init.headers as Record<string, string>;
+    expect(request.signature).toBe("");
+    expect(headers["X-Hito-Signature"]).toBeUndefined();
+  });
+
+  it("still sends the envelope shape when unsigned but omits the signature headers", async () => {
+    const output: WebhookOutput = {
+      type: "webhook",
+      url: "https://x.co/h",
+      secret: "",
+      payloadShape: "envelope",
+    };
+    const request = await buildWebhookRequest(output, { taskId: "t1" });
+
+    const headers = request.init.headers as Record<string, string>;
+    expect(headers["X-Hito-Signature"]).toBeUndefined();
+    // El envelope se arma igual (eventId/timestamp/data) — solo falta la firma.
+    expect(JSON.parse(request.rawBody)).toMatchObject({
+      eventType: "flow.execution",
+      workspace: { org: "Hito" },
+      data: { taskId: "t1" },
+    });
+  });
 });

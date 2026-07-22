@@ -61,10 +61,15 @@ export function defaultOutputForType(type: Output["type"]): Output {
     case "createNotification":
       return { type: "createNotification", severity: "info", message: "" };
     case "webhook":
-      // Los webhooks nuevos nacen en modo "envelope" (firma verificable +
-      // anti-replay, spec 032 §A); los guardados antes de 032 se tratan como
-      // "bare" por el default del schema (ausente = "bare").
-      return { type: "webhook", url: "", secret: "", payloadShape: "envelope" };
+      // Los webhooks nuevos nacen en modo "Simple" (payload plano, sin firma,
+      // spec 034 §A) — la config que "just works" con un Catch Hook de
+      // Make/Zapier. Revierte el default "envelope" de spec 032: la fricción
+      // del envelope + firma en el primer contacto supera su beneficio (que la
+      // mayoría no configura). Firmar/envelope quedan como upgrade explícito en
+      // el drawer. Retrocompat: los webhooks YA guardados conservan su
+      // `payloadShape`/`secret` persistidos — el motor lee el valor del output,
+      // no este default.
+      return { type: "webhook", url: "", secret: "", payloadShape: "bare" };
     case "email":
       return { type: "email", connectionId: "", to: "", subject: "", body: "" };
     case "setField":

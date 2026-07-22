@@ -11,20 +11,19 @@ final.
 
 ## Fase A — Webhook limpio (firma opcional + plano por defecto)
 
-- [ ] **T3400** — `src/flows/webhook-request.ts`: secreto vacío ⇒ no firmar y no emitir headers
-  `X-Hito-*`; solo `Content-Type` + body. `signature`/`deliveryId`/`timestamp` opcionales en
-  `WebhookRequest`.
-- [ ] **T3401** — `src/features/flows/canvas/meta.ts`: `defaultOutput("webhook")` →
+- [x] **T3400** — `src/flows/webhook-request.ts`: secreto vacío ⇒ no firmar y no emitir headers
+  `X-Hito-*`; solo `Content-Type` + body. `signature` = "" cuando no se firma en `WebhookRequest`.
+- [x] **T3401** — `src/features/flows/canvas/meta.ts`: `defaultOutput("webhook")` →
   `{ url:"", secret:"", payloadShape:"bare" }` (revierte el default envelope de 032 para nuevos; los
   guardados conservan el suyo).
-- [ ] **T3402** — `src/features/flows/canvas/ActionConfigFields.tsx`: preset **Simple** / **Firmado**
-  (deriva de `secret`+`payloadShape`); Simple oculta/limpia Secret, Firmado lo muestra con generador +
-  link a la guía de verificación.
-- [ ] **T3403** — Verificar `webhook-test.ts` y el replay de `DeliveryDetailDrawer` toleran ausencia de
-  firma (secreto vacío).
-- [ ] **T3404** — Tests `webhook-request.test.ts`: secreto vacío ⇒ sin `X-Hito-Signature`, body plano;
-  con secreto ⇒ `verifyRaw` true (baseline 032); default `meta` = bare/sin secreto; retrocompat de un
-  output con `payloadShape` persistido.
+- [x] **T3402** — `src/features/flows/canvas/ActionConfigFields.tsx`: preset **Simple** / **Firmado**
+  (deriva de `secret`); Simple limpia Secret + `payloadShape:"bare"`, Firmado muestra Secret con
+  generador + link a la guía de verificación + `payloadShape:"envelope"`.
+- [x] **T3403** — Verificado: `webhook-test.ts` (pasa `signature` tal cual) y el replay de
+  `DeliveryDetailDrawer` (usa `req.init` spread + `output.secret`) toleran firma ausente (secreto vacío).
+- [x] **T3404** — Tests `webhook-request.test.ts`: secreto vacío ⇒ sin `X-Hito-Signature`, solo
+  `Content-Type` + body plano; whitespace-only = vacío; envelope sin firma; con secreto ⇒ `verifyRaw`
+  true (baseline 032). `meta.test.ts`: default = bare/sin secreto.
 
 ## Fase B — Suscripciones sin vault + arreglar desencriptado
 

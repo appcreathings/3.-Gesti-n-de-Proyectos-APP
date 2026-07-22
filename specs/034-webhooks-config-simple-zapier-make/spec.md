@@ -2,12 +2,28 @@
 
 ## Progreso
 
-- **Estado general: 🟦 SOLO DOCUMENTADO (2026-07-22).** Nace de un reporte del usuario tras usar los
+- **Estado general: 🟨 EN EJECUCIÓN (2026-07-22).** Nace de un reporte del usuario tras usar los
   webhooks con Zapier/Make: **(1) los datos llegan con una forma distinta a la esperada, (2) la lógica
   de desencriptado da error, y (3) falta una forma de configurar un webhook "limpio" sin encriptación
   para el primer contacto.** Se auditó el código real de los dos caminos de webhook saliente que hoy
-  coexisten (Flow webhook output + suscripciones legacy) y la guía existente. No se tocó `src/`; toda la
-  implementación queda para una conversación de ejecución.
+  coexisten (Flow webhook output + suscripciones legacy) y la guía existente.
+
+- **✅ Fase A — Webhook limpio (2026-07-22).** Firma opcional: `webhook-request.ts` con secreto vacío
+  (o whitespace) NO firma y NO emite headers `X-Hito-*` — solo `Content-Type` + body (plano o envelope
+  según `payloadShape`); `signature = ""`. Con secreto ⇒ firma verificable de 032 intacta. Default de
+  webhooks nuevos revertido a Simple (`meta.ts`: `payloadShape:"bare"`, `secret:""`); los guardados
+  conservan su valor persistido (retrocompat total — el motor lee el output). UI: preset **Simple** /
+  **Firmado** en `ActionConfigFields` (deriva de `secret`); Simple limpia el secreto + payload plano,
+  Firmado revela Secret con "Generar" + link a la guía de verificación + envelope. `webhook-test.ts` y
+  el replay de `DeliveryDetailDrawer` ya toleran firma ausente.
+  - **Archivos:** `src/flows/webhook-request.ts`, `src/features/flows/canvas/meta.ts`,
+    `src/features/flows/canvas/ActionConfigFields.tsx`.
+  - **Tests:** `webhook-request.test.ts` (+3: sin firma/plano, whitespace = vacío, envelope sin firma),
+    `meta.test.ts` (nuevo: default bare/sin secreto). **634/634** (629 baseline + 5).
+  - **Verificación:** `tsc --noEmit` ✅ · `eslint .` ✅ (3 errores preexistentes ajenos, sin nuevos) ·
+    `vitest run` ✅ 634/634 · `vite build` ✅.
+  - **Pendiente del usuario (E2E manual, no automatizable aquí):** crear un webhook Simple →
+    `webhook.site`/Catch Hook real de Zapier/Make → confirmar payload plano SIN `X-Hito-Signature`.
 
 ## Context
 
@@ -77,7 +93,7 @@ silencioso deje de existir.
 
 ## Fase A — Modo "webhook limpio": firma opcional y payload plano por defecto
 
-**Estado:** 🟡 Parcial — el output webhook existe pero fuerza firma y default envelope.
+**Estado:** ✅ Implementado (2026-07-22) — firma opcional + default Simple. Ver Progreso.
 
 **Problema actual:** gaps de shape y de firma del Camino 1.
 

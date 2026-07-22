@@ -25,6 +25,12 @@ import { deriveAvailableVariables, INTERNAL_TARGET_FIELDS } from "./variables";
 import { InterpolableField } from "./InterpolableField";
 import { WebhookSignatureGuide } from "./WebhookSignatureGuide";
 
+/** Secreto HMAC estilo `whsec_…` para el modo Firmado (spec 034 §A) — mismo
+ * formato que genera `WebhookSubscriptionDialog`. */
+function generateWebhookSecret(): string {
+  return `whsec_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
+}
+
 interface Props {
   output: Output;
   trigger: Trigger;
@@ -673,6 +679,8 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
       );
 
     case "webhook": {
+      // Preset derivado (spec 034 §A): con secreto ⇒ Firmado, sin secreto ⇒ Simple.
+      const webhookSigned = output.secret.trim().length > 0;
       const payloadMode: "full" | "custom" = output.payload ? "custom" : "full";
       const payloadEntries = payloadRows;
       const updatePayloadEntries = (entries: [string, string][]) => {
@@ -705,40 +713,68 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
             )}
           </div>
           <div className="grid gap-2">
-            <Label>Secret</Label>
-            <Input
-              type="password"
-              value={output.secret}
-              onChange={(e) => onChange({ secret: e.target.value })}
-              placeholder="whsec_..."
-            />
+            <Label>Formato del envío</Label>
+            {/* Preset Simple/Firmado (spec 034 §A): se deriva de `secret` — sin
+                secreto = webhook limpio (plano, sin headers de firma), que es lo
+                que un Catch Hook de Make/Zapier espera en el primer intento;
+                con secreto = envelope firmado con HMAC (upgrade opt-in). */}
+            <Select
+              value={webhookSigned ? "signed" : "simple"}
+              onChange={(e) => {
+                if (e.target.value === "simple") {
+                  // Modo Simple: limpiar el secreto (⇒ sin firma) y payload plano.
+                  onChange({ secret: "", payloadShape: "bare" });
+                } else {
+                  // Modo Firmado: generar un secreto si no hay + envelope.
+                  onChange({
+                    secret: output.secret.trim() || generateWebhookSecret(),
+                    payloadShape: "envelope",
+                  });
+                }
+              }}
+            >
+              <option value="simple">Simple — payload plano, sin firma (recomendado para empezar)</option>
+              <option value="signed">Firmado — envelope verificable (HMAC)</option>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              Se usa para firmar el payload con HMAC-SHA256.{" "}
-              <button
-                type="button"
-                onClick={() => setSignatureGuideOpen(true)}
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                ¿Cómo verifico esta firma?
-              </button>
+              {webhookSigned
+                ? "El body se envuelve en { eventId, eventType, timestamp, workspace, data } y se firma con HMAC-SHA256 (headers X-Hito-*). Verificable y con anti-replay."
+                : "Se envía el payload plano tal cual, sin headers de firma. Es lo que un Catch Hook de Make/Zapier espera en el primer intento."}
             </p>
           </div>
 
-          <div className="grid gap-2">
-            <Label>Formato del envío</Label>
-            <Select
-              value={output.payloadShape ?? "bare"}
-              onChange={(e) => onChange({ payloadShape: e.target.value as "envelope" | "bare" })}
-            >
-              <option value="envelope">Envelope firmado (recomendado)</option>
-              <option value="bare">Payload plano</option>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {(output.payloadShape ?? "bare") === "envelope"
-                ? "El body se envuelve en { eventId, eventType, timestamp, workspace, data } — verificable y con anti-replay."
-                : "El body es el payload plano. Compatible con escenarios de Make/Zapier que ya esperaban ese shape."}
-            </p>
-          </div>
+          {webhookSigned && (
+            <div className="grid gap-2">
+              <Label>Secret</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  value={output.secret}
+                  onChange={(e) => onChange({ secret: e.target.value })}
+                  placeholder="whsec_..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onChange({ secret: generateWebhookSecret() })}
+                >
+                  Generar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se usa para firmar el payload con HMAC-SHA256. Pegá el mismo valor en tu verificador.{" "}
+                <button
+                  type="button"
+                  onClick={() => setSignatureGuideOpen(true)}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  ¿Cómo verifico esta firma?
+                </button>
+              </p>
+            </div>
+          )}
 
           <RetryFields retry={output.retry} onChange={(retry) => onChange({ retry })} />
 
