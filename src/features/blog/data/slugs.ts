@@ -15,4 +15,5 @@ export const BLOG_SLUGS = [
   "hito-vs-clickup",
   "como-priorizar-tareas",
   "prompts-gestion-proyectos-ia",
+  "rag-local-explicado",
 ] as const;
