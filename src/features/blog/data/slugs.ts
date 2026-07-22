@@ -16,4 +16,5 @@ export const BLOG_SLUGS = [
   "como-priorizar-tareas",
   "prompts-gestion-proyectos-ia",
   "rag-local-explicado",
+  "hito-para-estudio-juridico",
 ] as const;
