@@ -160,7 +160,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
     id: "project-created-webhook",
     name: "Proyecto creado → webhook",
     description:
-      "Notifica a un sistema externo (Zapier, Make, tu API) cada vez que se crea un proyecto, con payload firmado.",
+      "Notifica a un sistema externo (Zapier, Make, tu API) cada vez que se crea un proyecto. Empieza en modo Simple (payload plano); podés añadir un secreto para firmarlo.",
     category: "Interno",
     requires: [],
     build: () => ({

@@ -25,6 +25,33 @@
   - **Pendiente del usuario (E2E manual, no automatizable aquí):** crear un webhook Simple →
     `webhook.site`/Catch Hook real de Zapier/Make → confirmar payload plano SIN `X-Hito-Signature`.
 
+- **✅ Fase B — Suscripciones sin vault + fin del desencriptado silencioso (2026-07-22).** Se abandona
+  el cifrado del secreto de suscripción: `WebhookSubscription.encryptedSecret` → `secret?` en claro +
+  `needsReconnect?` (Dexie `hito-integrations` v3). `migrateWebhookSubscriptionSecrets()` (dispatcher,
+  invocada en `App.tsx` tras `restoreFromPersistence()`) descifra las suscripciones v2 una sola vez con
+  el vault desbloqueado, o marca `needsReconnect` conservando `encryptedSecret` para reintentar. El
+  `dispatcher` ya NO desencripta ni descarta en silencio: firma solo si hay secreto y registra el fallo
+  de `needsReconnect` en `syncLogs` (033 A1). `retry-engine` manda `X-Hito-Signature` solo si la entrega
+  la trae. `WebhookSubscriptionDialog` pierde el gate de vault y el `encrypt`: Secret editable/opcional
+  con Generar/Copiar + preset Simple/Firmado + reingreso si `needsReconnect`; `IntegrationsPage` muestra
+  un badge "Reconfigurar secreto". `validation.ts` deja de marcar warning por secreto vacío (Simple es
+  el modo recomendado).
+  - **Archivos:** `src/storage/integration-db.ts`, `src/integrations/outbound/dispatcher.ts`,
+    `src/integrations/outbound/retry-engine.ts`, `src/App.tsx`,
+    `src/features/integrations/WebhookSubscriptionDialog.tsx`,
+    `src/features/integrations/IntegrationsPage.tsx`, `src/flows/validation.ts`, `src/flows/templates.ts`.
+  - **Tests:** `dispatcher.test.ts` reescrito (sin/con secreto, `needsReconnect` loguea, migración
+    con/sin vault/decrypt-falla/idempotente), `validation.test.ts` y `templates.test.ts` actualizados
+    (sin warning por secreto vacío). **640/640**.
+  - **Verificación:** `tsc --noEmit` ✅ · `eslint .` ✅ (3 errores preexistentes ajenos) ·
+    `vitest run` ✅ 640/640 · `vite build` ✅.
+  - **Nota de seguridad:** el secreto en claro vive en Dexie (IndexedDB local) — aceptable para una
+    clave HMAC de webhook en una app local-first mono-usuario; no es un token de acceso a datos. Los
+    secretos de proveedores reales (HubSpot token) siguen cifrados en `IntegrationConnection`.
+  - **Pendiente del usuario (E2E manual):** con el vault bloqueado, disparar una suscripción migrada →
+    confirmar que el webhook SALE (ya no se descarta); una suscripción `needsReconnect` → confirmar el
+    error visible en SyncLogsPage.
+
 ## Context
 
 Hoy existen **dos superficies distintas para enviar webhooks**, con modelos incompatibles — y esa
@@ -130,7 +157,7 @@ esperan"). Esfuerzo bajo-medio.
 
 ## Fase B — Arreglar el desencriptado silencioso y quitar la fricción del vault
 
-**Estado:** 🟡 Bug de correctitud (Camino 2) — el webhook se descarta si el vault está bloqueado.
+**Estado:** ✅ Implementado (2026-07-22) — secreto en claro, sin descarte silencioso. Ver Progreso.
 
 **Problema actual:** gaps del Camino 2 (desencriptado + fricción de vault).
 

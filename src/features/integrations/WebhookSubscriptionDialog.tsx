@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, CheckCircle2 } from "lucide-react";
+import { Copy, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogBody,
@@ -11,8 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useVaultStore } from "@/integrations/vault";
 import {
   createWebhookSubscription,
   updateWebhookSubscription,
@@ -28,6 +28,10 @@ interface Props {
   onSaved: () => void;
 }
 
+function generateSecret(): string {
+  return `whsec_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
+}
+
 export function WebhookSubscriptionDialog({
   open,
   onOpenChange,
@@ -41,18 +45,25 @@ export function WebhookSubscriptionDialog({
   const [copied, setCopied] = useState(false);
   const [signatureGuideOpen, setSignatureGuideOpen] = useState(false);
 
+  // Spec 034 §B: si la migración no pudo descifrar el secreto (vault bloqueado),
+  // la suscripción quedó `needsReconnect` — pedir reingresarlo.
+  const needsReconnect = Boolean(subscription?.needsReconnect);
+
   useEffect(() => {
     if (open) {
       setName(subscription?.name ?? "");
       setUrl(subscription?.url ?? "");
       setEvents(subscription?.events ?? []);
-      setSecret(subscription ? "••••••••••••" : generateSecret());
+      // Modo Simple por defecto (spec 034 §A): sin secreto = webhook limpio.
+      // Al editar, prefill con el secreto en claro guardado; si `needsReconnect`
+      // no hay secreto recuperable, arrancar vacío para que se reingrese.
+      setSecret(needsReconnect ? "" : subscription?.secret ?? "");
+      setCopied(false);
     }
-  }, [open, subscription]);
+  }, [open, subscription, needsReconnect]);
 
-  function generateSecret(): string {
-    return `whsec_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
-  }
+  // Preset derivado (spec 034 §A): con secreto ⇒ Firmado, sin secreto ⇒ Simple.
+  const signed = secret.trim().length > 0;
 
   async function handleCopySecret() {
     await navigator.clipboard.writeText(secret);
@@ -63,34 +74,30 @@ export function WebhookSubscriptionDialog({
   async function handleSubmit() {
     if (!name.trim() || !url.trim() || events.length === 0) return;
 
+    // Secreto en claro (spec 034 §B): sin cifrado ni gate de vault. Sin secreto
+    // ⇒ webhook limpio sin firma. Guardar siempre limpia `needsReconnect`.
+    const secretValue = signed ? secret.trim() : undefined;
+
     if (subscription) {
-      // El campo "secret" se muestra enmascarado y es de solo lectura al
-      // editar (no hay forma de regenerarlo desde este diálogo todavía).
-      // Nunca reescribir `encryptedSecret`: hacerlo cifraría la máscara
-      // literal y rompería la verificación de firma en el receptor.
       await updateWebhookSubscription(subscription.id, {
         name: name.trim(),
         url: url.trim(),
         events,
+        secret: secretValue,
+        needsReconnect: false,
       });
       onSaved();
       onOpenChange(false);
       return;
     }
 
-    const isUnlocked = useVaultStore.getState().isUnlocked;
-    if (!isUnlocked) {
-      alert("Desbloquea el vault para guardar credenciales");
-      return;
-    }
-
-    const encryptedSecret = await useVaultStore.getState().encrypt(secret);
     await createWebhookSubscription({
       id: crypto.randomUUID(),
       name: name.trim(),
       url: url.trim(),
       events,
-      encryptedSecret,
+      secret: secretValue,
+      needsReconnect: false,
       filters: {},
       enabled: true,
     });
@@ -116,6 +123,14 @@ export function WebhookSubscriptionDialog({
 
         <DialogBody>
           <div className="space-y-4">
+            {needsReconnect && (
+              <p className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                El secreto de firma no se pudo recuperar en la migración (el vault estaba bloqueado).
+                Reingresá el secreto abajo, o pasá a modo Simple si no necesitás firma.
+              </p>
+            )}
+
             <div className="grid gap-2">
               <Label htmlFor="ws-name">Nombre</Label>
               <Input
@@ -152,28 +167,59 @@ export function WebhookSubscriptionDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label>Secret (para verificar firma)</Label>
-              <div className="flex gap-2">
-                <Input value={secret} readOnly className="font-mono text-xs" />
-                <Button variant="outline" size="sm" onClick={handleCopySecret}>
-                  {copied ? (
-                    <CheckCircle2 className="size-4 text-success" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </Button>
-              </div>
+              <Label>Formato del envío</Label>
+              {/* Preset Simple/Firmado (spec 034 §A/§B): sin secreto = webhook
+                  limpio (lo que un Catch Hook espera al primer intento); con
+                  secreto = firma HMAC opt-in. */}
+              <Select
+                value={signed ? "signed" : "simple"}
+                onChange={(e) =>
+                  setSecret(e.target.value === "simple" ? "" : secret.trim() || generateSecret())
+                }
+              >
+                <option value="simple">Simple — sin firma (recomendado para empezar)</option>
+                <option value="signed">Firmado — con secreto HMAC</option>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                Este secret se usa para firmar los payloads con HMAC-SHA256.{" "}
-                <button
-                  type="button"
-                  onClick={() => setSignatureGuideOpen(true)}
-                  className="text-primary underline-offset-2 hover:underline"
-                >
-                  ¿Cómo verifico esta firma?
-                </button>
+                {signed
+                  ? "Cada entrega se firma con HMAC-SHA256 (header X-Hito-Signature). Pegá el mismo secreto en tu verificador."
+                  : "Se envía sin firma. Es lo que un Catch Hook de Make/Zapier espera al conectar por primera vez."}
               </p>
             </div>
+
+            {signed && (
+              <div className="grid gap-2">
+                <Label>Secret (para verificar firma)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={secret}
+                    onChange={(e) => setSecret(e.target.value)}
+                    className="flex-1 font-mono text-xs"
+                    placeholder="whsec_..."
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setSecret(generateSecret())}>
+                    Generar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCopySecret}>
+                    {copied ? (
+                      <CheckCircle2 className="size-4 text-success" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Este secret firma los payloads con HMAC-SHA256.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setSignatureGuideOpen(true)}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    ¿Cómo verifico esta firma?
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
         </DialogBody>
 

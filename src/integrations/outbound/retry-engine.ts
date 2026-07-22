@@ -44,14 +44,19 @@ async function processOutboundQueue(): Promise<void> {
     try {
       const payload = JSON.parse(delivery.payload) as OutboundPayload;
 
+      // Spec 034 §B: `X-Hito-Signature` solo si la entrega trae firma. Una
+      // suscripción sin secreto (modo Simple) encola `signature: ""` ⇒ webhook
+      // plano, sin header de firma (coherente con Fase A).
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-Hito-Event": delivery.payload ? payload.eventType : "",
+        "X-Hito-Delivery-Id": delivery.id,
+      };
+      if (delivery.signature) headers["X-Hito-Signature"] = delivery.signature;
+
       const response = await fetch(delivery.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Hito-Signature": delivery.signature,
-          "X-Hito-Event": delivery.payload ? payload.eventType : "",
-          "X-Hito-Delivery-Id": delivery.id,
-        },
+        headers,
         body: delivery.payload,
         signal: AbortSignal.timeout(10_000),
       });

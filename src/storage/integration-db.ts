@@ -47,7 +47,19 @@ export interface WebhookSubscription {
   id: string;
   name: string;
   url: string;
-  encryptedSecret: EncryptedPayload;
+  /** Secreto de firma HMAC en claro (spec 034 §B), opcional. Sin secreto ⇒
+   *  webhook limpio sin firma (coherente con Fase A). Antes era
+   *  `encryptedSecret: EncryptedPayload` cifrado con el vault; se abandonó el
+   *  cifrado porque una clave HMAC compartida (que el usuario también pega en
+   *  Make/Zapier) no amerita la fricción del vault ni el fallo silencioso al
+   *  desencriptar. `migrateWebhookSubscriptionSecrets()` (dispatcher) descifra
+   *  las suscripciones v2 al arranque. NO se incluye en el export de workspace
+   *  (mismo criterio que 024 §F14 / 033 C4). */
+  secret?: string;
+  /** `true` si la migración v2→claro no pudo descifrar el secreto porque el
+   *  vault estaba bloqueado: la UI pide reingresarlo y el dispatcher registra
+   *  el fallo en `syncLogs` en vez de firmar con un secreto inválido. */
+  needsReconnect?: boolean;
   events: string[];
   filters: {
     projectIds?: string[];
@@ -127,6 +139,17 @@ export class IntegrationDatabase extends Dexie {
     // romper el esquema Dexie ya publicado en navegadores de usuarios reales.
     this.version(2).stores({
       integrationConnections: "id, provider, enabled",
+    });
+
+    // v3 (spec 034 §B): `WebhookSubscription.encryptedSecret` → `secret?`
+    // (claro) + `needsReconnect?`. Ninguno de esos campos está indexado, así
+    // que el string de `stores` no cambia — se re-declara la tabla solo para
+    // marcar la evolución del esquema. El descifrado one-shot de los secretos
+    // v2 NO va aquí (el `upgrade` de Dexie es sync y el vault es async): vive en
+    // `migrateWebhookSubscriptionSecrets()`, invocada en el bootstrap tras
+    // restaurar el vault.
+    this.version(3).stores({
+      webhookSubscriptions: "id, enabled, *events",
     });
   }
 }

@@ -27,19 +27,24 @@ final.
 
 ## Fase B — Suscripciones sin vault + arreglar desencriptado
 
-- [ ] **T3410** — `src/storage/integration-db.ts`: `WebhookSubscription.encryptedSecret` →
-  `secret?: string` + `needsReconnect?: boolean`; Dexie `this.version(3)` con el nuevo store.
-- [ ] **T3411** — `migrateWebhookSubscriptionSecrets()` (arranque, tras restaurar el vault): descifra las
-  suscripciones existentes a `secret` en claro si el vault está desbloqueado; si no, `needsReconnect:true`.
-- [ ] **T3412** — `src/integrations/outbound/dispatcher.ts`: quitar `decrypt`; firmar solo si hay
-  `secret` (con `signRaw`); si `needsReconnect`/falla, registrar `syncLogs` (033 A1) en vez de `continue`
-  mudo.
-- [ ] **T3413** — `retry-engine.ts`: enviar `X-Hito-Signature` solo si la entrega la trae (webhook plano
-  cuando no hay secreto).
-- [ ] **T3414** — `src/features/integrations/WebhookSubscriptionDialog.tsx`: quitar el gate de vault y el
-  `encrypt`; Secret editable/opcional con generador; preset Simple/Firmado; reingreso si `needsReconnect`.
-- [ ] **T3415** — Tests `dispatcher.test.ts`: sin secreto ⇒ sin firma, se encola; con secreto ⇒ firma;
-  `needsReconnect` ⇒ log de error, no silencio; migración cifrado→claro (con/sin vault).
+- [x] **T3410** — `src/storage/integration-db.ts`: `WebhookSubscription.encryptedSecret` →
+  `secret?: string` + `needsReconnect?: boolean`; Dexie `this.version(3)` (re-declara el store, sin
+  cambio de índices).
+- [x] **T3411** — `migrateWebhookSubscriptionSecrets()` (dispatcher, llamada en `App.tsx` tras
+  `restoreFromPersistence()`): descifra las suscripciones v2 a `secret` en claro con vault desbloqueado
+  (reescribe con `put`, sin `encryptedSecret`); vault bloqueado ⇒ `needsReconnect:true` conservando
+  `encryptedSecret` para reintentar. Idempotente.
+- [x] **T3412** — `src/integrations/outbound/dispatcher.ts`: sin `decrypt`; firma solo si hay `secret`
+  (`signPayload`); `needsReconnect` ⇒ `logDispatchFailure` en `syncLogs` (033 A1) en vez de `continue`
+  mudo. Extra: `validation.ts` deja de marcar warning por secreto vacío (Simple es válido).
+- [x] **T3413** — `retry-engine.ts`: `X-Hito-Signature` solo si la entrega trae firma (webhook plano
+  cuando `signature === ""`).
+- [x] **T3414** — `src/features/integrations/WebhookSubscriptionDialog.tsx`: sin gate de vault ni
+  `encrypt`; Secret editable/opcional con "Generar"/"Copiar"; preset Simple/Firmado; aviso + reingreso
+  si `needsReconnect`. `IntegrationsPage` muestra badge "Reconfigurar secreto".
+- [x] **T3415** — Tests `dispatcher.test.ts`: sin secreto ⇒ sin firma, se encola; con secreto ⇒ firma
+  verificable; `needsReconnect` ⇒ log de error, no silencio; migración cifrado→claro (vault
+  desbloqueado/bloqueado/decrypt falla/idempotente).
 
 ## Fase C — Vista previa exacta del payload
 

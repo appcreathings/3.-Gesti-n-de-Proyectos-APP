@@ -221,18 +221,24 @@ export function App() {
         { startOutboundProcessor },
         { maybeRunMaintenance },
         { useVaultStore },
+        { migrateWebhookSubscriptionSecrets },
       ] = await Promise.all([
         import("@/integrations/vault-auto-lock"),
         import("@/integrations/polling/visibility-aware"),
         import("@/integrations/outbound/retry-engine"),
         import("@/integrations/maintenance"),
         import("@/integrations/vault"),
+        import("@/integrations/outbound/dispatcher"),
       ]);
 
       // Reimport a persisted vault key (session/always mode, spec 023 §A)
       // before arming the auto-lock timer, so a reload doesn't force the
       // user to re-enter the passphrase when they opted into persistence.
       await useVaultStore.getState().restoreFromPersistence();
+      // Spec 034 §B: migrar los secretos de webhook cifrados (v2) a claro una
+      // sola vez, ahora que el vault ya pudo restaurarse. Si sigue bloqueado,
+      // marca las suscripciones `needsReconnect` sin romperlas.
+      await migrateWebhookSubscriptionSecrets();
       initVaultAutoLock();
       initVisibilityAwarePolling();
       startOutboundProcessor();

@@ -163,14 +163,9 @@ export function validateFlow(flow: FlowRule, deps: ValidateFlowDeps): FlowIssue[
             });
           }
         }
-        if (!output.secret.trim()) {
-          issues.push({
-            severity: "warning",
-            nodeKind: "action",
-            outputIndex: i,
-            message: `${label}: sin secret — el receptor no podrá verificar la firma HMAC.`,
-          });
-        }
+        // Sin secret ya NO es un warning (spec 034 §A): el modo Simple (payload
+        // plano, sin firma) es el recomendado para empezar con Make/Zapier.
+        // Firmar es un upgrade opt-in, no un requisito.
         break;
       }
 

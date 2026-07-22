@@ -214,6 +214,11 @@ export function IntegrationsPage() {
                             ))}
                           </div>
                         </div>
+                        {sub.needsReconnect && (
+                          <Badge variant="warning" className="text-[10px]">
+                            Reconfigurar secreto
+                          </Badge>
+                        )}
                         <Badge variant={sub.enabled ? "success" : "outline"} className="text-[10px]">
                           {sub.enabled ? "Activo" : "Inactivo"}
                         </Badge>

@@ -59,16 +59,16 @@ describe("validateFlow (spec 027 §A)", () => {
     expect(issues[0]).toMatchObject({ severity: "error", nodeKind: "flow" });
   });
 
-  it("flags a webhook without URL as error and without secret as warning", () => {
+  it("flags a webhook without URL as error; an empty secret is NOT flagged (spec 034 §A: modo Simple)", () => {
     const flow = makeFlow({
       outputs: [{ type: "webhook", url: "", secret: "" }],
     });
     const issues = validateFlow(flow, deps);
     expect(flowErrors(issues)).toHaveLength(1);
     expect(flowErrors(issues)[0]).toMatchObject({ nodeKind: "action", outputIndex: 0 });
+    // El modo Simple (sin secreto) es válido y recomendado — sin warnings.
     const warnings = issues.filter((i) => i.severity === "warning");
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0].message).toContain("secret");
+    expect(warnings).toHaveLength(0);
   });
 
   it("flags an unparseable webhook URL as error", () => {

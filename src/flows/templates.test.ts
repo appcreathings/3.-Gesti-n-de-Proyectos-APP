@@ -63,11 +63,12 @@ describe("FLOW_TEMPLATES (spec 027 §C)", () => {
     }
   );
 
-  it("the webhook template warns about the empty secret (never blocks)", () => {
+  it("the webhook template no marca warning por secreto vacío (modo Simple, spec 034 §A)", () => {
     const template = FLOW_TEMPLATES.find((t) => t.id === "project-created-webhook")!;
     const issues = validateFlow(template.build(), { projects: [] });
+    // El modo Simple (sin secreto) es válido — ya no hay warning de "sin secret".
     const warnings = issues.filter((i) => i.severity === "warning");
-    expect(warnings.some((w) => w.message.includes("secret"))).toBe(true);
+    expect(warnings.some((w) => w.message.includes("secret"))).toBe(false);
   });
 
   it("featuredTemplates returns 3 existing templates for the empty state", () => {
