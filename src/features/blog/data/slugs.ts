@@ -12,4 +12,5 @@ export const BLOG_SLUGS = [
   "que-es-mcp",
   "local-first-guia-definitiva-2026",
   "versionar-proyectos-con-git",
+  "hito-vs-clickup",
 ] as const;
