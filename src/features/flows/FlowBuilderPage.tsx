@@ -26,6 +26,8 @@ import {
   type BuiltGraph,
 } from "@/flows/graph";
 import { validateFlow, flowErrors, type FlowIssue } from "@/flows/validation";
+import { projectTrace } from "@/flows/trace-projection";
+import type { FlowRunTrace } from "@/flows/engine";
 import { FlowCanvas } from "./canvas/FlowCanvas";
 import { DebuggerPanel } from "./canvas/DebuggerPanel";
 import { RunEventFlowDialog } from "./RunEventFlowDialog";
@@ -89,6 +91,19 @@ export function FlowBuilderPage() {
   const [realRunLog, setRealRunLog] = useState<FlowRunLog | null>(null);
   // Diálogo de ejecución real (spec 025 §D).
   const [runDialogOpen, setRunDialogOpen] = useState(false);
+  // Simulación (spec 038 §D3): la traza del dry-run deja de ser estado privado
+  // del `DebuggerPanel` y sube aquí, porque el canvas —su hermano— también la
+  // necesita para pintarla sobre los nodos. `atSignature` es el flujo
+  // comparable capturado AL SIMULAR: si deja de coincidir con el actual, la
+  // proyección se marca desactualizada en vez de mentir (CA-04.7).
+  const [simulation, setSimulation] = useState<{
+    trace: FlowRunTrace;
+    atSignature: string;
+  } | null>(null);
+  const [simRecordIndex, setSimRecordIndex] = useState(0);
+  // "Limpiar" apaga la proyección del canvas SIN tirar la traza: el
+  // `DebuggerPanel` sigue mostrando su vista textual igual que hoy (CA-04.8).
+  const [projectionHidden, setProjectionHidden] = useState(false);
   // Diálogo de guardado con errores (spec 027 §A): guarda el flujo compilado
   // pendiente y si el guardado era in-place (Ctrl+S) o guardar-y-salir.
   const [saveDialog, setSaveDialog] = useState<{ finalFlow: FlowRule; stay: boolean } | null>(null);
@@ -146,6 +161,31 @@ export function FlowBuilderPage() {
   };
   const issues = validateFlow(currentFlow, { projects });
   const errors = flowErrors(issues);
+  const signature = comparableFlow(currentFlow);
+
+  // ── Proyección de la simulación sobre los nodos (spec 038 §D) ────────────
+  // El registro visible se recorta al rango real de la traza: cambiar de flujo
+  // o simular otra vez con menos registros no puede dejar el índice colgando.
+  const simRecords = simulation?.trace.records ?? [];
+  const safeRecordIndex = Math.min(simRecordIndex, Math.max(simRecords.length - 1, 0));
+  const runProjection =
+    simulation && !projectionHidden && simRecords[safeRecordIndex]
+      ? {
+          projection: projectTrace(graph.nodes, simRecords[safeRecordIndex]),
+          recordIndex: safeRecordIndex,
+          recordCount: simRecords.length,
+          // El grafo cambió desde que se simuló: la proyección sigue visible
+          // (el usuario puede estar leyéndola) pero avisa que ya no describe
+          // lo que hay en pantalla.
+          stale: simulation.atSignature !== signature,
+        }
+      : null;
+
+  const handleDryRunResult = (trace: FlowRunTrace | null) => {
+    setSimRecordIndex(0);
+    setProjectionHidden(false);
+    setSimulation(trace ? { trace, atSignature: signature } : null);
+  };
 
   // ── Dirty (spec 027 §B): compara el flujo COMPILADO contra el guardado —
   // el `isDirty` previo comparaba solo `flow` y no veía el grafo editado
@@ -161,7 +201,7 @@ export function FlowBuilderPage() {
       ? comparableFlow(savedFlow)
       : null
     : initialComparableRef.current;
-  const isDirty = baseline !== null && comparableFlow(currentFlow) !== baseline;
+  const isDirty = baseline !== null && signature !== baseline;
 
   // ── Guard de navegación (spec 027 §B): cualquier navegación interna con
   // cambios sin guardar pide confirmación; `beforeunload` cubre el cierre o
@@ -421,6 +461,12 @@ export function FlowBuilderPage() {
               </Select>
             </label>
           </div>
+          {/* Spec 038 CA-02.9: el historial del canvas cubre el grafo, no
+              estos campos — decirlo donde están, no en una ayuda escondida. */}
+          <p className="text-[11px] text-muted-foreground">
+            El deshacer del canvas (Ctrl+Z) cubre los nodos del flujo; estos campos —nombre,
+            etiquetas y política de fallo— se revierten a mano.
+          </p>
         </div>
 
         {/* Spec 027 §A: banner de problemas de configuración — clicable,
@@ -438,6 +484,15 @@ export function FlowBuilderPage() {
             initialSample={sample}
             onSampleChange={handleSampleChange}
             openNodeRequest={openNodeRequest}
+            // Spec 038 §A3: el canvas no recalcula la validez de un nodo — se
+            // le pasan los issues que este página ya computa con `validateFlow`
+            // (el canvas no conoce `projects`, y no debería).
+            issues={issues}
+            // Spec 038 §D3: la proyección de la simulación llega ya calculada
+            // (`projectTrace`) — el canvas la pinta, no la deriva.
+            runProjection={runProjection}
+            onSelectRunRecord={setSimRecordIndex}
+            onClearRunProjection={() => setProjectionHidden(true)}
             conditionMode={flow.logic.conditionMode ?? "all"}
             onConditionModeChange={(mode) =>
               setFlow((prev) => ({ ...prev, logic: { ...prev.logic, conditionMode: mode } }))
@@ -448,6 +503,8 @@ export function FlowBuilderPage() {
               flow={currentFlow}
               realRunResult={realRunLog}
               onClearRealRun={() => setRealRunLog(null)}
+              dryTrace={simulation?.trace ?? null}
+              onDryRunResult={handleDryRunResult}
             />
           </div>
         </div>

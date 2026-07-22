@@ -19,6 +19,14 @@ interface Props {
    * previo. Spec 025 §D. */
   realRunResult?: FlowRunLog | null;
   onClearRealRun?: () => void;
+  /** Traza de la última simulación. Desde spec 038 §D3 el dueño del estado es
+   * `FlowBuilderPage` —el canvas es hermano de este panel y también la
+   * necesita, para proyectarla sobre los nodos—. El panel solo la muestra: su
+   * vista textual no cambia (CA-04.8). */
+  dryTrace?: FlowRunTrace | null;
+  /** Notifica al padre el resultado de "Simular flujo" (`null` al empezar una
+   * simulación nueva o si falló). */
+  onDryRunResult?: (trace: FlowRunTrace | null) => void;
 }
 
 type Status = "idle" | "loading" | "result" | "error";
@@ -37,7 +45,13 @@ type Status = "idle" | "loading" | "result" | "error";
  *  - `result`: `FlowRunTraceView` con borde gris (dry) o verde (real).
  *  - `error`: `AlertCircle` rojo + mensaje.
  */
-export function DebuggerPanel({ flow, realRunResult, onClearRealRun }: Props) {
+export function DebuggerPanel({
+  flow,
+  realRunResult,
+  onClearRealRun,
+  dryTrace = null,
+  onDryRunResult,
+}: Props) {
   const navigate = useNavigate();
   const projects = useDataStore((s) => s.projects);
   const people = useDataStore((s) => s.people);
@@ -47,12 +61,11 @@ export function DebuggerPanel({ flow, realRunResult, onClearRealRun }: Props) {
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [dryTrace, setDryTrace] = useState<FlowRunTrace | null>(null);
 
   const handleDryRun = async () => {
     setStatus("loading");
     setError(null);
-    setDryTrace(null);
+    onDryRunResult?.(null);
     try {
       const result = await dryRunFlow(flow, {
         projects,
@@ -66,7 +79,7 @@ export function DebuggerPanel({ flow, realRunResult, onClearRealRun }: Props) {
         setError(result.error ?? "Error desconocido.");
         return;
       }
-      setDryTrace(result.trace ?? null);
+      onDryRunResult?.(result.trace ?? null);
       setStatus("result");
     } catch (e) {
       setStatus("error");

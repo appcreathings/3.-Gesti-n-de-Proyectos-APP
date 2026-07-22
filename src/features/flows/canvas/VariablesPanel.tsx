@@ -3,7 +3,7 @@ import { Braces, Check, ChevronRight, Copy, Database, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Trigger } from "@/domain/schemas/flow";
-import { triggerLabel } from "@/domain/labels";
+import { triggerLabel, providerLabel } from "@/domain/labels";
 import { variableRows, type VariableRow } from "./variables";
 // El MIME se mudó a `useVariableDrop` (spec 037 §B1): ahora tiene varios
 // consumidores —este panel y los cuatro destinos que aceptan el drop— y el
@@ -38,17 +38,21 @@ export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTri
   const rows = useMemo<VariableRow[]>(() => variableRows(trigger, sample), [sample, trigger]);
 
   // Origen visible (CA-04.3) — mismos niveles que `deriveAvailableVariables`.
+  // Spec 038 §B1 (CA-06.3): cuando el trigger es de polling, el origen nombra
+  // el proveedor con la MISMA tabla que el nodo del canvas y `validateFlow` —
+  // antes decía solo "Campos elegidos en el poll", sin decir de dónde salen.
   const origin = useMemo(() => {
+    const provider = trigger?.type === "poll" ? ` · ${providerLabel[trigger.provider]}` : "";
     if (sample && sample.length > 0) {
-      return `Muestra real · ${sample.length} registro${sample.length !== 1 ? "s" : ""}`;
+      return `Muestra real · ${sample.length} registro${sample.length !== 1 ? "s" : ""}${provider}`;
     }
     if (!trigger) return "";
     if (trigger.type === "event") {
       return `Campos del evento · ${triggerLabel[trigger.event] ?? trigger.event}`;
     }
-    return trigger.config.fields.length > 0
-      ? "Campos elegidos en el poll"
-      : "Campos por defecto del poll";
+    const base =
+      trigger.config.fields.length > 0 ? "Campos elegidos en el poll" : "Campos por defecto del poll";
+    return `${base}${provider}`;
   }, [sample, trigger]);
 
   function copyToken(field: string) {

@@ -8,6 +8,7 @@ import {
   sortNodesByColumnAndY,
   seedCanvasNodes,
   insertionY,
+  duplicateNode,
   type FlowGraphNode,
 } from "./graph";
 import type { FlowRule } from "@/domain/schemas/flow";
@@ -256,5 +257,73 @@ describe("seedCanvasNodes (spec 036 §B)", () => {
     ];
     expect(legacy.every((n) => n.deletable === undefined)).toBe(true);
     expect(seedCanvasNodes(legacy).every((n) => n.deletable === false)).toBe(true);
+  });
+});
+
+// Spec 038 §E3 (HU-03): duplicar una condición o una acción configurada.
+describe("duplicateNode", () => {
+  const nodesWithTwoActions = (): FlowGraphNode[] =>
+    buildGraphFromRule(
+      makeRule({
+        logic: { conditions: [{ field: "stage", op: "==", value: "won" }], mapping: [] },
+        outputs: [
+          { type: "createNotification", severity: "info", message: "primera" },
+          { type: "createNotification", severity: "info", message: "segunda" },
+        ],
+      }),
+    ).nodes;
+
+  it("copia la configuración con un id nuevo", () => {
+    const nodes = nodesWithTwoActions();
+    const result = duplicateNode(nodes, "action-0")!;
+    expect(result).toHaveLength(nodes.length + 1);
+
+    const actions = result.filter((n) => n.data.kind === "action");
+    const copy = actions.find((n) => n.id !== "action-0" && n.id !== "action-1")!;
+    expect(copy.id).not.toBe("action-0");
+    expect(copy.data).toEqual(nodes.find((n) => n.id === "action-0")!.data);
+  });
+
+  it("clona los datos en profundidad: editar el duplicado no toca al original", () => {
+    const nodes = nodesWithTwoActions();
+    const result = duplicateNode(nodes, "action-0")!;
+    const copy = result.find((n) => n.data.kind === "action" && n.id !== "action-0" && n.id !== "action-1")!;
+    if (copy.data.kind !== "action") throw new Error("unexpected kind");
+    (copy.data.output as { message: string }).message = "editada";
+
+    const original = nodes.find((n) => n.id === "action-0")!;
+    if (original.data.kind !== "action") throw new Error("unexpected kind");
+    expect((original.data.output as { message: string }).message).toBe("primera");
+  });
+
+  it("deja el duplicado JUSTO después del original en el orden de ejecución (CA-03.2)", () => {
+    const result = duplicateNode(nodesWithTwoActions(), "action-0")!;
+    const actionIds = result.filter((n) => n.data.kind === "action").map((n) => n.id);
+    expect(actionIds[0]).toBe("action-0");
+    expect(actionIds[2]).toBe("action-1");
+    expect(actionIds[1]).not.toBe("action-1");
+  });
+
+  it("duplica el último de la columna sin romper el orden", () => {
+    const result = duplicateNode(nodesWithTwoActions(), "action-1")!;
+    const actionIds = result.filter((n) => n.data.kind === "action").map((n) => n.id);
+    expect(actionIds[0]).toBe("action-0");
+    expect(actionIds[1]).toBe("action-1");
+    expect(actionIds).toHaveLength(3);
+  });
+
+  it("duplica condiciones", () => {
+    const result = duplicateNode(nodesWithTwoActions(), "condition-0")!;
+    expect(result.filter((n) => n.data.kind === "condition")).toHaveLength(2);
+  });
+
+  it("rechaza trigger y transform: son nodos fijos y únicos (CA-03.3)", () => {
+    const nodes = nodesWithTwoActions();
+    expect(duplicateNode(nodes, "trigger")).toBeNull();
+    expect(duplicateNode(nodes, "transform")).toBeNull();
+  });
+
+  it("rechaza un id inexistente", () => {
+    expect(duplicateNode(nodesWithTwoActions(), "no-existe")).toBeNull();
   });
 });

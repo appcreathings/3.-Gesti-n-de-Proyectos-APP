@@ -275,6 +275,44 @@ export function newConditionNode(nodes: FlowGraphNode[]): FlowGraphNode {
   };
 }
 
+/** Duplica un nodo de condición o acción (spec 038 §E3, HU-03): id nuevo,
+ * `data` clonado y una `y` que lo deja **justo después** del original en el
+ * orden de ejecución (CA-03.2) — punto medio con el siguiente nodo de la misma
+ * columna, o media fila por debajo si el original era el último. El array
+ * vuelve ordenado por `sortNodesByColumnAndY`, que es de donde
+ * `compileGraphToRule` deriva el orden real.
+ *
+ * Devuelve `null` si el nodo no existe o es fijo (trigger/transform son únicos
+ * del pipeline — CA-03.3), para que el llamador no toque el estado. */
+export function duplicateNode<
+  T extends { id: string; data: FlowNodeData; position: { x: number; y: number } },
+>(nodes: T[], id: string): T[] | null {
+  const source = nodes.find((n) => n.id === id);
+  if (!source) return null;
+  const kind = source.data.kind;
+  if (kind !== "condition" && kind !== "action") return null;
+
+  const column = nodes
+    .filter((n) => n.data.kind === kind)
+    .sort((a, b) => a.position.y - b.position.y);
+  const next = column.find((n) => n.position.y > source.position.y);
+  const y = next
+    ? (source.position.y + next.position.y) / 2
+    : source.position.y + ROW_HEIGHT / 2;
+
+  const copy = {
+    ...source,
+    id: `${kind}-${uuid()}`,
+    position: { ...source.position, y },
+    data: structuredClone(source.data),
+    // El duplicado nace sin heredar la selección del original: si no, dos
+    // nodos quedarían seleccionados y `Supr` borraría los dos.
+    selected: false,
+  } as T;
+
+  return sortNodesByColumnAndY([...nodes, copy]);
+}
+
 export function newActionNode(nodes: FlowGraphNode[], output: Output): FlowGraphNode {
   const count = nodes.filter((n) => n.data.kind === "action").length;
   return {

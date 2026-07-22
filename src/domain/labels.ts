@@ -8,6 +8,7 @@ import type {
   SprintStatus,
   TaskStatus,
 } from "./schemas";
+import type { PollTrigger } from "./schemas/flow";
 
 type BadgeVariant =
   | "default"
@@ -118,6 +119,22 @@ export const triggerLabel: Record<string, string> = {
   "date.approaching": "Fecha por vencer (M4)",
   "app.opened": "Al abrir la app (M4)",
   schedule: "Programado (M4)",
+};
+
+/** Nombre visible del proveedor de un trigger de polling — una sola tabla
+ * para todas las superficies (spec 038 §B1). Antes había dos ternarios que
+ * respondían la misma pregunta y ya habían divergido: `triggerSummary` tenía
+ * dos ramas para tres proveedores, así que un trigger de inbox (el camino
+ * recomendado para Make/Zapier desde spec 032) se anunciaba en el canvas como
+ * "Polling Google Sheets".
+ *
+ * `Record` completo y no una función con `default`: si el enum del schema gana
+ * un proveedor, TypeScript falla aquí en vez de etiquetarlo mal en silencio —
+ * que es exactamente cómo nació ese defecto. */
+export const providerLabel: Record<PollTrigger["provider"], string> = {
+  hubspot: "HubSpot",
+  "google-sheets": "Google Sheets",
+  inbox: "Make/Zapier (inbox)",
 };
 
 /** Eventos reales que el store emite (`diffProjectEvents`), usados para

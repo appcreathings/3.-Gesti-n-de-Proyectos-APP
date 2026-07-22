@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
   BackgroundVariant,
+  Panel,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Plus } from "lucide-react";
+import { Plus, Beaker, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -34,14 +35,27 @@ import {
   sortNodesByColumnAndY,
   seedCanvasNodes,
   insertionY,
+  duplicateNode,
   type BuiltGraph,
   type FlowGraphNode,
   type FlowNodeData,
   type FlowNodeKind,
   type TriggerNodeData,
 } from "@/flows/graph";
-import { nodeTypes, FlowCanvasActions, CanvasVariables, type CanvasNode } from "./nodeTypes";
+import { nodeIssueMap, nodeIdsByKind } from "@/flows/node-issues";
+import type { NodeRunStatus } from "@/flows/trace-projection";
+import type { FlowIssue } from "@/flows/validation";
+import {
+  nodeTypes,
+  FlowCanvasActions,
+  CanvasVariables,
+  CanvasNodeIssues,
+  CanvasRunStatus,
+  CanvasNodeOrder,
+  type CanvasNode,
+} from "./nodeTypes";
 import { deriveAvailableVariables, nodeUsedVariables } from "./variables";
+import { useGraphHistory, samePositions } from "./useGraphHistory";
 import { CanvasControls } from "./CanvasControls";
 import { VariablesPanel } from "./VariablesPanel";
 import { edgeTypes, type InsertEdgeData } from "./InsertEdge";
@@ -74,7 +88,33 @@ interface Props {
    * solo se muestra con ≥ 2 nodos de condición. */
   conditionMode?: "all" | "any";
   onConditionModeChange?: (mode: "all" | "any") => void;
+  /** Diagnóstico de `validateFlow` ya calculado por el builder (spec 038 §A3).
+   * Llega por prop porque el canvas no conoce `projects` —ni debería—, y
+   * porque así el canvas no vuelve a decidir por su cuenta si un nodo está
+   * mal: solo reparte estos issues entre los nodos (`nodeIssueMap`). */
+  issues?: FlowIssue[];
+  /** Proyección de la última simulación sobre los nodos (spec 038 §D3), ya
+   * calculada por el builder con `projectTrace`. `null` = sin proyección
+   * activa: los nodos no muestran ninguna franja de estado. */
+  runProjection?: RunProjection | null;
+  /** Cambia el registro proyectado (CA-04.5). */
+  onSelectRunRecord?: (index: number) => void;
+  /** Apaga la proyección del canvas (CA-04.6). No toca la traza textual del
+   * `DebuggerPanel`. */
+  onClearRunProjection?: () => void;
 }
+
+export interface RunProjection {
+  projection: Map<string, NodeRunStatus>;
+  recordIndex: number;
+  recordCount: number;
+  /** El grafo cambió desde que se simuló (CA-04.7). */
+  stale: boolean;
+}
+
+/** Referencia estable para el default de `issues`: un literal `[]` en la firma
+ * crearía un array nuevo por render y rompería el `useMemo` de `nodeIssueMap`. */
+const NO_ISSUES: FlowIssue[] = [];
 
 function toPlainNodes(nodes: CanvasNode[]): FlowGraphNode[] {
   return nodes.map((n) => ({
@@ -96,6 +136,10 @@ function CanvasInner({
   openNodeRequest,
   conditionMode,
   onConditionModeChange,
+  issues = NO_ISSUES,
+  runProjection = null,
+  onSelectRunRecord,
+  onClearRunProjection,
 }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(
     // Normaliza al sembrar: trigger/transform quedan `deletable: false` aunque
@@ -220,58 +264,167 @@ function CanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
+  // Historial de deshacer/rehacer (spec 038 §C). `setNodes` se le pasa en su
+  // forma directa (no de updater): deshacer/rehacer aplican un snapshot
+  // completo, y las aristas —derivadas por `relinkEdges` en el `useMemo` de
+  // arriba— se rehacen solas, sin poder desincronizarse.
+  const restoreNodes = useCallback((restored: CanvasNode[]) => setNodes(restored), [setNodes]);
+  const handleRestore = useCallback((restored: CanvasNode[]) => {
+    // Si el nodo cuyo drawer estaba abierto ya no existe, el `Dialog` se
+    // cierra solo (`open={selectedNode !== undefined}`) — pero hay que soltar
+    // también el id, o un rehacer que devuelva ese mismo nodo reabriría el
+    // drawer por su cuenta (CA-02.7).
+    setSelectedId((cur) => (cur && !restored.some((n) => n.id === cur) ? null : cur));
+  }, []);
+  const history = useGraphHistory({ nodes, setNodes: restoreNodes, onRestore: handleRestore });
+  // Cada apertura del drawer es una sesión de edición distinta: rompe el
+  // coalescing del historial (ver `updateNodeData`).
+  const editSession = useRef(0);
+  useEffect(() => {
+    editSession.current += 1;
+  }, [selectedId]);
+  const { commit, capture, commitCaptured, undo, redo } = history;
+
   const updateNodeData = useCallback(
     (id: string, data: FlowNodeData) => {
+      // Coalescing por `nodeId` + sesión de drawer (CA-02.3): `updateNodeData`
+      // se dispara por pulsación (cada `onChange` de cada input), así que una
+      // ráfaga de tecleo sobre el mismo nodo colapsa en UN paso de deshacer.
+      // Tocar otro nodo, cerrar y reabrir el drawer, o cualquier operación
+      // estructural (que va sin clave) abre entrada nueva — si no, dos
+      // ediciones del mismo nodo separadas en el tiempo se fundirían en un solo
+      // paso, que es tan malo como diecisiete.
+      commit("Editar nodo", `${id}#${editSession.current}`);
       setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data } : n)));
     },
-    [setNodes],
+    [setNodes, commit],
   );
 
   const deleteNode = useCallback(
     (id: string) => {
+      commit("Borrar nodo");
       setNodes((nds) => nds.filter((n) => n.id !== id));
       setSelectedId((cur) => (cur === id ? null : cur));
     },
-    [setNodes],
+    [setNodes, commit],
   );
+
+  // Duplicar una condición o una acción (spec 038 §E3, HU-03). Rechaza los
+  // nodos fijos por sí mismo (`duplicateNode` devuelve `null`), así que un
+  // `Ctrl+D` sobre el trigger no hace nada en vez de romper el pipeline.
+  const duplicate = useCallback(
+    (ids: string[]) => {
+      // Acumulativo: cada duplicado se calcula sobre el array ya extendido,
+      // así `Ctrl+D` con varios nodos seleccionados los duplica todos en UN
+      // solo paso de deshacer.
+      let next = nodes;
+      let changed = false;
+      for (const id of ids) {
+        const result = duplicateNode(next, id);
+        if (result) {
+          next = result;
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      commit(ids.length > 1 ? "Duplicar nodos" : "Duplicar nodo");
+      setNodes(next);
+    },
+    [nodes, setNodes, commit],
+  );
+
+  // Atajos de historial y duplicado (spec 038 §C4, CA-02.1/CA-02.5). Va en su
+  // propio efecto y no en el de `Esc`, que solo se registra estando maximizado.
+  //
+  // La guarda de foco editable es lo que separa un atajo útil de uno
+  // destructivo: sin ella, `Ctrl+Z` mientras se escribe en el drawer
+  // descartaría un nodo entero en vez de borrar una palabra. Con el foco
+  // dentro de un input/textarea/select manda el deshacer nativo del navegador.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.("input, textarea, select, [contenteditable=true]")) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        redo();
+      } else if (key === "d") {
+        // Duplica la selección de React Flow (Shift+clic suma nodos); los
+        // nodos fijos los descarta `duplicateNode` por su cuenta.
+        const selected = nodes.filter((n) => n.selected).map((n) => n.id);
+        if (selected.length === 0) return;
+        e.preventDefault();
+        duplicate(selected);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, duplicate, nodes]);
 
   // Borrado por teclado (Supr/Backspace). React Flow ya excluye los nodos
   // fijos (`deletable: false` en trigger/transform) antes de emitir el
   // cambio, así que `deleted` solo trae condition/action. Aquí solo cerramos
   // el drawer si el nodo borrado era el abierto — el borrado en sí lo aplica
   // `onNodesChange` de `useNodesState`. Defensa extra: nunca borrar fijos.
-  const onNodesDelete = useCallback((deleted: CanvasNode[]) => {
-    const removable = new Set(
-      deleted.filter((n) => n.data.kind !== "trigger" && n.data.kind !== "transform").map((n) => n.id),
-    );
-    setSelectedId((cur) => (cur && removable.has(cur) ? null : cur));
-  }, []);
+  const onNodesDelete = useCallback(
+    (deleted: CanvasNode[]) => {
+      const removable = new Set(
+        deleted.filter((n) => n.data.kind !== "trigger" && n.data.kind !== "transform").map((n) => n.id),
+      );
+      // React Flow avisa ANTES de aplicar el cambio, así que el estado actual
+      // sigue siendo el de antes del borrado: es el punto de commit del
+      // borrado por teclado (`Supr`), el que 036 dejó sin deshacer.
+      if (removable.size > 0) commit(removable.size > 1 ? "Borrar nodos" : "Borrar nodo");
+      setSelectedId((cur) => (cur && removable.has(cur) ? null : cur));
+    },
+    [commit],
+  );
+
+  // El arrastre muta las posiciones frame a frame vía `onNodesChange`, así que
+  // al soltar el estado previo ya no existe: se captura al empezar y se apila
+  // al terminar (CA-02.4 — un paso de deshacer por gesto, no por píxel).
+  const dragSnapshot = useRef<CanvasNode[] | null>(null);
+  const onNodeDragStart = useCallback(() => {
+    dragSnapshot.current = capture();
+  }, [capture]);
 
   // Al soltar un nodo, reordena el array por columna + `y` para que "más
   // arriba = antes" sea el orden lógico que `compileGraphToRule` deriva del
   // orden de aparición por tipo (CA-03.3). Solo cambia el orden del array;
   // posiciones e ids intactos.
   const onNodeDragStop = useCallback(() => {
+    const before = dragSnapshot.current;
+    dragSnapshot.current = null;
+    // Un clic sin desplazamiento también emite drag start/stop: sin esta
+    // guarda, cada clic ensuciaría el historial con un "Mover" que no mueve.
+    if (before && !samePositions(before, nodes)) commitCaptured("Mover nodo", before);
     setNodes((nds) => sortNodesByColumnAndY(nds));
-  }, [setNodes]);
+  }, [setNodes, commitCaptured, nodes]);
 
   const addCondition = useCallback(() => {
+    commit("Añadir condición");
     setNodes((nds) => {
       const plain = toPlainNodes(nds);
       const node = newConditionNode(plain);
       return [...nds, node as CanvasNode];
     });
-  }, [setNodes]);
+  }, [setNodes, commit]);
 
   const addAction = useCallback(
     (type: Output["type"]) => {
+      commit("Añadir acción");
       setNodes((nds) => {
         const plain = toPlainNodes(nds);
         const node = newActionNode(plain, defaultOutputForType(type));
         return [...nds, node as CanvasNode];
       });
     },
-    [setNodes],
+    [setNodes, commit],
   );
 
   // Inserciones desde el botón "＋" de una arista (CA-03.4). Se calcula la `y`
@@ -280,6 +433,7 @@ function CanvasInner({
   // `relinkEdges` rehace las flechas solo: el pipeline sigue lineal.
   const insertCondition = useCallback(
     (targetId: string) => {
+      commit("Insertar condición");
       setNodes((nds) => {
         const plain = toPlainNodes(nds);
         const node = newConditionNode(plain);
@@ -287,11 +441,12 @@ function CanvasInner({
         return sortNodesByColumnAndY([...nds, node as CanvasNode]);
       });
     },
-    [setNodes],
+    [setNodes, commit],
   );
 
   const insertAction = useCallback(
     (targetId: string, type: Output["type"]) => {
+      commit("Insertar acción");
       setNodes((nds) => {
         const plain = toPlainNodes(nds);
         const node = newActionNode(plain, defaultOutputForType(type));
@@ -299,12 +454,17 @@ function CanvasInner({
         return sortNodesByColumnAndY([...nds, node as CanvasNode]);
       });
     },
-    [setNodes],
+    [setNodes, commit],
   );
 
   const actionsContextValue = useMemo(
-    () => ({ deleteNode, insertCondition, insertAction }),
-    [deleteNode, insertCondition, insertAction],
+    () => ({
+      deleteNode,
+      insertCondition,
+      insertAction,
+      duplicateNode: (id: string) => duplicate([id]),
+    }),
+    [deleteNode, insertCondition, insertAction, duplicate],
   );
 
   const conditionCount = nodes.filter((n) => n.data.kind === "condition").length;
@@ -325,6 +485,23 @@ function CanvasInner({
       ),
     [triggerForVariables, triggerSample],
   );
+
+  // Reparto de los issues de `validateFlow` por nodo (spec 038 §A3). Se
+  // publica por contexto —igual que `CanvasVariables`— para no engordar
+  // `node.data`, que sí se persiste en `flow.graph`.
+  const issuesByNode = useMemo(() => nodeIssueMap(nodes, issues), [nodes, issues]);
+
+  // Numeración visible de condiciones y acciones (spec 038 §E1, CA-05.1).
+  // Sale del mismo recorrido por clase que los issues y la proyección, que es
+  // el orden que `compileGraphToRule` compila — no el orden visual, que solo
+  // se sincroniza al soltar un nodo (`sortNodesByColumnAndY`).
+  const orderByNode = useMemo(() => {
+    const byKind = nodeIdsByKind(nodes);
+    const map = new Map<string, number>();
+    byKind.condition.forEach((id, i) => map.set(id, i + 1));
+    byKind.action.forEach((id, i) => map.set(id, i + 1));
+    return map;
+  }, [nodes]);
 
   // Tokens `{{campo}}` que consumen las ACCIONES del flujo (spec 037 §C1):
   // el drawer del transform los necesita para avisar cuándo el mapeo descarta
@@ -349,12 +526,16 @@ function CanvasInner({
         )}
       >
         <CanvasVariables.Provider value={availableFields}>
+         <CanvasNodeIssues.Provider value={issuesByNode}>
+          <CanvasRunStatus.Provider value={runProjection?.projection ?? null}>
+          <CanvasNodeOrder.Provider value={orderByNode}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onNodeClick={(_, node) => setSelectedId(node.id)}
             onNodesDelete={onNodesDelete}
+            onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -374,8 +555,27 @@ function CanvasInner({
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-            <CanvasControls maximized={maximized} onToggleMaximize={() => setMaximized((v) => !v)} />
+            <CanvasControls
+              maximized={maximized}
+              onToggleMaximize={() => setMaximized((v) => !v)}
+              onUndo={history.undo}
+              onRedo={history.redo}
+              canUndo={history.canUndo}
+              canRedo={history.canRedo}
+              undoLabel={history.undoLabel}
+              redoLabel={history.redoLabel}
+            />
+            {runProjection && (
+              <SimulationBar
+                projection={runProjection}
+                onSelectRecord={onSelectRunRecord}
+                onClear={onClearRunProjection}
+              />
+            )}
           </ReactFlow>
+          </CanvasNodeOrder.Provider>
+          </CanvasRunStatus.Provider>
+         </CanvasNodeIssues.Provider>
         </CanvasVariables.Provider>
 
         <div className="absolute left-4 top-4 z-10 flex flex-col gap-2">
@@ -537,8 +737,78 @@ export function FlowCanvas(props: Props) {
         openNodeRequest={props.openNodeRequest}
         conditionMode={props.conditionMode}
         onConditionModeChange={props.onConditionModeChange}
+        issues={props.issues}
+        runProjection={props.runProjection}
+        onSelectRunRecord={props.onSelectRunRecord}
+        onClearRunProjection={props.onClearRunProjection}
       />
     </ReactFlowProvider>
+  );
+}
+
+/** Barra de la simulación proyectada (spec 038 §D4). Solo existe mientras hay
+ * proyección activa — junto con la franja al pie de cada nodo, es el canal
+ * visual de la simulación, deliberadamente distinto de la insignia de
+ * configuración de la esquina, que es permanente (R3). */
+function SimulationBar({
+  projection,
+  onSelectRecord,
+  onClear,
+}: {
+  projection: RunProjection;
+  onSelectRecord?: (index: number) => void;
+  onClear?: () => void;
+}) {
+  return (
+    <Panel position="top-center" className="m-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur">
+        <span className="flex items-center gap-1.5 text-xs font-medium">
+          <Beaker className="size-3.5 text-primary" aria-hidden />
+          Simulación
+        </span>
+
+        {projection.recordCount > 1 && onSelectRecord && (
+          // CA-04.5: con varios registros en la traza, se elige cuál se
+          // proyecta — si no, el canvas mostraría siempre el primero sin
+          // decirlo.
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            Registro
+            <Select
+              value={String(projection.recordIndex)}
+              onChange={(e) => onSelectRecord(Number(e.target.value))}
+              size="sm"
+              className="w-auto"
+              aria-label="Registro proyectado sobre los nodos"
+            >
+              {Array.from({ length: projection.recordCount }, (_, i) => (
+                <option key={i} value={i}>
+                  {i + 1} de {projection.recordCount}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
+
+        {projection.stale && (
+          // CA-04.7: la proyección no se borra sola (el usuario puede estar
+          // leyéndola), pero deja de presentarse como si describiera el grafo
+          // que hay en pantalla.
+          <span
+            className="flex items-center gap-1 rounded bg-warning/10 px-1.5 py-0.5 text-[11px] font-medium text-warning"
+            title="Editaste el flujo después de simular: este resultado corresponde a la versión anterior. Vuelve a simular para actualizarlo."
+          >
+            <AlertTriangle className="size-3" aria-hidden />
+            Desactualizada
+          </span>
+        )}
+
+        {onClear && (
+          <Button size="sm" variant="ghost" onClick={onClear} className="h-6 px-2 text-[11px]">
+            Limpiar
+          </Button>
+        )}
+      </div>
+    </Panel>
   );
 }
 

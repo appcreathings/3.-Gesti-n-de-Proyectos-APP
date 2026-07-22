@@ -1,5 +1,6 @@
 import type { Project } from "@/domain/schemas";
 import type { FlowRule, Output } from "@/domain/schemas/flow";
+import { providerLabel } from "@/domain/labels";
 import {
   deriveAvailableVariables,
   validateVariables,
@@ -102,12 +103,9 @@ export function validateFlow(flow: FlowRule, deps: ValidateFlowDeps): FlowIssue[
 
   // ── Trigger ────────────────────────────────────────────────────────────
   if (flow.trigger.type === "poll" && !flow.trigger.config.connectionId) {
-    const provider =
-      flow.trigger.provider === "hubspot"
-        ? "HubSpot"
-        : flow.trigger.provider === "inbox"
-        ? "Make/Zapier (inbox)"
-        : "Google Sheets";
+    // Spec 038 §B1: esta tabla vivía aquí, correcta, mientras `triggerSummary`
+    // tenía otra con dos ramas para tres proveedores. Ahora hay una sola.
+    const provider = providerLabel[flow.trigger.provider];
     issues.push({
       severity: "error",
       nodeKind: "trigger",

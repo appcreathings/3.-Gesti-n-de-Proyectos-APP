@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Output } from "@/domain/schemas/flow";
-import { triggerLabel } from "@/domain/labels";
+import { triggerLabel, providerLabel } from "@/domain/labels";
 import type {
   TriggerNodeData,
   ConditionNodeData,
@@ -80,15 +80,30 @@ export function defaultOutputForType(type: Output["type"]): Output {
 export function triggerSummary(data: TriggerNodeData): string {
   const t = data.trigger;
   if (t.type === "event") return triggerLabel[t.event] ?? t.event;
-  const provider = t.provider === "hubspot" ? "HubSpot" : "Google Sheets";
   const objectType = t.config.objectType ? ` · ${t.config.objectType}` : "";
-  return `Polling ${provider}${objectType}`;
+  return `Polling ${providerLabel[t.provider]}${objectType}`;
+}
+
+/** Valor de una condición tal como se muestra en el resumen del nodo (spec
+ * 038 §B2). Desde spec 037 el operador `in` guarda un **array**, así que un
+ * `String(value)` plano dejaba `["won","closed"]` y el string legacy
+ * `"won,closed"` con exactamente el mismo resumen (`won,closed`) — y son el
+ * par que 037 enseñó a distinguir: el array se cumple, el string legacy no se
+ * cumple nunca. El formato tiene que delatar cuál es cuál:
+ *
+ *  - array  → `[won, closed]`
+ *  - string → `"won,closed"` (entrecomillado)
+ *  - resto  → `String(value)` (números, booleanos, vacío) */
+export function formatConditionValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((v) => String(v)).join(", ")}]`;
+  if (typeof value === "string") return `"${value}"`;
+  return String(value ?? "");
 }
 
 export function conditionSummary(data: ConditionNodeData): string {
   const { field, op, value } = data.condition;
   if (!field) return "Condición sin configurar";
-  return `${field} ${op} ${String(value ?? "")}`;
+  return `${field} ${op} ${formatConditionValue(value)}`;
 }
 
 export function transformSummary(data: TransformNodeData): string {
