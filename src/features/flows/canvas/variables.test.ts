@@ -6,6 +6,7 @@ import {
   INTERNAL_TARGET_FIELDS,
   validateVariables,
   nodeUsedVariables,
+  variableRows,
   HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE,
 } from "./variables";
 import type { Trigger } from "@/domain/schemas/flow";
@@ -260,5 +261,38 @@ describe("nodeUsedVariables (spec 036 §C5)", () => {
       output: { type: "createNotification", severity: "info", message: "Static message" },
     };
     expect(nodeUsedVariables(data)).toEqual([]);
+  });
+});
+
+describe("variableRows (spec 037 §D2)", () => {
+  it("prefiere la muestra real y trae tipo, ejemplo y presencia", () => {
+    const rows = variableRows(pollTrigger, [
+      { email: "a@b.com", amount: 5000 },
+      { email: "c@d.com" },
+    ]);
+    expect(rows.map((r) => r.field)).toEqual(["amount", "email"]);
+    expect(rows.find((r) => r.field === "amount")).toMatchObject({
+      type: "number",
+      presence: "1/2",
+    });
+  });
+
+  it("entrega el nombre del campo CRUDO, sin llaves, aunque tenga espacios o acentos", () => {
+    // Es lo que el selector de condiciones guarda en `condition.field`: el
+    // round-trip por `{{}}` con regex \w-only escribía `{{Nombre Cliente}}`
+    // con llaves, que jamás resolvía (CA-04.1).
+    const rows = variableRows(pollTrigger, [{ "Nombre Cliente": "Ana", Teléfono: "+54" }]);
+    expect(rows.map((r) => r.field)).toEqual(["Nombre Cliente", "Teléfono"]);
+  });
+
+  it("cae a los campos del evento cuando no hay muestra", () => {
+    const rows = variableRows(eventTrigger, undefined);
+    expect(rows.map((r) => r.field)).toEqual(
+      deriveAvailableVariables(eventTrigger).map((v) => v.field),
+    );
+  });
+
+  it("devuelve [] sin trigger ni muestra", () => {
+    expect(variableRows(undefined, undefined)).toEqual([]);
   });
 });

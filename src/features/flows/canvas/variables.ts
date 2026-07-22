@@ -2,6 +2,7 @@ import type { Trigger, PollTrigger } from "@/domain/schemas/flow";
 import type { FlowNodeData } from "@/flows/graph";
 import type { DomainEventType } from "@/automations/events";
 import { parseTokens } from "@/flows/interpolation";
+import { sampleFields } from "./useSampleFields";
 
 export interface AvailableVariable {
   /** Nombre del campo, tal como aparece en el registro (`record.<field>`). */
@@ -99,6 +100,42 @@ export function deriveAvailableVariables(
   }
 
   return [];
+}
+
+/** Fila de la lista de variables disponibles: campo + (con muestra real) tipo,
+ * ejemplo y presencia. */
+export interface VariableRow {
+  field: string;
+  /** Solo con muestra real: tipo inferido. */
+  type?: string;
+  example?: string;
+  /** Solo con muestra real: en cuántos registros aparece (`N/M`). */
+  presence?: string;
+}
+
+/** Filas que alimentan el panel de Variables del canvas y el selector de campo
+ * de las condiciones (spec 037 §D2). Extraída de `VariablesPanel` para que los
+ * dos consuman exactamente la misma lista: si divergieran, el usuario vería un
+ * campo en el panel que el selector no le ofrece.
+ *
+ * Prioridad: muestra real (la más rica) → los mismos niveles de fallback que
+ * `deriveAvailableVariables` (campos del evento / `config.fields` del poll /
+ * defaults de HubSpot). */
+export function variableRows(
+  trigger: Trigger | undefined,
+  sample: Record<string, unknown>[] | undefined,
+): VariableRow[] {
+  const fields = sampleFields(sample);
+  if (fields.length > 0) {
+    return fields.map((f) => ({
+      field: f.path,
+      type: f.type,
+      example: f.example,
+      presence: f.presence,
+    }));
+  }
+  if (!trigger) return [];
+  return deriveAvailableVariables(trigger).map((v) => ({ field: v.field, example: v.example }));
 }
 
 /** Valida que todos los `{{tokens}}` interpolables en `template` estén

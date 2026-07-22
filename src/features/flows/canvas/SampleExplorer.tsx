@@ -64,7 +64,8 @@ export function SampleExplorer({
             <Select
               value={String(Math.min(previewRecordIndex, sample.length - 1))}
               onChange={(e) => onPreviewRecordIndexChange(Number(e.target.value))}
-              className="h-7 w-auto text-[10px]"
+              size="sm"
+              className="w-auto"
               title="Registro usado en las vistas previas de los campos"
             >
               {sample.map((_, i) => (

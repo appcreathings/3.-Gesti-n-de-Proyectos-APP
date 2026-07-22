@@ -30,6 +30,10 @@ import {
   interpolateObject as interpolateObj,
 } from "./interpolation";
 import { buildWebhookRequest } from "./webhook-request";
+// `evaluateCondition`/`toComparableNumber` vivían acá; se movieron sin cambios
+// a `conditions.ts` (spec 037 §D1) porque ahora la vista previa del editor de
+// condiciones necesita evaluar con exactamente el mismo criterio que el motor.
+import { evaluateCondition } from "./conditions";
 
 /** Fallo transitorio de un output de red (error de red o HTTP ≥ 500) —
  * candidato a reintento cuando el output tiene `retry` configurado (spec
@@ -589,64 +593,6 @@ function retryDelayMs(attempt: number, backoff: "fixed" | "exponential"): number
     maxDelayMs: 30_000,
     jitterFactor: 0.2,
   });
-}
-
-/** Coerciona a número comparable cuando el valor ya es un número, o es un
- * string que representa uno sin ambigüedad (spec 024 §F6 — fix). HubSpot (y
- * fuentes externas en general) suele devolver campos numéricos como string
- * (ej. `amount: "5000"`), así que antes `>`/`>=`/`<`/`<=` exigían
- * `typeof === "number"` en ambos lados y una condición como "monto > 1000"
- * nunca pasaba contra un registro real de HubSpot — fallaba en silencio, sin
- * error visible para el usuario. `""`/espacios en blanco se rechazan
- * explícitamente porque `Number("")` es `0`, no "no numérico". */
-function toComparableNumber(v: unknown): number | null {
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  if (typeof v === "string" && v.trim() !== "") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function evaluateCondition(
-  condition: FlowCondition,
-  record: Record<string, unknown>
-): boolean {
-  const value = getNestedValue(record, condition.field);
-  const target = condition.value;
-
-  switch (condition.op) {
-    case "==":
-    case "!=": {
-      // Igual criterio que `>`/`>=`/`<`/`<=` (spec 024 §F6): coercionar
-      // numéricamente solo cuando AMBOS lados son coercibles — evita que
-      // `amount: "5000"` (HubSpot) contra `condition.value: 5000` falle en
-      // silencio por ser tipos distintos. Cuando no aplica, comparación
-      // estricta previa (ej. strings no numéricos, booleans).
-      const a = toComparableNumber(value);
-      const b = toComparableNumber(target);
-      const equal = a !== null && b !== null ? a === b : value === target;
-      return condition.op === "==" ? equal : !equal;
-    }
-    case ">":
-    case ">=":
-    case "<":
-    case "<=": {
-      const a = toComparableNumber(value);
-      const b = toComparableNumber(target);
-      if (a === null || b === null) return false;
-      if (condition.op === ">") return a > b;
-      if (condition.op === ">=") return a >= b;
-      if (condition.op === "<") return a < b;
-      return a <= b;
-    }
-    case "in":
-      return Array.isArray(target) && target.includes(value);
-    case "contains":
-      return typeof value === "string" && typeof target === "string" && value.includes(target);
-    default:
-      return false;
-  }
 }
 
 function applyMapping(

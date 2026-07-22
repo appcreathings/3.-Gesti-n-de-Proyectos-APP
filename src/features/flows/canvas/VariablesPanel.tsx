@@ -4,13 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Trigger } from "@/domain/schemas/flow";
 import { triggerLabel } from "@/domain/labels";
-import { deriveAvailableVariables } from "./variables";
-import { sampleFields } from "./useSampleFields";
-
-/** Tipo MIME propio para el arrastre de una variable del panel a un campo
- * interpolable (spec 036 §C3, R3). Un tipo propio evita que un arrastre de
- * texto cualquiera se interprete como inserción de token. */
-export const VARIABLE_DRAG_MIME = "application/x-hito-variable";
+import { variableRows, type VariableRow } from "./variables";
+// El MIME se mudó a `useVariableDrop` (spec 037 §B1): ahora tiene varios
+// consumidores —este panel y los cuatro destinos que aceptan el drop— y el
+// hook es el módulo que los dos lados comparten.
+import { VARIABLE_DRAG_MIME } from "./useVariableDrop";
 
 interface Props {
   /** Trigger del flujo — para el fallback sin muestra real (campos del evento
@@ -24,14 +22,6 @@ interface Props {
   onOpenTrigger: () => void;
 }
 
-interface VariableRow {
-  field: string;
-  /** Solo con muestra real: tipo inferido y presencia `N/M`. */
-  type?: string;
-  example?: string;
-  presence?: string;
-}
-
 /** Panel de variables acoplado al canvas (spec 036 §C2 / HU-04): overlay
  * colapsable a la derecha —no una tercera columna, para no competir con el
  * `DebuggerPanel` (R4)—. Muestra siempre qué datos trae el flujo y de dónde
@@ -42,22 +32,10 @@ interface VariableRow {
 export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTrigger }: Props) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const rows = useMemo<VariableRow[]>(() => {
-    // 1. Muestra real: la más rica (tipo, ejemplo, presencia).
-    const fields = sampleFields(sample);
-    if (fields.length > 0) {
-      return fields.map((f) => ({
-        field: f.path,
-        type: f.type,
-        example: f.example,
-        presence: f.presence,
-      }));
-    }
-    // 2. Sin muestra: los mismos niveles que `deriveAvailableVariables`
-    //    (campos del evento / `config.fields` del poll / defaults HubSpot).
-    if (!trigger) return [];
-    return deriveAvailableVariables(trigger).map((v) => ({ field: v.field, example: v.example }));
-  }, [sample, trigger]);
+  // Muestra real (la más rica) o los mismos fallbacks que
+  // `deriveAvailableVariables`. Vive en `variables.ts` desde spec 037 §D2 para
+  // que el selector de campo de las condiciones ofrezca esta misma lista.
+  const rows = useMemo<VariableRow[]>(() => variableRows(trigger, sample), [sample, trigger]);
 
   // Origen visible (CA-04.3) — mismos niveles que `deriveAvailableVariables`.
   const origin = useMemo(() => {
@@ -152,7 +130,10 @@ export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTri
       ) : (
         <>
           <p className="px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
-            Arrastra una variable a un campo del flujo, o copia su token.
+            Arrastra una variable a un campo del flujo, o copia su token. Se inserta en la forma
+            que espera cada campo: <code className="font-mono">{"{{campo}}"}</code> en las
+            acciones, el nombre solo en condiciones y en el origen del mapeo, y{" "}
+            <code className="font-mono">record.campo</code> en el código.
           </p>
           <div className="flex-1 space-y-1 overflow-auto px-2 pb-2">
             {rows.map((row) => (
@@ -161,12 +142,15 @@ export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTri
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.setData(VARIABLE_DRAG_MIME, row.field);
-                  // `text/plain` como fallback para soltar fuera de un campo
-                  // interpolable (ej. el textarea del transform).
+                  // `text/plain` como fallback para soltar fuera de un destino
+                  // conocido (ej. otra app, o un campo que no es drop target).
                   e.dataTransfer.setData("text/plain", `{{${row.field}}}`);
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                title={`Arrastra para insertar {{${row.field}}}`}
+                // Lo que se inserta depende del destino (CA-02.1): token en un
+                // campo de acción, nombre crudo en una condición o en el origen
+                // del mapeo, `record.campo` en el textarea de código.
+                title={`Arrastra "${row.field}" a un campo del flujo`}
                 className="cursor-grab rounded border border-border/50 bg-background px-2 py-1 active:cursor-grabbing hover:border-border hover:bg-accent/50"
               >
                 <div className="flex items-center gap-1">

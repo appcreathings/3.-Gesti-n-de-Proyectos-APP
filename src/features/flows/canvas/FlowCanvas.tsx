@@ -41,7 +41,7 @@ import {
   type TriggerNodeData,
 } from "@/flows/graph";
 import { nodeTypes, FlowCanvasActions, CanvasVariables, type CanvasNode } from "./nodeTypes";
-import { deriveAvailableVariables } from "./variables";
+import { deriveAvailableVariables, nodeUsedVariables } from "./variables";
 import { CanvasControls } from "./CanvasControls";
 import { VariablesPanel } from "./VariablesPanel";
 import { edgeTypes, type InsertEdgeData } from "./InsertEdge";
@@ -326,6 +326,20 @@ function CanvasInner({
     [triggerForVariables, triggerSample],
   );
 
+  // Tokens `{{campo}}` que consumen las ACCIONES del flujo (spec 037 §C1):
+  // el drawer del transform los necesita para avisar cuándo el mapeo descarta
+  // un campo que una acción sigue usando (CA-03.3). Solo acciones — el propio
+  // nodo transform y las condiciones ven el registro en otro momento del
+  // pipeline (las condiciones, antes del mapeo).
+  const actionUsedTokens = useMemo(() => {
+    const seen = new Set<string>();
+    for (const n of nodes) {
+      if (n.data.kind !== "action") continue;
+      for (const v of nodeUsedVariables(n.data)) seen.add(v);
+    }
+    return Array.from(seen);
+  }, [nodes]);
+
   return (
     <FlowCanvasActions.Provider value={actionsContextValue}>
       <div
@@ -396,7 +410,7 @@ function CanvasInner({
               <Select
                 value={conditionMode ?? "all"}
                 onChange={(e) => onConditionModeChange(e.target.value as "all" | "any")}
-                className="h-8 text-xs"
+                size="sm"
               >
                 <option value="all">Todas las condiciones</option>
                 <option value="any">Alcanza con una</option>
@@ -446,6 +460,7 @@ function CanvasInner({
                         condition={data.condition}
                         trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
                         sample={triggerSample}
+                        previewRecordIndex={previewRecordIndex}
                         onChange={(updates) =>
                           updateNodeData(node.id, {
                             kind: "condition",
@@ -463,6 +478,7 @@ function CanvasInner({
                         transformCode={data.transformCode}
                         trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
                         sample={triggerSample}
+                        usedTokens={actionUsedTokens}
                         onChange={(updates) =>
                           updateNodeData(node.id, {
                             kind: "transform",

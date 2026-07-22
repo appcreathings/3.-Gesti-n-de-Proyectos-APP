@@ -1,5 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { insertTokenAt } from "./insertToken";
+import { insertTextAt, insertTokenAt } from "./insertToken";
+
+describe("insertTextAt (spec 037 §B2)", () => {
+  it("inserts arbitrary text at the cursor position and returns the new cursor", () => {
+    const el = { selectionStart: 5, selectionEnd: 5 };
+    const r = insertTextAt("Hola mundo", "amount", el);
+    expect(r.value).toBe("Hola amountmundo");
+    expect(r.cursor).toBe(5 + "amount".length);
+  });
+
+  it("appends at the end when el is null (no selection info)", () => {
+    const r = insertTextAt("return ", "record.amount", null);
+    expect(r.value).toBe("return record.amount");
+    expect(r.cursor).toBe("return record.amount".length);
+  });
+
+  it("replaces the selected range when start !== end", () => {
+    const el = { selectionStart: 5, selectionEnd: 10 };
+    const r = insertTextAt("Hola mundo", "amount", el);
+    expect(r.value).toBe("Hola amount");
+    expect(r.cursor).toBe("Hola amount".length);
+  });
+
+  it("inserts an empty string without moving the cursor", () => {
+    const el = { selectionStart: 2, selectionEnd: 2 };
+    const r = insertTextAt("abcd", "", el);
+    expect(r.value).toBe("abcd");
+    expect(r.cursor).toBe(2);
+  });
+});
 
 describe("insertTokenAt (spec 036 §C3)", () => {
   it("inserts {{campo}} at the cursor position and returns the new cursor", () => {

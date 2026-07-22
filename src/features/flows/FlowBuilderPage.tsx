@@ -413,7 +413,8 @@ export function FlowBuilderPage() {
                     onErrorPolicy: e.target.value as FlowRule["onErrorPolicy"],
                   }))
                 }
-                className="h-8 w-auto text-xs"
+                size="sm"
+                className="w-auto"
               >
                 <option value="continue">continuar con las demás</option>
                 <option value="stop">detener el flujo</option>

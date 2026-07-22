@@ -1,12 +1,11 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { AvailableVariable } from "./variables";
 import { VariablePicker } from "./VariablePicker";
 import { VariableValidationHint } from "./VariableValidationHint";
 import { InterpolationPreview } from "./InterpolationPreview";
-import { insertTokenAt } from "./insertToken";
-import { VARIABLE_DRAG_MIME } from "./VariablesPanel";
+import { useVariableDrop, VARIABLE_DROP_RING } from "./useVariableDrop";
 
 interface Props {
   value: string;
@@ -47,7 +46,9 @@ export function InterpolableField({
   previewRecordIndex,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
+  // Drop de una variable del panel: acá se inserta como token, porque este
+  // campo SÍ se interpola (spec 037 §B3).
+  const drop = useVariableDrop({ mode: "token", inputRef, value, onChange });
 
   return (
     <div className="space-y-1">
@@ -58,32 +59,14 @@ export function InterpolableField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={cn("flex-1", dragOver && "ring-2 ring-primary ring-offset-1")}
-          onDragOver={(e) => {
-            // Solo reaccionamos al MIME propio del panel de variables — un
-            // arrastre de texto cualquiera conserva el comportamiento nativo.
-            if (!e.dataTransfer.types.includes(VARIABLE_DRAG_MIME)) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "copy";
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            const field = e.dataTransfer.getData(VARIABLE_DRAG_MIME);
-            setDragOver(false);
-            if (!field) return;
-            e.preventDefault();
-            const el = inputRef.current;
-            const { value: next, cursor } = insertTokenAt(value, field, el);
-            onChange(next);
-            requestAnimationFrame(() => {
-              el?.focus();
-              el?.setSelectionRange(cursor, cursor);
-            });
-          }}
+          className={cn("flex-1", drop.dragOver && VARIABLE_DROP_RING)}
+          {...drop.dropProps}
         />
         <VariablePicker variables={variables} inputRef={inputRef} value={value} onChange={onChange} />
       </div>
+      <span id={drop.hintId} className="sr-only">
+        {drop.hintText}
+      </span>
       <VariableValidationHint template={value} available={variables} />
       <InterpolationPreview template={value} sample={sample} recordIndex={previewRecordIndex} />
     </div>
