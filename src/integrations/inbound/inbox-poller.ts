@@ -76,6 +76,9 @@ export async function drainInbox(config: InboxConfig, cursor: string | null): Pr
       newRecords: records.length,
       lastExternalTimestamp: nextCursor,
       records,
+      // Spec 033 A2: el backlog reportado por el proxy alimenta el semáforo
+      // de salud por conexión (riesgo de retención).
+      backlog: typeof result.data.backlog === "number" ? result.data.backlog : 0,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

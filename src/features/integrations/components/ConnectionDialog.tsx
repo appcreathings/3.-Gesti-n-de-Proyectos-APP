@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Play, Send } from "lucide-react";
 import {
   Dialog,
   DialogBody,
@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useVaultStore } from "@/integrations/vault";
+import { runInboxRoundTrip, type InboxRoundTripResult } from "@/integrations/inbound/inbox-round-trip";
 import {
   createConnection,
   updateConnection,
@@ -138,6 +140,11 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
   const [probeResult, setProbeResult] = useState<ConnectionProbeResult | null>(null);
   const [probing, setProbing] = useState(false);
 
+  // Spec 033 A3: round-trip del inbox (envío de prueba → drain de confirmación).
+  const [roundTripOpen, setRoundTripOpen] = useState(false);
+  const [roundTripping, setRoundTripping] = useState(false);
+  const [roundTripResult, setRoundTripResult] = useState<InboxRoundTripResult | null>(null);
+
   useEffect(() => {
     if (!open) return;
     setName(connection?.name ?? "");
@@ -155,6 +162,7 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
     setCustomPath("");
     setTestRecipient("");
     setProbeResult(null);
+    setRoundTripResult(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, connection, meta.fields, provider]);
 
@@ -209,6 +217,22 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
       setProbeResult(result);
     } finally {
       setProbing(false);
+    }
+  }
+
+  /** Spec 033 A3 §T3330: empuja una entrega de prueba al proxy del inbox y la
+   *  drena para confirmar el round-trip completo (lo que hará Make/Zapier → Hito). */
+  async function handleRoundTrip() {
+    const proxyUrl = (fieldValues.proxyUrl ?? "").trim();
+    if (!proxyUrl) return;
+    setRoundTripping(true);
+    setRoundTripResult(null);
+    try {
+      const secret = await resolveSecretForProbe();
+      const result = await runInboxRoundTrip(proxyUrl, secret);
+      setRoundTripResult(result);
+    } finally {
+      setRoundTripping(false);
     }
   }
 
@@ -335,6 +359,59 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
               )}
             </div>
 
+            {provider === "webhook-inbox" && (
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Probar el round-trip del inbox</p>
+                    <p className="text-xs text-muted-foreground">
+                      Empuja una entrega de prueba (como Make/Zapier) y la drena para confirmar que llega a Hito.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRoundTripOpen(true)}
+                    disabled={roundTripping || !fieldValues.proxyUrl?.trim()}
+                  >
+                    {roundTripping ? (
+                      <>
+                        <RefreshCw className="size-4 animate-spin" />
+                        Probando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="size-4" />
+                        Enviar prueba
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {roundTripResult && (
+                  <div
+                    className={`flex items-start gap-2 text-sm ${
+                      roundTripResult.ok ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {roundTripResult.ok ? (
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    )}
+                    <span>
+                      {roundTripResult.ok
+                        ? `Round-trip OK — entrega ${roundTripResult.deliveryId?.slice(0, 8)}… drenada (${roundTripResult.drained} registro(s)).`
+                        : roundTripResult.error}
+                      {!roundTripResult.ok && roundTripResult.deliveryId && (
+                        <> (entrega {roundTripResult.deliveryId.slice(0, 8)}… encolada).</>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="rounded-lg border border-border">
               <button
                 type="button"
@@ -455,6 +532,16 @@ export function ConnectionDialog({ open, onOpenChange, provider, connection, onS
             {saving ? "Guardando..." : isEditing ? "Guardar" : "Crear conexión"}
           </Button>
         </DialogFooter>
+
+        <ConfirmDialog
+          open={roundTripOpen}
+          onOpenChange={setRoundTripOpen}
+          title="Enviar entrega de prueba al inbox"
+          description="Se empujará una entrega de ejemplo al proxy (como haría Make/Zapier) y se drenará a continuación para confirmar que Hito la recibe."
+          confirmLabel="Enviar y drenar"
+          confirmVariant="default"
+          onConfirm={handleRoundTrip}
+        />
       </DialogContent>
     </Dialog>
   );

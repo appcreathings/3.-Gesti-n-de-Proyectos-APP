@@ -451,7 +451,7 @@ async function applyFlowResult(
     flows: import("@/domain/schemas/flow").FlowRule[];
     incrementRunCount: (id: string) => Promise<void>;
     recordRuns: (
-      entries: Omit<import("@/store/useFlowStore").FlowRunLog, "id">[],
+      entries: import("@/store/useFlowStore").FlowRunLog[],
     ) => Promise<void>;
   },
   options: { isAutomatic: boolean },
@@ -478,7 +478,11 @@ async function applyFlowResult(
   }
 
   const now = nowIso();
-  const runLogs: Omit<import("@/store/useFlowStore").FlowRunLog, "id">[] = [];
+  // Spec 033 C1: el `id` de cada run se asigna aquí (antes de `recordRuns`)
+  // para poder vincular entregas salientes y notificación de fallo a ese
+  // mismo run vía `runId` (deep-link al historial). `recordRuns` respeta el
+  // id provisto.
+  const runLogs: import("@/store/useFlowStore").FlowRunLog[] = [];
 
   // Igual que un run log ya se le adjunta la traza de esa corrida (si se
   // pidió con `trace: true`) y un preview del primer registro procesado —
@@ -511,6 +515,7 @@ async function applyFlowResult(
     runLogs.push(
       flowErrors && flowErrors.length > 0
         ? {
+            id: uuid(),
             flowId,
             flowName: flow?.name ?? flowId,
             at: now,
@@ -520,6 +525,7 @@ async function applyFlowResult(
             preview: previewFor(flowId),
           }
         : {
+            id: uuid(),
             flowId,
             flowName: flow?.name ?? flowId,
             at: now,
@@ -537,6 +543,7 @@ async function applyFlowResult(
   for (const [flowId, flowErrors] of errorsByFlow) {
     if (flowResult.executedFlowIds.includes(flowId)) continue;
     runLogs.push({
+      id: uuid(),
       flowId,
       flowName: flowErrors[0].flowName,
       at: now,
@@ -549,6 +556,30 @@ async function applyFlowResult(
 
   if (runLogs.length > 0) {
     await flowStore.recordRuns(runLogs);
+  }
+
+  // Spec 033 A1: persistir cada entrega saliente de webhook como entrada
+  // durable de `syncLogs`, vincula al run (`runId`) para que
+  // `SyncLogsPage`/`DeliveryDetailDrawer` puedan abrir el run del historial.
+  // Vive aquí (no en el motor puro) para no meter I/O de Dexie en
+  // `engine.ts`; el `secret` nunca se persiste (lo enmascara
+  // `persistOutboundDeliveries`). El email ya se loguea por su cuenta en
+  // `sendEmailViaAppsScript`, así que no se duplica.
+  if (flowResult.outboundDeliveries.length > 0) {
+    try {
+      const { integrationDb } = await import("@/storage/integration-db");
+      const { persistOutboundDeliveries } = await import("@/flows/delivery-log");
+      const runIdByFlow = new Map(runLogs.map((l) => [l.flowId, l.id]));
+      for (const delivery of flowResult.outboundDeliveries) {
+        const flow = flowStore.flows.find((f) => f.id === delivery.flowId);
+        const runId = delivery.flowId ? runIdByFlow.get(delivery.flowId) : undefined;
+        await persistOutboundDeliveries(integrationDb, [delivery], flow?.name ?? delivery.flowId ?? "flow", runId);
+      }
+    } catch (error) {
+      // El log durable es best-effort: si Dexie falla (modo privado, quota),
+      // no debe tirar abajo la corrida del flujo.
+      console.error("[applyFlowResult] No se pudo persistir el delivery log:", error);
+    }
   }
 
   if (options.isAutomatic) {
@@ -573,7 +604,11 @@ async function applyFlowResult(
           log.status === "error"
             ? `El flujo "${log.flowName}" falló: ${log.detail}`
             : `El flujo "${log.flowName}" terminó con errores: ${log.detail}`,
-        entityRef: null,
+        // Spec 033 C1: deep-link al run en el historial. El nuevo
+        // `kind: "flow"` (EntityRefSchema, bump 16) lleva `id=flowId` y
+        // `runId`; el centro de notificaciones navega a FlowHistoryPage
+        // con `?run=<runId>` y abre el `FlowRunDetailDrawer`.
+        entityRef: { kind: "flow", id: log.flowId, runId: log.id },
         read: false,
         createdAt: log.at,
       });
@@ -726,6 +761,7 @@ async function runFlowNowImpl(
   const recordOutcome = async (outcome: import("@/flows/manual-run").ManualRunOutcome) => {
     await flowStore.recordRuns([
       {
+        id: uuid(),
         flowId: flow.id,
         flowName: flow.name,
         at: nowIso(),

@@ -2,12 +2,62 @@
 
 ## Progreso
 
-- **Estado general: 🟦 SOLO DOCUMENTADO, backlog priorizado (2026-07-21).** Nace de dos fuentes: (a)
-  los pendientes que la spec 032 dejó explícitamente diferidos (delivery log + Reenviar, semáforo de
-  salud rico), y (b) una revisión de producto del módulo de Flujos e Integraciones tras 032, buscando
-  qué le falta a las automatizaciones de Hito para sentirse un producto completo frente a Zapier/Make/
-  n8n. Como la spec 024, arranca en estado de backlog: cada feature tiene su propio estado (✅/🟡/❌) y
-  su fase de roadmap; se actualizará con "✅ implementada" a medida que se ejecute. No se tocó `src/`.
+- **Estado general: 🟨 Fase 1 implementada (A1, C1, A2, A3) — 2026-07-22.** Pendiente de verificación
+  manual E2E (proxy real de Apps Script + Make/curl para el round-trip del inbox, T3332). Fases 2 y 3
+  siguen en backlog.
+- **Baseline de tests:** 588 → **629** (+41), todas en verde. `SCHEMA_VERSION` 15 → **16** (paso identidad
+  en `migrations.ts`, introducido por C1). `tsc --noEmit` limpio; `eslint` con los 3 errores preexistentes
+  (`ai/gemini/agent.ts`, `ai/modelSelector.test.ts`, `hooks/useBreakpoint.ts`) sin nuevos; `vite build` OK.
+
+### Fase 1 — "Cerrar 032 y accionar los fallos" ✅
+
+- **A1 · Delivery log durable + Reenviar — ✅ T3300-T3305.**
+  - `OutboundDelivery` (`src/flows/engine.ts`) extendido con `status`/`responseSnippet`/`error`/`attempts`/
+    `flowId`/`outputIndex`/`data`; el caso webhook y el loop de reintentos los pueblan.
+  - `SyncLog` (`src/storage/integration-db.ts`) gana `flowId?`/`outputIndex?`/`runId?`/`replayData?`.
+  - `src/flows/delivery-log.ts` (NUEVO): `maskSecretInPayload`, `buildOutboundSyncLog`, `persistOutboundDeliveries`
+    (máscara de `secret`/`password`/`token`/…, truncado a 10 KB; nunca body de email).
+  - `applyFlowResult` (`src/store/useDataStore.ts`) persiste los `outboundDeliveries` a `syncLogs` (best-effort,
+    try/catch) con `runId` vinculado al run registrado; el drenado del inbox se loguea en
+    `inbox-polling-manager.ts` (`logInboxDrain`). El email **no** se duplica (ya lo loguea
+    `sendEmailViaAppsScript`).
+  - `DeliveryDetailDrawer.tsx` (REESCRITO): botón **"Reenviar"** → `ConfirmDialog` →
+    `buildWebhookRequest(output, replayData)` (misma firma verificable de 032 §A) → `fetch` → nuevo `SyncLog`
+    (retryCount+1). Deshabilitado si el Flujo fue borrado o el output ya no es webhook.
+  - `SyncLogsPage.tsx`: filtro `inbox` + enlace "Ver run" (`?run=runId`).
+  - Tests: `src/flows/delivery-log.test.ts`, `src/store/useDataStore.deliveryLog.test.ts` (persistencia +
+    máscara + no-duplica email + entityRef del fallo).
+
+- **C1 · Notificación de fallo clicable (deep-link al run) — ✅ T3310-T3313.**
+  - `EntityRefSchema.kind` gana `"flow"` + `id?`/`runId?` (`notification.ts`); `SCHEMA_VERSION` 16 con paso
+    identidad en `migrations.ts` (+ tests v15→v16).
+  - `applyFlowResult` setea `entityRef: { kind: "flow", id: flowId, runId }` en la notificación de fallo
+    (024 §F3); el `runLog` recibe `id` antes de `recordRuns` para que el deep-link sea estable.
+  - `NotificationsPage` → `FlowHistoryPage` con `?run=` abre el `FlowRunDetailDrawer`. Mapeo extraído a
+    `src/features/notifications/notification-route.ts` (puro).
+  - Tests: `notification-route.test.ts` (mapeo flow/task/checklist/project + retrocompat) +
+    `useDataStore.deliveryLog.test.ts` (entityRef kind:flow + runId).
+
+- **A2 · Salud por conexión + semáforo — ✅ T3320-T3323.**
+  - `PollResult.backlog?` (`polling-manager.ts`) poblado por `drainInbox` desde el proxy; persistido por
+    poll-key en `poll-sync-state.ts` (`loadLastBacklog`/`saveLastBacklog`).
+  - `src/integrations/connection-health.ts` (NUEVO): `deriveConnectionHealth` pura — última entrada/salida
+    (OK/error), nº de Flujos + cadencia, backlog, y warnings `stale`/`last-failed`/`backlog-high`/`rate-high`
+    (umbrales: `STALE_FACTOR=3`, `RATE_HIGH_CADENCE_MS=60_000`, `BACKLOG_RETENTION_RISK=100` / 7 días).
+  - `ScheduledServicesPage.tsx`: sección **"Salud por conexión"** con badges entrada/salida, "N flujos ·
+    cada X", backlog y warnings.
+  - Tests: `src/integrations/connection-health.test.ts` (12 casos: OK reciente / hace rato / último falló /
+    umbral de carga / backlog cerca de retención / sin datos / más reciente gana).
+
+- **A3 · Probar el round-trip del inbox — ✅ T3330-T3331; T3332 (manual) pendiente.**
+  - `src/integrations/inbound/inbox-round-trip.ts` (NUEVO): `runInboxRoundTrip` — POST de ingreso (sample
+    fijo, secreto como query param como Make/Zapier) → drain de confirmación → match por `deliveryId`.
+  - `ConnectionDialog.tsx`: botón **"Enviar entrega de prueba"** (solo `webhook-inbox`) → `ConfirmDialog` →
+    resultado inline (deliveryId + registros drenados).
+  - `AppsScriptGuide.tsx`: paso de checklist **"Pega la URL en Make/Zapier"** exclusivo del inbox.
+  - Tests: `src/integrations/inbound/inbox-round-trip.test.ts` (5 casos: round-trip OK, secreto en query,
+    push falla, drain falla, no-match).
+  - **Pendiente (T3332):** verificación manual E2E contra un proxy real de Apps Script + Make/curl.
 
 ## Context
 

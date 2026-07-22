@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, Clock, Filter } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, Clock, Filter, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,11 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { integrationDb } from "@/storage/integration-db";
 import type { SyncLog } from "@/storage/integration-db";
+import { ROUTES } from "@/routes/paths";
 import { DeliveryDetailDrawer } from "./DeliveryDetailDrawer";
 
 const PAGE_SIZE = 20;
 
 export function SyncLogsPage() {
+  const navigate = useNavigate();
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -36,7 +39,10 @@ export function SyncLogsPage() {
     setLogs(filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE));
   }
 
-  const providers = ["hubspot", "google-sheets", "webhook", "email"];
+  // Spec 033 A1: `webhook` y `inbox` ahora tienen entries propias en
+  // `syncLogs` (Flujos salientes + drains del inbox), así que se exponen en
+  // el filtro además de los providers históricos.
+  const providers = ["hubspot", "google-sheets", "webhook", "email", "inbox"];
   const statuses = ["success", "error", "pending"];
 
   return (
@@ -115,6 +121,21 @@ export function SyncLogsPage() {
               )}
               {log.status === "pending" && (
                 <Clock className="size-4 text-warning" />
+              )}
+              {/* Spec 033 A1/C1: saltar al run del historial cuando la
+                  entrega está vinculada a un Flujo. */}
+              {log.runId && (
+                <button
+                  type="button"
+                  title="Ver run en el historial"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`${ROUTES.flowHistory}?run=${log.runId}`);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="size-4" />
+                </button>
               )}
               <span className="text-xs text-muted-foreground">
                 {new Date(log.createdAt).toLocaleTimeString()}

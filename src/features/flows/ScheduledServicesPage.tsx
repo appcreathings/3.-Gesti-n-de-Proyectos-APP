@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { RefreshCw, Radio, Send, Lock, Unlock } from "lucide-react";
+import { RefreshCw, Radio, Send, Lock, Unlock, Activity } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVaultStore } from "@/integrations/vault";
 import { loadAutoLockMinutes } from "@/integrations/vault-auto-lock";
+import {
+  deriveConnectionHealth,
+  formatCadence,
+  type ConnectionHealth,
+} from "@/integrations/connection-health";
+import { getConnections } from "@/integrations/connections";
+import { loadLastBacklog } from "@/integrations/inbound/poll-sync-state";
+import type { FlowRule, PollTrigger } from "@/domain/schemas";
 
 interface PollingStatusRow {
   key: string;
@@ -29,6 +37,7 @@ export function ScheduledServicesPage() {
   const [pollingRows, setPollingRows] = useState<PollingStatusRow[]>([]);
   const [outboundRunning, setOutboundRunning] = useState<boolean | null>(null);
   const [outboundPending, setOutboundPending] = useState<number | null>(null);
+  const [healthRows, setHealthRows] = useState<ConnectionHealth[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isUnlocked = useVaultStore((s) => s.isUnlocked);
@@ -48,6 +57,53 @@ export function ScheduledServicesPage() {
       setPollingRows(Object.entries(statuses).map(([key, s]) => ({ key, ...s })));
       setOutboundRunning(isOutboundProcessorRunning());
       setOutboundPending(await integrationDb.outboundQueue.count());
+
+      // Spec 033 A2: semáforo de salud por conexión — deriva de syncLogs +
+      // métricas de polling. El inbox reporta backlog; el resto queda en null.
+      const [{ useFlowStore }] = await Promise.all([import("@/store/useFlowStore")]);
+      const flows = useFlowStore.getState().flows;
+      const allLogs = await integrationDb.syncLogs.orderBy("createdAt").reverse().toArray();
+      const now = new Date().toISOString();
+      const connections = await getConnections();
+
+      const rows: ConnectionHealth[] = connections.map((conn) => {
+        const connFlows = flows.filter(
+          (f): f is FlowRule & { trigger: PollTrigger } =>
+            f.trigger.type === "poll" && f.enabled && f.trigger.config.connectionId === conn.id
+        );
+        const flowIds = new Set(connFlows.map((f) => f.id));
+        const cadenceMs = connFlows.length
+          ? Math.min(...connFlows.map((f) => f.trigger.config.intervalMs))
+          : 0;
+
+        const inboundLogs = allLogs.filter(
+          (l) =>
+            l.direction === "inbound" &&
+            (conn.provider === "webhook-inbox"
+              ? l.eventType === `inbox:${conn.id}`
+              : l.provider === conn.provider)
+        );
+        const outboundLogs = allLogs.filter(
+          (l) => l.direction === "outbound" && l.flowId != null && flowIds.has(l.flowId)
+        );
+
+        const backlog =
+          // El inbox es el único proveedor con backlog (hubspot/sheets leen de
+          // la API en vivo). La key coincide con `pollTriggerKey` del inbox.
+          conn.provider === "webhook-inbox" ? loadLastBacklog(`inbox:${conn.id}`) : null;
+
+        return deriveConnectionHealth({
+          connectionId: conn.id,
+          label: conn.name,
+          inboundLogs,
+          outboundLogs,
+          flowCount: connFlows.length,
+          cadenceMs,
+          backlog,
+          now,
+        });
+      });
+      setHealthRows(rows);
     } finally {
       setLoading(false);
     }
@@ -114,6 +170,70 @@ export function ScheduledServicesPage() {
                         <Badge variant="warning" className="text-[10px]">
                           Backoff
                         </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            label="A2"
+            title="Salud por conexión"
+            description="Semáforo de cada conexión: última entrada/salida, flujos activos, backlog y avisos de tasa/retención."
+          >
+            {healthRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sin conexiones configuradas todavía.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {healthRows.map((h) => {
+                  const inboundOk = h.lastInboundStatus === "success";
+                  const outboundOk = h.lastOutboundStatus === "success";
+                  return (
+                    <div key={h.connectionId} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center gap-3">
+                        <Activity className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium">{h.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {h.flowCount} flujo(s) · cada {h.cadenceMs > 0 ? formatCadence(h.cadenceMs) : "—"}
+                            {h.backlog !== null ? ` · backlog ${h.backlog}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {h.lastInboundAt ? (
+                          <Badge variant={inboundOk ? "success" : "destructive"} className="text-[10px]">
+                            Entrada {inboundOk ? "OK" : "falló"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">Sin entrada</Badge>
+                        )}
+                        {h.lastOutboundAt && (
+                          <Badge variant={outboundOk ? "success" : "destructive"} className="text-[10px]">
+                            Salida {outboundOk ? "OK" : "falló"}
+                          </Badge>
+                        )}
+                        {h.warnings.map((w) => (
+                          <Badge key={w.type} variant="warning" className="text-[10px]">
+                            {w.type === "stale" && "Sin entrada hace rato"}
+                            {w.type === "last-failed" && "Último falló"}
+                            {w.type === "backlog-high" && "Backlog alto"}
+                            {w.type === "rate-high" && "Tasa alta"}
+                          </Badge>
+                        ))}
+                      </div>
+                      {h.warnings.length > 0 && (
+                        <ul className="mt-2 space-y-0.5">
+                          {h.warnings.map((w) => (
+                            <li key={w.type} className="text-xs text-warning">
+                              {w.message}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   );

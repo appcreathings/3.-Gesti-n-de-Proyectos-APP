@@ -70,6 +70,22 @@ export interface SyncLog {
   errorMessage: string | null;
   retryCount: number;
   createdAt: string;
+  /** Replay (spec 033 A1): para entregas `outbound` de webhook de un Flujo,
+   *  identifica el output que originó la entrega dentro del Flujo vivo, de
+   *  donde `DeliveryDetailDrawer` recupera el `secret`/`url`/`payloadShape`
+   *  para reconstruir la request. Ausente para entradas que no vienen de un
+   *  Flujo (HubSpot/Sheets/email legacy). */
+  flowId?: string;
+  outputIndex?: number;
+  /** Id del run que originó esta entrega (spec 033 C1 deep-link), cuando
+   *  aplica — permite saltar desde SyncLogsPage al run del historial. */
+  runId?: string;
+  /** `data` interpolado que alimentó al output (spec 033 A1 replay) —
+   *  JSON del registro runtime, truncado, para que `DeliveryDetailDrawer`
+   *  reconstruya la request con `buildWebhookRequest(output, data)`. El
+   *  `secret` de firma NO va aquí (se recupera del Flujo vivo); este es
+   *  el registro que el output ya procesó (mismo que se envió en el body). */
+  replayData?: string;
 }
 
 export interface OutboundDelivery {

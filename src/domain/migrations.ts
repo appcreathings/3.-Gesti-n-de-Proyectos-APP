@@ -97,6 +97,12 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
   // shape de body histórico), así que los flujos v14 corren idéntico —
   // ningún flujo existente usa el provider "inbox" y sus webhooks siguen
   // enviando el body plano de siempre (ahora firmado sobre el body real).
+  // v15 -> v16 (spec 033 C1, identity): `EntityRefSchema.kind` gana "flow"
+  // y `EntityRefSchema` gana `runId`/`id` opcionales — ambos aditivos, así
+  // que los docs `notifications` v15 parsean idéntico. Este mismo bump 16
+  // es el compartido de la Fase 2 (B1/B2/B3 sumarán campos opcionales a
+  // `flows` bajo el mismo número); aquí el paso `flows` es identidad pura
+  // porque ninguna feature de Fase 1 toca el schema de `flows`.
   flows: [
     { to: 8, up: migrateFlowsDocV7ToV8 },
     { to: 9, up: (data) => data },
@@ -106,6 +112,7 @@ export const MIGRATIONS: Partial<Record<MigrationKind, Migration[]>> = {
     { to: 13, up: (data) => data },
     { to: 14, up: (data) => data },
     { to: 15, up: (data) => data },
+    { to: 16, up: (data) => data },
   ],
 };
 

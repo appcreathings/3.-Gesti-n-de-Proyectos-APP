@@ -416,6 +416,18 @@ function getSteps(provider: ConnectionProvider, content: (typeof PROVIDER_CONTEN
         : `Pega la URL en la conexión de ${content.label} en Hito.`,
   });
 
+  // Spec 033 A3 §T3331: paso de checklist exclusivo del inbox — el usuario
+  // debe pegar la Proxy URL en su escenario de Make/Zapier para que el
+  // round-trip (push → drain) quede completo.
+  if (provider === "webhook-inbox") {
+    steps.push({
+      id: "paste-in-make",
+      title: "Pega la URL en Make/Zapier",
+      description:
+        "En tu escenario de Make (módulo Webhook) o Zapier (paso Webhooks), pega esta misma Proxy URL — ahí es donde tu automatización empujará los datos hacia Hito. Márcalo como completado cuando lo hayas pegado.",
+    });
+  }
+
   return steps;
 }
 

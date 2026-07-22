@@ -50,8 +50,12 @@ interface FlowState {
   updateFlow: (flow: FlowRule) => Promise<void>;
   deleteFlow: (id: string) => Promise<void>;
   incrementRunCount: (id: string) => Promise<void>;
-  /** Append entries to the execution history, capped and persisted. */
-  recordRuns: (entries: Omit<FlowRunLog, "id">[]) => Promise<void>;
+  /** Append entries to the execution history, capped and persisted.
+   *  Acepta entradas con `id` ya asignado (spec 033 C1) — así el caller
+   *  (`applyFlowResult`) puede usar ese mismo id como `runId` para el
+   *  deep-link de la notificación de fallo y para vincular las entregas
+   *  salientes al run, antes de que se persistan. */
+  recordRuns: (entries: FlowRunLog[]) => Promise<void>;
   /** One-time migration of legacy AutomationRules into Flows. No-ops if
    * already run in this browser (see `AUTOMATIONS_MIGRATED_KEY`). */
   migrateLegacyAutomations: (rules: AutomationRule[]) => Promise<MigrationResult>;
@@ -174,7 +178,10 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   async recordRuns(entries) {
     if (entries.length === 0) return;
-    const withIds = entries.map((e) => ({ ...e, id: uuid() }));
+    // Spec 033 C1: el caller ya asigna los ids (para vincular entregas +
+    // notificaciones al run); aquí solo se asegura de que exista uno (no
+    // rompe callers legacy que pasen entradas sin id).
+    const withIds = entries.map((e) => ({ ...e, id: e.id ?? uuid() }));
     const runs = [...withIds, ...get().runs].slice(0, RUN_LOG_CAP);
     set({ runs });
     await persistRuns(runs);

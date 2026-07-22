@@ -12,6 +12,9 @@ export interface PollResult {
   error?: string;
   /** The actual fetched records (flattened), for handlers that apply them (e.g. flows). */
   records?: Record<string, unknown>[];
+  /** Spec 033 A2: entregas que quedan acumuladas en el proxy inbox tras el
+   *  drenado (lo reporta el proxy). Opcional — solo el inbox lo provee. */
+  backlog?: number;
 }
 
 type PollHandler = () => Promise<PollResult>;

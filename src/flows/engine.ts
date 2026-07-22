@@ -163,6 +163,26 @@ export interface OutboundDelivery {
   url: string;
   secret: string;
   payload: Record<string, unknown>;
+  /** HTTP status de la respuesta real del receptor (spec 032 §C / 033 A1).
+   * `null` si la red falló antes de haber respuesta; ausente si la entrega
+   * quedó registrada como intento pero el resultado aún no se computó. */
+  status?: number | null;
+  /** Primeros bytes (~200) de la respuesta real de Make/Zapier (spec 032 §C) —
+   * nunca contiene el `secret` ni el body del email (criterio 024 §F4 / 026 §E). */
+  responseSnippet?: string;
+  /** Mensaje de error cuando la entrega falló (red o HTTP no-2xx). */
+  error?: string;
+  /** Nº total de intentos que consumió este output cuando entró `retry`
+   * (spec 027 §E); 1 si no reintentó. Lo setea el loop de outputs del motor
+   * (que es quien lleva la cuenta), no `executeOutput`. */
+  attempts?: number;
+  /** Replay (spec 033 A1): metadatos para que `DeliveryDetailDrawer`
+   * reconstruya la request con `buildWebhookRequest`. El `secret` NUNCA va
+   * aquí — se recupera del Flujo vivo por `flowId`+`outputIndex`. `data` es
+   * el registro interpolado que alimentó al output. */
+  flowId?: string;
+  outputIndex?: number;
+  data?: Record<string, unknown>;
 }
 
 export interface EmailDelivery {
@@ -303,6 +323,13 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
             : undefined;
         const maxAttempts = 1 + (retryPolicy?.attempts ?? 0);
         let attempts = 0;
+        // Spec 033 A1: las entregas salientes que este output empuje a
+        // `result.outboundDeliveries` (una por llamada de red) se aumentan
+        // aquí con replay metadata + intentos + error, ya que solo este
+        // loop conoce `outputIndex`, `flow.id`, `transformed` (el `data`
+        // interpolado) y el conteo de reintentos. En dry-run no se empuja
+        // ninguna entrega, así que `slice` queda vacío (no-op).
+        const deliveriesBefore = result.outboundDeliveries.length;
         try {
           let outputResult: OutputExecutionOutcome;
           for (;;) {
@@ -330,6 +357,15 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
           }
           for (const id of outputResult.mutatedProjectIds) changedProjectIds.add(id);
           if (!(input.describeOutputs ?? false)) executedFlowIds.add(flow.id);
+          // Spec 033 A1: estampar replay metadata + intentos en cada
+          // entrega de este output para que `applyFlowResult` la persista y
+          // `DeliveryDetailDrawer` pueda reconstruir la request.
+          for (const d of result.outboundDeliveries.slice(deliveriesBefore)) {
+            d.flowId = flow.id;
+            d.outputIndex = outputIndex;
+            d.data = transformed;
+            d.attempts = attempts;
+          }
           recordTrace?.outputs.push({
             type: output.type,
             outcome: outputResult.outcome,
@@ -348,6 +384,16 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
             stage: "output",
             message,
           });
+          // Spec 033 A1: la entrega que se registró pre-red (spec 024 §F2)
+          // queda con su `error` y el conteo de intentos, para que el log
+          // durable refleje el fallo real.
+          for (const d of result.outboundDeliveries.slice(deliveriesBefore)) {
+            d.flowId = flow.id;
+            d.outputIndex = outputIndex;
+            d.data = transformed;
+            d.attempts = attempts;
+            if (!d.error) d.error = message;
+          }
           recordTrace?.outputs.push({
             type: output.type,
             outcome: "error",
@@ -1248,12 +1294,12 @@ async function executeOutput(
 
       // Registrar el intento de entrega antes de llamar a la red: se
       // conserva aunque la entrega falle (spec 024 §F2), para no perder el
-      // rastro de qué se intentó enviar.
-      result.outboundDeliveries.push({
-        url,
-        secret: output.secret,
-        payload,
-      });
+      // rastro de qué se intentó enviar. Spec 033 A1: se enriquece tras la
+      // respuesta con `status`/`responseSnippet` (o con `error` desde el
+      // catch del loop de outputs si la red falló) para que `applyFlowResult`
+      // pueda persistir el desenlace real en `syncLogs`.
+      const delivery: OutboundDelivery = { url, secret: output.secret, payload };
+      result.outboundDeliveries.push(delivery);
 
       let response: Response;
       try {
@@ -1268,6 +1314,8 @@ async function executeOutput(
         // es ES2020 y no tipa esa sobrecarga, aunque el runtime sí la
         // soporta.
         const message = error instanceof Error ? error.message : String(error);
+        delivery.status = null;
+        delivery.error = `Entrega fallida: ${message}`;
         const wrapped = new TransientOutputError(`Entrega fallida: ${message}`);
         (wrapped as Error & { cause?: unknown }).cause = error;
         throw wrapped;
@@ -1276,9 +1324,16 @@ async function executeOutput(
         // HTTP ≥ 500 es transitorio (reintentable); 4xx es permanente y
         // nunca se reintenta (spec 027 §E).
         const message = `El webhook respondió HTTP ${response.status}.`;
+        delivery.status = response.status;
+        delivery.error = message;
         if (response.status >= 500) throw new TransientOutputError(message);
         throw new Error(message);
       }
+
+      // Entrega exitosa: dejar el status + fragmento de respuesta en el
+      // objeto empujado (spec 032 §C / 033 A1) para que `applyFlowResult`
+      // lo persista en `syncLogs`.
+      delivery.status = response.status;
 
       let host: string;
       try {
@@ -1297,6 +1352,7 @@ async function executeOutput(
       } catch {
         responseSnippet = "";
       }
+      delivery.responseSnippet = responseSnippet;
       return {
         mutatedProjectIds: [],
         outcome: "executed",

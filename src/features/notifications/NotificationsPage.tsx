@@ -21,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useDataStore } from "@/store/useDataStore";
 import type { Notification, Severity } from "@/domain/schemas";
-import { ROUTES } from "@/routes/paths";
+import { resolveNotificationRoute } from "./notification-route";
 
 const SEVERITY: Record<Severity, { icon: LucideIcon; variant: BadgeProps["variant"]; label: string }> = {
   info: { icon: Info, variant: "secondary", label: "Info" },
@@ -61,21 +61,8 @@ function NotificationsContent() {
 
   const open = (n: Notification) => {
     if (!n.read) void markRead(n.id);
-    if (!n.entityRef?.projectId) return;
-
-    const params = new URLSearchParams();
-    // Navigate to the right tab based on entity kind
-    const kind = n.entityRef.kind;
-    if (kind === "task") {
-      params.set("tab", "tasks");
-      if (n.entityRef.taskId) params.set("focus", n.entityRef.taskId);
-    } else if (kind === "checklistItem") {
-      params.set("tab", "areas");
-      if (n.entityRef.itemId) params.set("focus", n.entityRef.itemId);
-    } else {
-      params.set("tab", "overview");
-    }
-    navigate(`${ROUTES.project(n.entityRef.projectId)}?${params.toString()}`);
+    const route = resolveNotificationRoute(n.entityRef);
+    if (route) navigate(route);
   };
 
   return (
@@ -118,7 +105,7 @@ function NotificationsContent() {
               {visible.map((n) => {
                 const meta = SEVERITY[n.severity];
                 const Icon = meta.icon;
-                const linkable = Boolean(n.entityRef?.projectId);
+                const linkable = Boolean(n.entityRef?.projectId || n.entityRef?.kind === "flow");
                 return (
                   <li
                     key={n.id}

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { CheckCircle2, AlertCircle, AlertTriangle, Filter } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,6 +20,10 @@ export function FlowHistoryPage() {
   const [filterFlowId, setFilterFlowId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [selectedRun, setSelectedRun] = useState<FlowRunLog | null>(null);
+  // Spec 033 C1: deep-link desde la notificación de fallo (`?run=<id>`).
+  // Al llegar con el query param, abre automáticamente el drawer de ese run
+  // si existe en el historial cargado.
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const filtered = useMemo(() => {
     return runs.filter((r) => {
@@ -27,6 +32,19 @@ export function FlowHistoryPage() {
       return true;
     });
   }, [runs, filterFlowId, filterStatus]);
+
+  useEffect(() => {
+    const runId = searchParams.get("run");
+    if (!runId) return;
+    const target = runs.find((r) => r.id === runId);
+    if (!target) return;
+    setSelectedRun(target);
+    // Limpia el query param tras consumirlo para que un reload no reabra
+    // el drawer eternamente (y el botón "Atrás" se comporte normal).
+    const next = new URLSearchParams(searchParams);
+    next.delete("run");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, runs, setSearchParams]);
 
   return (
     <>

@@ -3,7 +3,8 @@ import type { PollTrigger } from "@/domain/schemas/flow";
 import { pollTriggerKey } from "@/flows/engine";
 import { drainInbox, type InboxConfig } from "./inbox-poller";
 import { getConnection, resolveConnectionSecret } from "../connections";
-import { loadLastSyncAt, saveLastSyncAt } from "./poll-sync-state";
+import { loadLastSyncAt, saveLastSyncAt, saveLastBacklog } from "./poll-sync-state";
+import { integrationDb } from "@/storage/integration-db";
 
 /** Registra el drenado periódico de una conexión de inbox (spec 032 §B). El
  * proxy Apps Script del usuario acumula lo que Make/Zapier/n8n le empujan; aquí
@@ -51,6 +52,8 @@ export async function registerInboxPolling(trigger: PollTrigger): Promise<void> 
 
       if (result.success) {
         saveLastSyncAt(key, result.lastExternalTimestamp);
+        // Spec 033 A2: persistir el backlog para el semáforo de salud.
+        if (typeof result.backlog === "number") saveLastBacklog(key, result.backlog);
         if (result.records && result.records.length > 0) {
           try {
             const { useDataStore } = await import("@/store/useDataStore");
@@ -59,6 +62,12 @@ export async function registerInboxPolling(trigger: PollTrigger): Promise<void> 
             console.error("[Inbox Polling] Error applying inbox deliveries to flows:", error);
           }
         }
+        // Spec 033 A1: registrar el drain como entrada durable de `syncLogs`
+        // para que el batch del inbox sea visible en SyncLogsPage con su
+        // desenlace (mismo patrón que HubSpot/Sheets). Best-effort.
+        void logInboxDrain(connectionId, result.newRecords, null).catch(() => {});
+      } else {
+        void logInboxDrain(connectionId, result.newRecords, result.error ?? "error desconocido").catch(() => {});
       }
 
       return {
@@ -66,6 +75,7 @@ export async function registerInboxPolling(trigger: PollTrigger): Promise<void> 
         newRecords: result.newRecords,
         lastExternalTimestamp: result.lastExternalTimestamp,
         error: result.error,
+        backlog: result.backlog,
       };
     }
   );
@@ -73,4 +83,27 @@ export async function registerInboxPolling(trigger: PollTrigger): Promise<void> 
 
 export function unregisterInboxPolling(trigger: PollTrigger): void {
   pollingManager.unregister(pollTriggerKey(trigger));
+}
+
+/** Registra un drain del inbox como entrada inbound de `syncLogs` (spec 033
+ *  A1) — hace visible cada batch drenado desde Make/Zapier en SyncLogsPage.
+ *  Best-effort: un fallo de Dexie no rompe el polling. */
+async function logInboxDrain(
+  connectionId: string,
+  newRecords: number,
+  error: string | null,
+): Promise<void> {
+  await integrationDb.syncLogs.add({
+    id: crypto.randomUUID(),
+    direction: "inbound",
+    provider: "inbox",
+    eventType: `inbox:${connectionId}`,
+    status: error ? "error" : "success",
+    requestPayload: JSON.stringify({ records: newRecords }),
+    responsePayload: error ?? "",
+    httpStatus: error ? null : 200,
+    errorMessage: error,
+    retryCount: 0,
+    createdAt: new Date().toISOString(),
+  });
 }

@@ -45,11 +45,11 @@ describe("migrateRecord", () => {
     expect(value).toMatchObject({ schemaVersion: 2, priority: "medium" });
   });
 
-  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v15, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v15 with no projects-specific change — spec 024/025/026/027/032 only touched `flows`)", () => {
+  it("defaults the target to the current SCHEMA_VERSION (real registry: projects v1 -> v16, via v1-v7 field steps, a v10 step for spec 023's dedupeKey addition, then converging to v16 with no projects-specific change — spec 024/025/026/027/032/033 only touched `flows`/`notifications`)", () => {
     const v1 = { id: "p1", schemaVersion: 1, name: "Demo" };
     const { value, migrated } = migrateRecord("projects", v1);
     expect(migrated).toBe(true);
-    expect(value.schemaVersion).toBe(15);
+    expect(value.schemaVersion).toBe(16);
   });
 });
 
@@ -201,6 +201,40 @@ describe("flows v14 -> v15 (spec 032: provider 'inbox' + webhook payloadShape, i
       flows: [{ id: "flow-c", name: "Demo v15", trigger: { type: "event", event: "task.added" }, outputs: [] }],
     };
     const { migrated } = migrateRecord("flows", doc, 15, MIGRATIONS);
+    expect(migrated).toBe(false);
+  });
+});
+
+describe("flows v15 -> v16 (spec 033 C1: EntityRef kind 'flow' + runId, identity step for flows)", () => {
+  it("converges a v15 doc to v16 without touching inner flows", () => {
+    const doc = {
+      schemaVersion: 15,
+      flows: [
+        {
+          id: "flow-a",
+          name: "Demo",
+          trigger: { type: "event", event: "task.statusChanged" },
+          outputs: [{ type: "webhook", url: "https://example.com/hook", secret: "s" }],
+        },
+      ],
+    };
+
+    const { value, migrated } = migrateRecord("flows", doc, 16, MIGRATIONS);
+    expect(migrated).toBe(true);
+    expect(value.schemaVersion).toBe(16);
+    // Identity step: el schema de `flows` no cambia en Fase 1 de spec 033
+    // (el bump 16 lo introduce C1 sobre `notification.ts`). Las features de
+    // Fase 2 (B1/B2/B3) sumarán campos opcionales a `flows` bajo este mismo 16.
+    const flow = (value as { flows: Record<string, unknown>[] }).flows[0];
+    expect(flow.trigger).toEqual({ type: "event", event: "task.statusChanged" });
+  });
+
+  it("is idempotent: a v16 doc is not touched", () => {
+    const doc = {
+      schemaVersion: 16,
+      flows: [{ id: "flow-d", name: "Demo v16", trigger: { type: "event", event: "task.added" }, outputs: [] }],
+    };
+    const { migrated } = migrateRecord("flows", doc, 16, MIGRATIONS);
     expect(migrated).toBe(false);
   });
 });
