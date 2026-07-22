@@ -54,7 +54,7 @@ import {
   CanvasNodeOrder,
   type CanvasNode,
 } from "./nodeTypes";
-import { deriveAvailableVariables, nodeUsedVariables } from "./variables";
+import { nodeUsedVariables, stageVariables, variableRows } from "./variables";
 import { useGraphHistory, samePositions } from "./useGraphHistory";
 import { CanvasControls } from "./CanvasControls";
 import { VariablesPanel } from "./VariablesPanel";
@@ -476,13 +476,8 @@ function CanvasInner({
   // criterio que el `VariablesPanel`, expuesto por contexto para no meterlo
   // dentro de `data` (que sí se persiste en `flow.graph`).
   const triggerForVariables = triggerData?.trigger;
-  const availableFields = useMemo(
-    () =>
-      new Set(
-        triggerForVariables
-          ? deriveAvailableVariables(triggerForVariables, triggerSample).map((v) => v.field)
-          : [],
-      ),
+  const baseVariables = useMemo(
+    () => (triggerForVariables ? variableRows(triggerForVariables, triggerSample) : []),
     [triggerForVariables, triggerSample],
   );
 
@@ -516,6 +511,32 @@ function CanvasInner({
     }
     return Array.from(seen);
   }, [nodes]);
+
+  // Variables POR ETAPA del pipeline (spec 039 §C3, HU-04). Se calculan una
+  // vez acá y se reparten: `before` a las condiciones (se evalúan pre-mapeo) y
+  // al origen del mapeo, `after` a las acciones (consumen el registro que
+  // `applyMapping` ya reemplazó). Una sola lista global mentía en uno de los
+  // dos lados — ofrecía a las acciones campos que post-mapeo no existen y
+  // ocultaba los que sí.
+  const transformNode = nodes.find((n) => n.data.kind === "transform");
+  const transformData = transformNode?.data.kind === "transform" ? transformNode.data : undefined;
+  const transformMapping = transformData?.mapping;
+  const transformCode = transformData?.transformCode;
+  const stages = useMemo(
+    () => stageVariables(baseVariables, transformMapping ?? [], transformCode),
+    [baseVariables, transformMapping, transformCode],
+  );
+
+  // Campos conocidos para los chips de los nodos (spec 036 §C5): la UNIÓN de
+  // las dos etapas. Un chip es un "¿esta variable existe?" sin contexto de
+  // etapa; con solo la lista pre-mapeo, un `{{title}}` que el drawer de la
+  // acción sí ofrece se pintaría como desconocido en el canvas — el canvas
+  // contradiciendo al drawer sobre el mismo campo. Quién avisa de verdad de un
+  // token huérfano es `validateFlow`, que sí razona por etapa (CA-04.5).
+  const availableFields = useMemo(
+    () => new Set([...stages.before, ...stages.after].map((v) => v.field)),
+    [stages],
+  );
 
   return (
     <FlowCanvasActions.Provider value={actionsContextValue}>
@@ -624,6 +645,7 @@ function CanvasInner({
         <VariablesPanel
           trigger={triggerData?.trigger}
           sample={triggerSample}
+          stages={stages}
           collapsed={variablesCollapsed}
           onToggle={() => setVariablesCollapsed((v) => !v)}
           onOpenTrigger={() => triggerNode && setSelectedId(triggerNode.id)}
@@ -658,7 +680,9 @@ function CanvasInner({
                     return (
                       <ConditionConfigFields
                         condition={data.condition}
-                        trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
+                        // Pre-mapeo (CA-04.3): las condiciones se evalúan
+                        // antes del Transformar.
+                        variables={stages.before}
                         sample={triggerSample}
                         previewRecordIndex={previewRecordIndex}
                         onChange={(updates) =>
@@ -677,6 +701,8 @@ function CanvasInner({
                         mapping={data.mapping}
                         transformCode={data.transformCode}
                         trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
+                        // El origen del mapeo lee el registro tal como llega.
+                        variables={stages.before}
                         sample={triggerSample}
                         usedTokens={actionUsedTokens}
                         onChange={(updates) =>
@@ -701,6 +727,9 @@ function CanvasInner({
                         key={node.id}
                         output={data.output}
                         trigger={triggerData?.trigger ?? { type: "event", event: "task.statusChanged" }}
+                        // Post-mapeo (CA-04.1): las acciones consumen lo que
+                        // `applyMapping` dejó.
+                        variables={stages.after}
                         sample={triggerSample}
                         previewRecordIndex={previewRecordIndex}
                         onChange={(updates) =>

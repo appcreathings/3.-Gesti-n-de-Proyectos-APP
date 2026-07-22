@@ -7,10 +7,10 @@ type SelectionLike = Pick<HTMLInputElement, "selectionStart" | "selectionEnd">;
  * (sin efectos): si `el` es null o no expone selección, inserta al final del
  * valor; si hay un rango seleccionado, lo reemplaza.
  *
- * Generalización de `insertTokenAt` (spec 037 §B2): el drop de una variable ya
- * no inserta siempre un token `{{campo}}` — según el destino inserta el path
- * crudo (`campo`) o una expresión JS (`record.campo`). La mecánica de cursor es
- * la misma en los tres casos, así que vive acá una sola vez. */
+ * Spec 039 §F: al retirarse el arrastrar-y-soltar, `insertTokenAt` se quedó sin
+ * consumidores y se borró; quien inserta hoy es `VariablePicker`, que arma el
+ * texto con `buildToken` y lo pone acá. La mecánica de cursor sigue siendo una
+ * sola. */
 export function insertTextAt(
   value: string,
   text: string,
@@ -22,19 +22,10 @@ export function insertTextAt(
   return { value: next, cursor: start + text.length };
 }
 
-/** Construye el token `{{campo}}` (o `{{campo|mod}}`) e inserta en la posición
- * del cursor. Caso particular de `insertTextAt` — se conserva como función
- * propia porque `VariablePicker` (y el modo "token" del drop) razonan en
- * términos de campo + modificador, no de texto arbitrario.
- *
- * Extraído de `VariablePicker.insert` (spec 036 §C3) para compartirlo con el
- * drop-to-field del `VariablesPanel` (arrastrar una variable a un campo). */
-export function insertTokenAt(
-  value: string,
-  field: string,
-  el: SelectionLike | null,
-  mod?: string,
-): { value: string; cursor: number } {
-  const token = mod ? `{{${field}|${mod}}}` : `{{${field}}}`;
-  return insertTextAt(value, token, el);
+/** El token interpolable de un campo, con su modificador de formato si lo hay
+ * (spec 027 §G). Único sitio donde se ponen las llaves: lo usan la inserción
+ * (`insertTokenAt`), la pista del submenú del picker y el copiar-token del
+ * panel de Variables, así que no pueden divergir. */
+export function buildToken(field: string, mod?: string): string {
+  return mod ? `{{${field}|${mod}}}` : `{{${field}}}`;
 }

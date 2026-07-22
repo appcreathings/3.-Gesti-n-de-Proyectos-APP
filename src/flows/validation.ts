@@ -3,6 +3,7 @@ import type { FlowRule, Output } from "@/domain/schemas/flow";
 import { providerLabel } from "@/domain/labels";
 import {
   deriveAvailableVariables,
+  stageVariables,
   validateVariables,
 } from "@/features/flows/canvas/variables";
 
@@ -256,26 +257,47 @@ export function validateFlow(flow: FlowRule, deps: ValidateFlowDeps): FlowIssue[
   // ── Tokens huérfanos contra la muestra persistida (solo si hay muestra —
   // sin ella no hay información para advertir, spec 025 §B) ───────────────
   if (flow.lastSample && flow.lastSample.length > 0) {
-    const available = deriveAvailableVariables(flow.trigger, flow.lastSample);
-    flow.outputs.forEach((output, i) => {
-      const missing = new Set<string>();
-      for (const template of outputTemplates(output)) {
-        if (!template.includes("{{")) continue;
-        const result = validateVariables(template, available);
-        for (const m of result.missing) missing.add(m);
-      }
-      if (missing.size > 0) {
-        const tokens = Array.from(missing)
-          .map((m) => `{{${m}}}`)
-          .join(", ");
-        issues.push({
-          severity: "warning",
-          nodeKind: "action",
-          outputIndex: i,
-          message: `Acción ${i + 1} (${outputLabel(output)}): ${tokens} no existe en la muestra — quedaría vacío.`,
-        });
-      }
-    });
+    const base = deriveAvailableVariables(flow.trigger, flow.lastSample);
+    // Spec 039 §C3 (CA-04.5): los tokens de una acción se validan contra la
+    // lista POST-mapeo. `applyMapping` reemplaza el registro entero por los
+    // `target` cuando hay mapeo, así que validar contra los campos del trigger
+    // fallaba en las dos direcciones: no avisaba del token que iba a quedar
+    // vacío, y avisaba en falso del que sí resuelve.
+    const stages = stageVariables(base, flow.logic.mapping, flow.logic.transformCode);
+    const renamed = stages.after !== stages.before;
+    // Con `transformCode` la lista no es exhaustiva (CA-04.6): el código puede
+    // añadir claves que no están en el mapeo. Avisar ahí sería adivinar.
+    if (!stages.afterIsPartial) {
+      const available = stages.after;
+      flow.outputs.forEach((output, i) => {
+        const missing = new Set<string>();
+        for (const template of outputTemplates(output)) {
+          if (!template.includes("{{")) continue;
+          const result = validateVariables(template, available);
+          for (const m of result.missing) missing.add(m);
+        }
+        if (missing.size > 0) {
+          const tokens = Array.from(missing)
+            .map((m) => `{{${m}}}`)
+            .join(", ");
+          // R2: un warning que no explica por qué es un warning que el usuario
+          // apaga ignorándolo. Con mapeo configurado, la causa casi siempre es
+          // que el Transformar renombró los campos — decirlo, y decir con qué
+          // nombres quedaron.
+          const cause = renamed
+            ? `el nodo Transformar renombró los campos: después del mapeo el registro tiene ${available
+                .map((v) => `\`${v.field}\``)
+                .join(", ")}`
+            : "no existe en la muestra";
+          issues.push({
+            severity: "warning",
+            nodeKind: "action",
+            outputIndex: i,
+            message: `Acción ${i + 1} (${outputLabel(output)}): ${tokens} quedaría vacío — ${cause}.`,
+          });
+        }
+      });
+    }
   }
 
   return issues;

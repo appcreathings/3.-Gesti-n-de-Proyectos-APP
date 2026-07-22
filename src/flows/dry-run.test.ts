@@ -86,6 +86,73 @@ describe("dryRunFlow (spec 025 §C)", () => {
       // No se ejecutaron outputs (transform falló → continue).
       expect(rec.outputs).toEqual([]);
     });
+
+    // Spec 039 §B5 (CA-03.6): con el registro enriquecido, sembrar desde
+    // `proj-123` —que no existe— haría que la simulación mostrara los campos
+    // nuevos vacíos. Se siembra desde una entidad real cuando la hay.
+    it("siembra el evento desde una entidad real y la simulación ve los datos legibles", async () => {
+      const project = makeProject();
+      project.tasks = [
+        {
+          id: "task-real",
+          title: "Llamar a ACME",
+          description: "",
+          summary: "",
+          status: "doing",
+          priority: "high",
+          assigneeId: null,
+          dueDate: null,
+          areaId: null,
+          sourceItemId: null,
+          sprintId: null,
+          tags: [],
+          comments: [],
+          archived: false,
+          estimate: null,
+          subtasks: [],
+          dedupeKey: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+      const flow: FlowRule = {
+        ...eventFlow,
+        id: "flow-event-real-seed",
+        outputs: [{ type: "createNotification", severity: "info", message: "Tarea: {{task.title}}" }],
+      };
+
+      const result = await dryRunFlow(flow, {
+        projects: [project],
+        people: [],
+        projectTypes: [],
+        checklistTemplates: [],
+        processTemplates: [],
+      });
+
+      expect(result.ok).toBe(true);
+      const rec = result.trace!.records[0];
+      expect(rec.record.taskId).toBe("task-real");
+      expect(rec.record["task.title"]).toBe("Llamar a ACME");
+      expect(result.trace!.records[0].outputs[0].plan).toContain("Llamar a ACME");
+    });
+
+    it("sin ninguna entidad que sirva de semilla, cae al sintético de ejemplos", async () => {
+      // Un proyecto sin tareas no puede sembrar un `task.statusChanged`.
+      const result = await dryRunFlow(eventFlow, {
+        projects: [makeProject()],
+        people: [],
+        projectTypes: [],
+        checklistTemplates: [],
+        processTemplates: [],
+      });
+
+      expect(result.ok).toBe(true);
+      const rec = result.trace!.records[0];
+      expect(rec.record.projectId).toBe("proj-123");
+      // El sintético lleva sólo los campos crudos: el enriquecimiento es del
+      // motor y `proj-123` no existe, así que no resuelve nada.
+      expect("task.title" in rec.record).toBe(false);
+    });
   });
 
   describe("poll-trigger flow", () => {

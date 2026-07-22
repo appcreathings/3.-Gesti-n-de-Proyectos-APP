@@ -1,17 +1,18 @@
 import { useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import type { AvailableVariable } from "./variables";
+import type { VariableRow } from "./variables";
 import { VariablePicker } from "./VariablePicker";
 import { VariableValidationHint } from "./VariableValidationHint";
 import { InterpolationPreview } from "./InterpolationPreview";
-import { useVariableDrop, VARIABLE_DROP_RING } from "./useVariableDrop";
 
 interface Props {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  variables: AvailableVariable[];
+  /** Filas de variables de la etapa que le toca a este campo (spec 039
+   * §C3/§D2): `VariableRow` —campo + tipo + ejemplo— para que el picker se vea
+   * igual acá y en el selector de campo de una condición (CA-05.1). */
+  variables: VariableRow[];
   type?: string;
   /** Muestra real del trigger — alimenta la vista previa en vivo (spec 026
    * §D). Sin ella, `InterpolationPreview` simplemente no renderiza nada. */
@@ -33,9 +34,9 @@ interface Props {
  * posición del cursor donde insertar el token — quince refs manuales en
  * `ActionConfigFields.tsx` que este componente ya no necesita exponer.
  *
- * Spec 036 §C3 (HU-05): además es drop target del `VariablesPanel` — soltar
- * una variable arrastrada inserta su token en la posición del cursor. El
- * fallback de siempre sigue disponible (copiar token + picker del campo). */
+ * Spec 039 §F (HU-07): ya no es drop target del `VariablesPanel` — el arrastre
+ * se retiró. Poner una variable acá es el picker de al lado o copiar el token
+ * del panel, que es lo que la mayoría hacía igual. */
 export function InterpolableField({
   value,
   onChange,
@@ -46,9 +47,6 @@ export function InterpolableField({
   previewRecordIndex,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  // Drop de una variable del panel: acá se inserta como token, porque este
-  // campo SÍ se interpola (spec 037 §B3).
-  const drop = useVariableDrop({ mode: "token", inputRef, value, onChange });
 
   return (
     <div className="space-y-1">
@@ -59,14 +57,10 @@ export function InterpolableField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={cn("flex-1", drop.dragOver && VARIABLE_DROP_RING)}
-          {...drop.dropProps}
+          className="flex-1"
         />
         <VariablePicker variables={variables} inputRef={inputRef} value={value} onChange={onChange} />
       </div>
-      <span id={drop.hintId} className="sr-only">
-        {drop.hintText}
-      </span>
       <VariableValidationHint template={value} available={variables} />
       <InterpolationPreview template={value} sample={sample} recordIndex={previewRecordIndex} />
     </div>

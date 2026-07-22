@@ -1,31 +1,29 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, Braces, CornerDownLeft, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { AlertCircle, ListChecks, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { FlowCondition, Trigger } from "@/domain/schemas/flow";
+import type { FlowCondition } from "@/domain/schemas/flow";
 import { evaluateCondition } from "@/flows/conditions";
 import { resolvePath } from "@/flows/interpolation";
-import { variableRows, type VariableRow } from "./variables";
-import { useVariableDrop, VARIABLE_DROP_RING } from "./useVariableDrop";
+import type { VariableRow } from "./variables";
+import { VariableMenu, type VariableMenuOption } from "./VariableMenu";
+import { CONDITION_OPERATORS, conditionUpdatesForPick } from "./variableMenuPick";
+import {
+  conditionUpdatesWithPrefill,
+  conditionValueOnPick,
+  observedValues,
+} from "./conditionValues";
 
 interface Props {
   condition: FlowCondition;
-  /** Trigger del flujo — alimenta las variables disponibles para el selector
-   * de campo y la advertencia de campo ausente. Spec 025 §B: antes este drawer
-   * no tenía acceso a las variables reales, dejando al usuario escribiendo el
-   * nombre del campo a ciegas. */
-  trigger: Trigger;
+  /** Variables **pre-mapeo** (spec 039 §C3, CA-04.3): las condiciones se
+   * evalúan antes del Transformar, así que ven el registro crudo. Las calcula
+   * `FlowCanvas` una vez (`stageVariables().before`) y las reparte — antes
+   * este drawer las derivaba por su cuenta, y una lista global mentía en uno
+   * de los dos lados del pipeline. */
+  variables: VariableRow[];
   /** Muestra real de la última "Probar conexión" (vía canvas → builder →
    * `sample` state). Spec 025 §A/B. */
   sample?: Record<string, unknown>[];
@@ -50,37 +48,30 @@ function formatValue(value: unknown): string {
 
 export function ConditionConfigFields({
   condition,
-  trigger,
+  variables: rows,
   sample,
   previewRecordIndex = 0,
   onChange,
 }: Props) {
-  const rows = useMemo(() => variableRows(trigger, sample), [trigger, sample]);
   const fieldInputRef = useRef<HTMLInputElement>(null);
-  // `path`: el motor resuelve `condition.field` con `resolvePath` sobre el
-  // registro crudo — no lo interpola, así que acá se inserta el nombre del
-  // campo sin llaves (spec 037 §B3).
-  const fieldDrop = useVariableDrop({
-    mode: "path",
-    inputRef: fieldInputRef,
-    value: condition.field,
-    onChange: (field) => onChange({ field }),
-  });
 
   // Para `value` cuando el op es string-ish: valores del sample para ese
   // campo (dedupe). Sirve para reconocer de un vistazo qué es un valor
   // plausible vs un typo.
   const valueDatalistId = "condition-value-options";
-  const valueOptions = useMemo(() => {
-    if (!sample || !condition.field) return [];
-    return Array.from(
-      new Set(
-        sample
-          .map((r) => resolvePath(r, condition.field))
-          .filter((v): v is string => typeof v === "string" && v.length > 0),
-      ),
-    ).slice(0, 50);
-  }, [sample, condition.field]);
+  const valueOptions = useMemo(
+    () => observedValues(sample, condition.field),
+    [sample, condition.field],
+  );
+
+  // Valores ofrecidos por el selector (CA-06.1): los que el campo tiene de
+  // verdad en la muestra; sin muestra, el ejemplo del trigger — que es lo
+  // único que se sabe del campo antes de probar la conexión.
+  const valueSuggestions = useMemo(() => {
+    if (valueOptions.length > 0) return valueOptions;
+    const example = rows.find((r) => r.field === condition.field)?.example;
+    return example ? [example] : [];
+  }, [valueOptions, rows, condition.field]);
 
   // CA-04.5: el campo elegido no aparece en ninguna clave conocida. No
   // bloquea — la muestra puede ser parcial — pero es el aviso que faltaba
@@ -110,18 +101,19 @@ export function ConditionConfigFields({
             value={condition.field}
             onChange={(e) => onChange({ field: e.target.value })}
             placeholder="amount"
-            className={cn("flex-1", fieldDrop.dragOver && VARIABLE_DROP_RING)}
-            {...fieldDrop.dropProps}
+            className="flex-1"
           />
           <ConditionFieldPicker
             rows={rows}
             inputRef={fieldInputRef}
-            onPick={(field) => onChange({ field })}
+            // El pre-rellenado del valor viaja en el MISMO `onChange` que el
+            // campo (CA-06.2) — no en un `useEffect`, que se dispararía
+            // también al cargar el flujo y al deshacer.
+            onPick={(updates) =>
+              onChange(conditionUpdatesWithPrefill(condition, updates, rows, sample))
+            }
           />
         </div>
-        <span id={fieldDrop.hintId} className="sr-only">
-          {fieldDrop.hintText}
-        </span>
         {fieldIsUnknown && (
           // El icono lleva el color; el texto queda en `foreground` — el ámbar
           // sobre fondo claro no llega a AA en tamaño normal (design §6).
@@ -143,19 +135,20 @@ export function ConditionConfigFields({
 
       <div className="grid gap-2">
         <Label htmlFor="condition-op">Operador</Label>
+        {/* Se pinta desde `CONDITION_OPERATORS`, la MISMA lista que el submenú
+            del selector de campo: elegir el operador por un camino o por el
+            otro deja el mismo estado porque llaman al mismo `onChange`, y
+            ahora tampoco pueden divergir en qué operadores ofrecen (CA-05.5). */}
         <Select
           id="condition-op"
           value={condition.op}
           onChange={(e) => onChange({ op: e.target.value as FlowCondition["op"] })}
         >
-          <option value="==">==</option>
-          <option value="!=">!=</option>
-          <option value=">">&gt;</option>
-          <option value=">=">&gt;=</option>
-          <option value="<">&lt;</option>
-          <option value="<=">&lt;=</option>
-          <option value="in">in (está en la lista)</option>
-          <option value="contains">contains</option>
+          {CONDITION_OPERATORS.map((o) => (
+            <option key={o.op} value={o.op}>
+              {o.op} ({o.label})
+            </option>
+          ))}
         </Select>
       </div>
 
@@ -198,20 +191,43 @@ export function ConditionConfigFields({
             value={condition.value}
             suggestions={valueOptions}
             onChange={(values) => onChange({ value: values })}
+            // Spec 039 CA-06.3: con `in`, elegir un valor lo AÑADE a la lista
+            // en vez de reemplazarla — reemplazar tiraría el trabajo hecho.
+            picker={
+              <ConditionValuePicker
+                values={valueSuggestions}
+                onPick={(v) =>
+                  onChange({ value: conditionValueOnPick("in", condition.value, v) })
+                }
+              />
+            }
           />
         ) : (
           <>
-            <Input
-              id="condition-value"
-              value={String(condition.value ?? "")}
-              onChange={(e) => onChange({ value: e.target.value })}
-              placeholder="1000"
-              list={
-                STRINGISH_OPS.has(condition.op) && valueOptions.length > 0
-                  ? valueDatalistId
-                  : undefined
-              }
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="condition-value"
+                value={String(condition.value ?? "")}
+                onChange={(e) => onChange({ value: e.target.value })}
+                placeholder="1000"
+                className="flex-1"
+                list={
+                  STRINGISH_OPS.has(condition.op) && valueOptions.length > 0
+                    ? valueDatalistId
+                    : undefined
+                }
+              />
+              {/* El `datalist` de abajo se conserva (cubre el teclado y no
+                  estorba), pero era invisible hasta empezar a escribir e
+                  inexistente para los operadores no string-ish. Éste se ve
+                  siempre que haya algo que ofrecer (CA-06.1). */}
+              <ConditionValuePicker
+                values={valueSuggestions}
+                onPick={(v) =>
+                  onChange({ value: conditionValueOnPick(condition.op, condition.value, v) })
+                }
+              />
+            </div>
             {STRINGISH_OPS.has(condition.op) && valueOptions.length > 0 && (
               <datalist id={valueDatalistId}>
                 {valueOptions.map((v) => (
@@ -222,12 +238,12 @@ export function ConditionConfigFields({
           </>
         )}
 
-        {/* CA-02.3: el valor es deliberadamente el único campo del editor que
-            NO acepta variables arrastradas. `evaluateCondition` compara contra
-            `condition.value` literal y nunca lo interpola, así que soltar un
-            token acá crearía una condición que no puede cumplirse nunca. */}
+        {/* Invariante de 037, intacto: `evaluateCondition` compara contra
+            `condition.value` literal y nunca lo interpola, así que un token
+            acá crearía una condición que no puede cumplirse nunca (CA-06.4).
+            El selector de al lado propone valores reales; no cambia esto. */}
         <p className="text-xs text-muted-foreground">
-          Es un valor literal: se compara tal cual. No acepta variables arrastradas ni{" "}
+          Es un valor literal: se compara tal cual. No acepta{" "}
           <code className="font-mono">{"{{tokens}}"}</code> — no se interpolan.
         </p>
       </div>
@@ -249,10 +265,13 @@ export function ConditionConfigFields({
  * acentos ("Nombre Cliente") no matcheaba, caía al `else` y escribía
  * `{{Nombre Cliente}}` **con llaves** dentro de `condition.field`, que jamás
  * resolvería. La corrección no es ensanchar el regex: es no hacer el
- * round-trip por `{{}}`. Este selector entrega el path crudo directamente, así
- * que la clase de bug entera desaparece.
+ * round-trip por `{{}}`.
  *
- * Las filas son las mismas del panel de Variables (campo + tipo + ejemplo). */
+ * Desde spec 039 §D1 comparte carcasa, lista y gesto con el picker de las
+ * acciones (`VariableMenu`), pero **no** semántica: acá lo que sale del menú
+ * es el path crudo, nunca un string con llaves. La carcasa devuelve
+ * `(field, option?)` y no construye texto, justamente para que esa clase de
+ * bug no pueda volver (R4). */
 function ConditionFieldPicker({
   rows,
   inputRef,
@@ -260,97 +279,67 @@ function ConditionFieldPicker({
 }: {
   rows: VariableRow[];
   inputRef: RefObject<HTMLInputElement>;
-  onPick: (field: string) => void;
+  /** Path crudo + (si se eligió del submenú) el operador. Un solo `onChange`,
+   * el mismo que usa el `<select>` de abajo (CA-05.5). */
+  onPick: (updates: { field: string; op?: FlowCondition["op"] }) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  // Mismo criterio que HU-01: se puede escribir un campo que no está en la
-  // lista (típico, una columna de Sheets antes de probar la conexión).
-  const [custom, setCustom] = useState("");
-
-  function pick(field: string) {
-    onPick(field);
-    setOpen(false);
-    setCustom("");
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      const len = field.length;
-      inputRef.current?.setSelectionRange(len, len);
-    });
-  }
-
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0"
-          title="Elegir un campo"
-          aria-label="Elegir un campo de la lista"
-        >
-          <Braces className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-64 w-72 overflow-auto">
-        {rows.map((row) => (
-          <DropdownMenuItem key={row.field} onClick={() => pick(row.field)}>
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-              <div className="flex w-full min-w-0 items-center gap-1">
-                <span className="min-w-0 flex-1 truncate font-mono text-xs">{row.field}</span>
-                {row.type && (
-                  <Badge variant="outline" className="shrink-0 px-1 py-0 text-[9px] uppercase">
-                    {row.type}
-                  </Badge>
-                )}
-              </div>
-              {row.example && (
-                <span className="max-w-full truncate text-[10px] text-muted-foreground">
-                  {row.example}
-                </span>
-              )}
-            </div>
-          </DropdownMenuItem>
-        ))}
+    <VariableMenu
+      rows={rows}
+      title="Elegir un campo"
+      ariaLabel="Elegir un campo de la lista"
+      plainLabel="solo el campo"
+      plainHint={(row) => row.field}
+      options={(row) =>
+        CONDITION_OPERATORS.map<VariableMenuOption>((o) => ({
+          label: o.label,
+          hint: `${row.field} ${o.op}`,
+          value: o.op,
+        }))
+      }
+      onPick={(field, option) => {
+        // Path crudo, nunca un string con llaves — ver `variableMenuPick.ts`.
+        onPick(conditionUpdatesForPick(field, option));
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+          const len = field.length;
+          inputRef.current?.setSelectionRange(len, len);
+        });
+      }}
+      emptyText="Todavía no hay campos conocidos. Prueba la conexión en el nodo Trigger, o escribe el nombre del campo a mano."
+    />
+  );
+}
 
-        {rows.length > 0 && <DropdownMenuSeparator />}
-
-        {/* Div plano (no `DropdownMenuItem`) para que el menú no se cierre al
-            teclear; el `stopPropagation` evita el typeahead de Radix. */}
-        <div className="p-1" onKeyDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-1">
-            <Input
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (custom.trim()) pick(custom.trim());
-                }
-              }}
-              placeholder="escribir campo…"
-              aria-label="Escribir un campo propio"
-              className="h-8 flex-1 text-xs"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="size-8 shrink-0"
-              onClick={() => custom.trim() && pick(custom.trim())}
-              disabled={custom.trim() === ""}
-              title={custom.trim() ? `Usar "${custom.trim()}"` : "Escribe un nombre de campo"}
-              aria-label="Usar el campo escrito"
-            >
-              <CornerDownLeft className="size-3.5" />
-            </Button>
-          </div>
-          <p className="px-1 pt-1 text-[10px] text-muted-foreground">
-            Se guarda tal cual, sin <code className="font-mono">{"{{}}"}</code>.
-          </p>
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+/** Selector de valor de la condición (spec 039 §E / HU-06): los valores que el
+ * campo tiene realmente en la muestra —o el ejemplo del trigger si todavía no
+ * hay muestra—, para no tener que adivinar cómo se escribe "done" o "En
+ * curso".
+ *
+ * Reusa `VariableMenu` en **un solo nivel** (`options` devuelve `[]`): elegir
+ * un valor no tiene sub-elección. Es la misma carcasa que los dos pickers de
+ * campo, así que el gesto se siente igual en las tres superficies.
+ *
+ * No se renderiza si no hay nada que ofrecer: un menú vacío es peor que
+ * ningún menú. Sugerir tampoco bloquea escribir cualquier otra cosa en el
+ * input de al lado (CA-06.5). */
+function ConditionValuePicker({
+  values,
+  onPick,
+}: {
+  values: string[];
+  onPick: (value: string) => void;
+}) {
+  if (values.length === 0) return null;
+  return (
+    <VariableMenu
+      rows={values.map((v) => ({ field: v }))}
+      options={() => []}
+      onPick={onPick}
+      title="Elegir un valor visto en la muestra"
+      ariaLabel="Elegir un valor visto en la muestra"
+      icon={<ListChecks className="size-4" />}
+    />
   );
 }
 
@@ -364,10 +353,14 @@ function InValuesEditor({
   value,
   suggestions,
   onChange,
+  picker,
 }: {
   value: unknown;
   suggestions: string[];
   onChange: (values: string[]) => void;
+  /** Selector de valor real (spec 039 §E). Va junto al input de alta porque
+   * elegir del selector es otra forma de "añadir", no de reemplazar. */
+  picker?: ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const values = Array.isArray(value) ? value.map((v) => String(v)) : [];
@@ -406,6 +399,7 @@ function InValuesEditor({
         <Button size="sm" variant="outline" onClick={add} disabled={draft.trim() === ""}>
           Añadir
         </Button>
+        {picker}
       </div>
       {suggestions.length > 0 && (
         <datalist id={datalistId}>

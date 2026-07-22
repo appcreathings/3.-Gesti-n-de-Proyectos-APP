@@ -8,9 +8,14 @@ import {
   nodeUsedVariables,
   variableRows,
   HUBSPOT_DEFAULT_FIELDS_FOR_OBJECT_TYPE,
+  EVENT_FIELD_EXAMPLES,
+  rawEventFields,
+  stageVariables,
+  type VariableRow,
 } from "./variables";
 import type { Trigger } from "@/domain/schemas/flow";
 import type { FlowNodeData } from "@/flows/graph";
+import type { DomainEventType } from "@/automations/events";
 
 const eventTrigger: Trigger = { type: "event", event: "task.statusChanged" };
 const pollTrigger: Trigger = {
@@ -28,6 +33,108 @@ const hubspotFieldsTrigger: Trigger = {
   provider: "hubspot",
   config: { connectionId: "conn-3", objectType: "deals", fields: ["dealname", "amount"], filters: [], intervalMs: 300_000 },
 };
+
+describe("stageVariables (spec 039 §C2)", () => {
+  const base: VariableRow[] = [
+    { field: "dealname", type: "string", example: "ACME", presence: "2/2" },
+    { field: "amount", type: "number", example: "5000", presence: "2/2" },
+  ];
+
+  it("sin mapeo, `after` es exactamente `before` (el passthrough de applyMapping)", () => {
+    const stages = stageVariables(base, []);
+    expect(stages.after).toBe(stages.before);
+    expect(stages.after).toEqual(base);
+    expect(stages.afterIsPartial).toBe(false);
+  });
+
+  it("con mapeo, `after` son los targets — no los del trigger", () => {
+    const stages = stageVariables(base, [{ source: "dealname", target: "title" }]);
+    expect(stages.before.map((r) => r.field)).toEqual(["dealname", "amount"]);
+    expect(stages.after.map((r) => r.field)).toEqual(["title"]);
+  });
+
+  it("cada target hereda el ejemplo y el tipo de su source (el valor no cambia al renombrar)", () => {
+    const stages = stageVariables(base, [
+      { source: "dealname", target: "title" },
+      { source: "amount", target: "estimate" },
+    ]);
+    expect(stages.after).toEqual([
+      { field: "title", type: "string", example: "ACME", presence: "2/2" },
+      { field: "estimate", type: "number", example: "5000", presence: "2/2" },
+    ]);
+  });
+
+  it("un target cuyo source no está en la lista sigue apareciendo, sin ejemplo", () => {
+    const stages = stageVariables(base, [{ source: "desconocido", target: "title" }]);
+    expect(stages.after).toEqual([
+      { field: "title", type: undefined, example: undefined, presence: undefined },
+    ]);
+  });
+
+  it("ignora las filas de mapeo sin destino (a medio configurar)", () => {
+    const stages = stageVariables(base, [{ source: "dealname", target: "" }]);
+    expect(stages.after).toBe(stages.before);
+  });
+
+  it("dedupea targets repetidos conservando el primero", () => {
+    const stages = stageVariables(base, [
+      { source: "dealname", target: "title" },
+      { source: "amount", target: "title" },
+    ]);
+    expect(stages.after).toHaveLength(1);
+    expect(stages.after[0].example).toBe("ACME");
+  });
+
+  it("con transformCode se declara incompleta en vez de fingir exactitud", () => {
+    // CA-04.6: no se parsea el código — adivinar asignaciones sería frágil y
+    // fallaría en silencio, que es peor que declararse incompleta.
+    expect(stageVariables(base, [], "record.x = 1;").afterIsPartial).toBe(true);
+    expect(stageVariables(base, [{ source: "dealname", target: "title" }], "  ").afterIsPartial).toBe(
+      false,
+    );
+  });
+});
+
+describe("EVENT_FIELD_EXAMPLES", () => {
+  const types = Object.keys(EVENT_FIELD_EXAMPLES) as DomainEventType[];
+
+  it("cubre los once tipos de evento", () => {
+    expect(types).toHaveLength(11);
+  });
+
+  it("incluye los campos enriquecidos que el motor añade (spec 039 CA-03.3)", () => {
+    // Si esta tabla se quedara corta respecto de `eventRecord`, los campos
+    // existirían en ejecución pero serían invisibles al configurar el flujo.
+    expect(EVENT_FIELD_EXAMPLES["task.statusChanged"]["task.title"]).toBeTruthy();
+    expect(EVENT_FIELD_EXAMPLES["task.statusChanged"]["task.assigneeName"]).toBeTruthy();
+    expect(EVENT_FIELD_EXAMPLES["project.created"]["project.name"]).toBeTruthy();
+    expect(EVENT_FIELD_EXAMPLES["item.checked"]["item.text"]).toBeTruthy();
+    expect(EVENT_FIELD_EXAMPLES["checklist.completed"]["checklist.name"]).toBeTruthy();
+    expect(EVENT_FIELD_EXAMPLES["area.added"]["area.name"]).toBeTruthy();
+  });
+
+  it("todos los eventos siguen trayendo sus campos crudos", () => {
+    for (const type of types) {
+      expect(EVENT_FIELD_EXAMPLES[type].type).toBe(type);
+      expect(EVENT_FIELD_EXAMPLES[type].projectId).toBeTruthy();
+    }
+  });
+
+  it("rawEventFields devuelve sólo los campos que un DomainEvent lleva de verdad", () => {
+    // Lo consume `dry-run.ts` para el sintético de último recurso: meterle
+    // `task.title` a un `DomainEvent` lo volvería un objeto que el motor nunca
+    // produce.
+    const raw = rawEventFields("task.statusChanged");
+    expect(raw).toEqual({
+      type: "task.statusChanged",
+      projectId: "proj-123",
+      taskId: "task-1",
+      from: "todo",
+      to: "done",
+    });
+    expect(Object.keys(rawEventFields("item.checked")).some((k) => k.includes("."))).toBe(false);
+  });
+});
 
 describe("deriveAvailableVariables", () => {
   it("unions keys across all sample records, deduping and keeping the first example value", () => {

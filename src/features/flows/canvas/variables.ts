@@ -1,4 +1,4 @@
-import type { Trigger, PollTrigger } from "@/domain/schemas/flow";
+import type { Trigger, PollTrigger, FieldMapping } from "@/domain/schemas/flow";
 import type { FlowNodeData } from "@/flows/graph";
 import type { DomainEventType } from "@/automations/events";
 import { parseTokens } from "@/flows/interpolation";
@@ -12,25 +12,75 @@ export interface AvailableVariable {
   example?: string;
 }
 
+/** Datos legibles que `eventRecord` (`flows/event-record.ts`, spec 039 §B)
+ * añade al registro por entidad referenciada, con un valor de ejemplo. Se
+ * declaran aquí, junto a los campos crudos del evento, porque esta tabla es lo
+ * que el editor muestra **sin ejecutar nada**: si se quedara corta respecto de
+ * `eventRecord`, los campos existirían en ejecución pero serían invisibles al
+ * configurar el flujo (CA-03.3). Un test cruza las dos listas. */
+const PROJECT_ENRICHMENT_EXAMPLES: Record<string, string> = {
+  "project.name": "Migración ACME",
+  "project.status": "active",
+  "project.health": "green",
+  "project.priority": "high",
+};
+
+const TASK_ENRICHMENT_EXAMPLES: Record<string, string> = {
+  "task.title": "Llamar a ACME",
+  "task.status": "todo",
+  "task.priority": "high",
+  "task.dueDate": "2026-08-15",
+  "task.assigneeId": "person-1",
+  "task.assigneeName": "Ana Gómez",
+  "task.tags": '["comercial"]',
+};
+
+const AREA_ENRICHMENT_EXAMPLES: Record<string, string> = { "area.name": "Descubrimiento" };
+const CHECKLIST_ENRICHMENT_EXAMPLES: Record<string, string> = {
+  "checklist.name": "Alta de cliente",
+};
+const ITEM_ENRICHMENT_EXAMPLES: Record<string, string> = { "item.text": "Firmar el contrato" };
+
 /** Campos que trae cada tipo de `DomainEvent` (ver `src/automations/events.ts`),
  * con un valor de ejemplo — se usan cuando todavía no hay una muestra real de
  * "Probar conexión" (trigger de evento, o trigger de poll sin probar aún).
  *
+ * Desde spec 039 §B5 incluye también los **datos legibles** que el motor añade
+ * al registro (`task.title`, `project.name`…): en ejecución los pone
+ * `eventRecord`, y aquí están para que el panel de variables y los pickers los
+ * ofrezcan con su ejemplo antes de correr nada.
+ *
  * Exportado para que `src/flows/dry-run.ts` (spec 025 §C) pueda construir un
  * evento sintético representativo sin duplicar esta tabla. */
 export const EVENT_FIELD_EXAMPLES: Record<DomainEventType, Record<string, string>> = {
-  "item.checked": { type: "item.checked", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1", itemId: "item-1" },
-  "checklist.completed": { type: "checklist.completed", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1" },
-  "area.completed": { type: "area.completed", projectId: "proj-123", areaId: "area-1" },
-  "area.added": { type: "area.added", projectId: "proj-123", areaId: "area-1" },
-  "project.created": { type: "project.created", projectId: "proj-123", typeId: "type-1" },
-  "project.statusChanged": { type: "project.statusChanged", projectId: "proj-123", from: "active", to: "done" },
-  "task.added": { type: "task.added", projectId: "proj-123", taskId: "task-1" },
-  "task.statusChanged": { type: "task.statusChanged", projectId: "proj-123", taskId: "task-1", from: "todo", to: "done" },
-  "task.commented": { type: "task.commented", projectId: "proj-123", taskId: "task-1", commentId: "comment-1" },
-  "task.archived": { type: "task.archived", projectId: "proj-123", taskId: "task-1" },
-  "task.unarchived": { type: "task.unarchived", projectId: "proj-123", taskId: "task-1" },
+  "item.checked": { type: "item.checked", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1", itemId: "item-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...AREA_ENRICHMENT_EXAMPLES, ...CHECKLIST_ENRICHMENT_EXAMPLES, ...ITEM_ENRICHMENT_EXAMPLES },
+  "checklist.completed": { type: "checklist.completed", projectId: "proj-123", areaId: "area-1", checklistId: "chk-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...AREA_ENRICHMENT_EXAMPLES, ...CHECKLIST_ENRICHMENT_EXAMPLES },
+  "area.completed": { type: "area.completed", projectId: "proj-123", areaId: "area-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...AREA_ENRICHMENT_EXAMPLES },
+  "area.added": { type: "area.added", projectId: "proj-123", areaId: "area-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...AREA_ENRICHMENT_EXAMPLES },
+  "project.created": { type: "project.created", projectId: "proj-123", typeId: "type-1", ...PROJECT_ENRICHMENT_EXAMPLES },
+  "project.statusChanged": { type: "project.statusChanged", projectId: "proj-123", from: "active", to: "done", ...PROJECT_ENRICHMENT_EXAMPLES },
+  "task.added": { type: "task.added", projectId: "proj-123", taskId: "task-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...TASK_ENRICHMENT_EXAMPLES },
+  "task.statusChanged": { type: "task.statusChanged", projectId: "proj-123", taskId: "task-1", from: "todo", to: "done", ...PROJECT_ENRICHMENT_EXAMPLES, ...TASK_ENRICHMENT_EXAMPLES },
+  "task.commented": { type: "task.commented", projectId: "proj-123", taskId: "task-1", commentId: "comment-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...TASK_ENRICHMENT_EXAMPLES },
+  "task.archived": { type: "task.archived", projectId: "proj-123", taskId: "task-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...TASK_ENRICHMENT_EXAMPLES },
+  "task.unarchived": { type: "task.unarchived", projectId: "proj-123", taskId: "task-1", ...PROJECT_ENRICHMENT_EXAMPLES, ...TASK_ENRICHMENT_EXAMPLES },
 };
+
+/** Sólo los campos **crudos** del evento (los que `DomainEvent` lleva de
+ * verdad), sin el enriquecimiento. `dry-run.ts` los usa para construir el
+ * evento sintético de último recurso: meterle `task.title` a un `DomainEvent`
+ * lo convertiría en un objeto que el motor nunca produce. */
+export function rawEventFields(eventType: DomainEventType): Record<string, string> {
+  const all = EVENT_FIELD_EXAMPLES[eventType];
+  const enriched = new Set([
+    ...Object.keys(PROJECT_ENRICHMENT_EXAMPLES),
+    ...Object.keys(TASK_ENRICHMENT_EXAMPLES),
+    ...Object.keys(AREA_ENRICHMENT_EXAMPLES),
+    ...Object.keys(CHECKLIST_ENRICHMENT_EXAMPLES),
+    ...Object.keys(ITEM_ENRICHMENT_EXAMPLES),
+  ]);
+  return Object.fromEntries(Object.entries(all).filter(([k]) => !enriched.has(k)));
+}
 
 /** Campos por defecto que trae HubSpot según el `objectType` — espeja
  * `HUBSPOT_FIELDS_BY_TYPE` de `TriggerStep.tsx` para que cuando el usuario
@@ -136,6 +186,61 @@ export function variableRows(
   }
   if (!trigger) return [];
   return deriveAvailableVariables(trigger).map((v) => ({ field: v.field, example: v.example }));
+}
+
+export interface StageVariables {
+  /** Antes del Transformar: lo que ven las condiciones. */
+  before: VariableRow[];
+  /** Después del Transformar: lo que ven las acciones y los outputs. */
+  after: VariableRow[];
+  /** `after` **no** es exhaustiva: hay `transformCode` y el código puede
+   * añadir o quitar claves. */
+  afterIsPartial: boolean;
+}
+
+/**
+ * Las variables disponibles **por etapa del pipeline** (spec 039 §C2, HU-04).
+ *
+ * El defecto que corrige: `applyMapping` (`engine.ts:604-612`) **reemplaza** el
+ * registro entero por los `target` cuando hay mapeo configurado. El editor
+ * ofrecía a las acciones los campos del trigger —que post-mapeo ya no
+ * existen— y ocultaba los que sí. `applyMapping` no se toca (invariante de
+ * 037): lo que cambia es que las listas dejen de ser globales.
+ *
+ * - Sin mapeo → `after === before`: es exactamente el passthrough que
+ *   `applyMapping` hace con `mapping.length === 0` (CA-04.2).
+ * - Con mapeo → `after` son los `target`, cada uno **heredando el ejemplo y el
+ *   tipo de su `source`**: el valor no cambia al renombrar, así que la lista
+ *   sigue siendo reconocible (CA-04.1).
+ * - Con `transformCode` → `afterIsPartial`. **No se parsea el código**
+ *   (CA-04.6): adivinar asignaciones sería frágil y fallaría en silencio, que
+ *   es peor que declararse incompleta.
+ *
+ * Pura y sin DOM.
+ */
+export function stageVariables(
+  base: VariableRow[],
+  mapping: FieldMapping[],
+  transformCode?: string,
+): StageVariables {
+  const afterIsPartial = Boolean(transformCode && transformCode.trim() !== "");
+  const effective = mapping.filter((m) => m.target !== "");
+  if (effective.length === 0) {
+    return { before: base, after: base, afterIsPartial };
+  }
+  const bySource = new Map(base.map((r) => [r.field, r]));
+  const seen = new Map<string, VariableRow>();
+  for (const m of effective) {
+    if (seen.has(m.target)) continue;
+    const source = bySource.get(m.source);
+    seen.set(m.target, {
+      field: m.target,
+      type: source?.type,
+      example: source?.example,
+      presence: source?.presence,
+    });
+  }
+  return { before: base, after: Array.from(seen.values()), afterIsPartial };
 }
 
 /** Valida que todos los `{{tokens}}` interpolables en `template` estén

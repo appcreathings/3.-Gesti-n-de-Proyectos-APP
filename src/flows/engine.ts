@@ -21,6 +21,7 @@ import type {
   CreateTaskOutput,
 } from "@/domain/schemas/flow";
 import type { DomainEvent } from "@/automations/events";
+import { buildEventRecordDeps, eventRecord, type EventRecordDeps } from "./event-record";
 import { sendEmailViaAppsScript } from "@/integrations/outbound/email-via-apps-script";
 import { calculateRetryDelay } from "@/integrations/outbound/retry-delay";
 import {
@@ -260,6 +261,9 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
 
   const enabled = input.flows.filter((f) => f.enabled);
   const projectMap = new Map(input.projects.map((p) => [p.id, p]));
+  // Spec 039 §B2 (R6): índices por id construidos UNA vez por corrida, no una
+  // búsqueda lineal por evento.
+  const recordDeps = buildEventRecordDeps(input.projects, input.people);
   const changedProjectIds = new Set<string>();
   const executedFlowIds = new Set<string>();
 
@@ -268,7 +272,12 @@ export async function runFlowEngine(input: FlowEngineInput): Promise<FlowEngineR
     if (!matchesTrigger(flow.trigger, input.events, input.externalData)) continue;
 
     // 2. Obtener datos de entrada (junto con su procedencia, para targeting)
-    const { records, sources } = resolveTriggerData(flow.trigger, input.events, input.externalData);
+    const { records, sources } = resolveTriggerData(
+      flow.trigger,
+      input.events,
+      input.externalData,
+      recordDeps
+    );
     if (records.length === 0) continue;
 
     const flowTrace: FlowRunTrace | undefined = input.trace
@@ -515,13 +524,21 @@ function matchesTrigger(
 function resolveTriggerData(
   trigger: Trigger,
   events: DomainEvent[],
-  externalData?: Map<string, Record<string, unknown>[]>
+  externalData?: Map<string, Record<string, unknown>[]>,
+  recordDeps?: EventRecordDeps
 ): { records: Record<string, unknown>[]; sources: RecordSource[] } {
   switch (trigger.type) {
     case "event": {
       const matching = events.filter((e) => e.type === trigger.event);
       return {
-        records: matching.map((e) => e as unknown as Record<string, unknown>),
+        // Spec 039 §B2 (HU-03): éste es el ÚNICO punto donde un evento interno
+        // se vuelve registro, así que es donde se enriquece — una vez, no en
+        // cada output. De aquí en adelante el nombre de la tarea sirve igual
+        // en condiciones, mapeo, webhook, email y crear-tarea. Antes el evento
+        // se casteaba tal cual y todo el pipeline veía sólo uuids.
+        records: matching.map((e) =>
+          recordDeps ? eventRecord(e, recordDeps) : (e as unknown as Record<string, unknown>)
+        ),
         sources: matching.map((e) => eventToSource(e)),
       };
     }

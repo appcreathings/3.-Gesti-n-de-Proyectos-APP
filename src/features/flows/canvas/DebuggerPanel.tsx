@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Beaker, Loader2, AlertCircle, History, Play } from "lucide-react";
+import { Beaker, Loader2, AlertCircle, ChevronRight, History, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { FlowRule } from "@/domain/schemas/flow";
@@ -27,6 +27,12 @@ interface Props {
   /** Notifica al padre el resultado de "Simular flujo" (`null` al empezar una
    * simulación nueva o si falló). */
   onDryRunResult?: (trace: FlowRunTrace | null) => void;
+  /** Spec 039 §A2 (HU-02): plegado hacia la derecha para devolverle el ancho
+   * al canvas. Es estado de sesión y vive en `FlowBuilderPage`, que es quien
+   * define la rejilla. El panel NO se desmonta al plegarse: `status` y `error`
+   * siguen ahí al desplegar (CA-02.3). */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 type Status = "idle" | "loading" | "result" | "error";
@@ -51,6 +57,8 @@ export function DebuggerPanel({
   onClearRealRun,
   dryTrace = null,
   onDryRunResult,
+  collapsed = false,
+  onToggleCollapsed,
 }: Props) {
   const navigate = useNavigate();
   const projects = useDataStore((s) => s.projects);
@@ -90,23 +98,73 @@ export function DebuggerPanel({
   const showReal = Boolean(realRunResult);
   const showDry = !showReal && status === "result" && dryTrace;
 
+  // Conteo para la pestaña plegada: los registros que la traza visible tiene.
+  // Mismo rol que el de `VariablesPanel` — decir que hay algo dentro sin
+  // obligar a desplegar.
+  const collapsedCount = showReal
+    ? (realRunResult?.trace?.recordCount ?? 0)
+    : status === "result" && dryTrace
+      ? dryTrace.recordCount
+      : 0;
+
+  // Spec 039 §A2 (CA-02.1): pestaña calcada de `VariablesPanel.tsx:61-79` —
+  // el editor ya tiene un idioma para "esto se pliega" y un segundo idioma
+  // para lo mismo sería peor que no plegar. El `return` temprano no desmonta
+  // el componente, así que `status`/`error` sobreviven (CA-02.3).
+  if (collapsed) {
+    return (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title="Mostrar depurador"
+          aria-label="Mostrar depurador"
+          aria-expanded={false}
+          className="flex min-h-9 items-center gap-1.5 rounded-l-md border border-r-0 border-border bg-background px-2 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Beaker className="size-3.5" />
+          Depurador
+          {collapsedCount > 0 && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              {collapsedCount}
+            </Badge>
+          )}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-background">
-      <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-3">
         <div className="flex items-center gap-2">
           <Beaker className="size-4 text-primary" />
           <h3 className="text-sm font-semibold">Depurador</h3>
         </div>
-        {showReal && (
-          <Badge variant="success" className="text-[10px]">
-            Run real
-          </Badge>
-        )}
-        {showDry && (
-          <Badge variant="secondary" className="text-[10px]">
-            Simulación
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {showReal && (
+            <Badge variant="success" className="text-[10px]">
+              Run real
+            </Badge>
+          )}
+          {showDry && (
+            <Badge variant="secondary" className="text-[10px]">
+              Simulación
+            </Badge>
+          )}
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              title="Ocultar depurador"
+              aria-label="Ocultar depurador"
+              aria-expanded
+              className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-3">

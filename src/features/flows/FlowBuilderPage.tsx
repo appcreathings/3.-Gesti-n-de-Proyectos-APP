@@ -104,6 +104,10 @@ export function FlowBuilderPage() {
   // "Limpiar" apaga la proyección del canvas SIN tirar la traza: el
   // `DebuggerPanel` sigue mostrando su vista textual igual que hoy (CA-04.8).
   const [projectionHidden, setProjectionHidden] = useState(false);
+  // Spec 039 §A2 (HU-02): plegado del depurador. Vive aquí porque quien define
+  // la rejilla es esta página, no el panel. Es de sesión — no se persiste ni
+  // toca el schema (CA-02.4).
+  const [debuggerCollapsed, setDebuggerCollapsed] = useState(false);
   // Diálogo de guardado con errores (spec 027 §A): guarda el flujo compilado
   // pendiente y si el guardado era in-place (Ctrl+S) o guardar-y-salir.
   const [saveDialog, setSaveDialog] = useState<{ finalFlow: FlowRule; stay: boolean } | null>(null);
@@ -476,7 +480,18 @@ export function FlowBuilderPage() {
         {/* Spec 025 §C/§D: layout 2 columnas — canvas + DebuggerPanel.
             En móvil el panel apila debajo del canvas y se mantiene
             funcional (su altura es flexible). */}
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        {/* Spec 039 §A2: plegado el depurador, su columna pasa a `auto` (solo
+            la pestaña) y el canvas se queda con el ancho liberado (CA-02.2).
+            NO se dispara `fitView`: los nodos no se mueven, aparece espacio, y
+            re-encuadrar movería el viewport que el usuario acaba de ajustar
+            (R5). "Ajustar a pantalla" sigue a un clic. */}
+        <div
+          className={
+            debuggerCollapsed
+              ? "grid gap-4 lg:grid-cols-[1fr_auto]"
+              : "grid gap-4 lg:grid-cols-[2fr_1fr]"
+          }
+        >
           <FlowCanvas
             key={loadedFlowId ?? "new"}
             initialGraph={graph}
@@ -498,13 +513,19 @@ export function FlowBuilderPage() {
               setFlow((prev) => ({ ...prev, logic: { ...prev.logic, conditionMode: mode } }))
             }
           />
-          <div className="h-[calc(100vh-260px)] min-h-[480px]">
+          <div
+            className={
+              debuggerCollapsed ? "" : "h-[calc(100vh-260px)] min-h-[480px]"
+            }
+          >
             <DebuggerPanel
               flow={currentFlow}
               realRunResult={realRunLog}
               onClearRealRun={() => setRealRunLog(null)}
               dryTrace={simulation?.trace ?? null}
               onDryRunResult={handleDryRunResult}
+              collapsed={debuggerCollapsed}
+              onToggleCollapsed={() => setDebuggerCollapsed((c) => !c)}
             />
           </div>
         </div>

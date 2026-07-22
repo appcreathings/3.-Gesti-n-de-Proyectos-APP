@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -21,12 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FieldMapping, Trigger } from "@/domain/schemas/flow";
 import { useGenerateTransform } from "@/hooks/useGenerateTransform";
 import {
-  deriveAvailableVariables,
   allInternalTargetFields,
   suggestFieldMappingPairs,
+  type VariableRow,
 } from "./variables";
 import { MDN_JS_GUIDE_URL, TRANSFORM_SNIPPETS, applySnippet } from "./transformSnippets";
-import { useVariableDrop, VARIABLE_DROP_RING } from "./useVariableDrop";
 import { mappingEffect } from "./mappingEffect";
 // Nota: en spec 025 §B se evaluó usar `VariableValidationHint` aquí también,
 // pero NO aplica en este paso del editor:
@@ -42,6 +41,12 @@ interface Props {
   mapping: FieldMapping[];
   transformCode?: string;
   trigger: Trigger;
+  /** Variables **pre-mapeo** (spec 039 §C3): el origen del mapeo lee el
+   * registro tal como llega del trigger — este nodo es justamente el que
+   * produce la etapa siguiente. Las calcula `FlowCanvas`
+   * (`stageVariables().before`) y las reparte, para que las tres superficies
+   * salgan de un solo cálculo. */
+  variables: VariableRow[];
   /** Registros de muestra reales traídos por la última "Probar conexión"
    * exitosa del nodo trigger (spec 022 §A). Si no hay ninguno todavía (el
    * usuario no ha probado la conexión), se cae al ejemplo hardcodeado de
@@ -99,7 +104,6 @@ function MappingFieldCell({
   emptyLabel,
   inputPlaceholder,
   datalistId,
-  acceptsVariableDrop = false,
 }: {
   value: string;
   options: MappingFieldOption[];
@@ -108,9 +112,6 @@ function MappingFieldCell({
   inputPlaceholder: string;
   /** Solo el origen ofrece autocompletado con los campos de la muestra. */
   datalistId?: string;
-  /** Solo el origen acepta variables arrastradas: el destino es un campo
-   * interno de Hito, no un campo del registro entrante (spec 037 §B3). */
-  acceptsVariableDrop?: boolean;
 }) {
   // `null` = deriva del valor (comportamiento al abrir el drawer con un valor
   // ya guardado); `true`/`false` = el usuario eligió explícitamente en esta
@@ -118,11 +119,6 @@ function MappingFieldCell({
   const [customMode, setCustomMode] = useState<boolean | null>(null);
   const derivedCustom = value !== "" && !options.some((o) => o.field === value);
   const isCustom = customMode ?? derivedCustom;
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  // `path`: el origen del mapeo es un path crudo que el motor resuelve con
-  // `resolvePath`, no un template que interpole — un `{{}}` acá no resolvería.
-  const drop = useVariableDrop({ mode: "path", inputRef, value, onChange });
 
   return (
     <div className="flex-1 space-y-1">
@@ -151,23 +147,13 @@ function MappingFieldCell({
         <option value={CUSTOM_VALUE}>Personalizado (escribir)...</option>
       </Select>
       {isCustom && (
-        <>
-          <Input
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={inputPlaceholder}
-            list={datalistId}
-            aria-label="Nombre del campo personalizado"
-            className={cn(acceptsVariableDrop && drop.dragOver && VARIABLE_DROP_RING)}
-            {...(acceptsVariableDrop ? drop.dropProps : {})}
-          />
-          {acceptsVariableDrop && (
-            <span id={drop.hintId} className="sr-only">
-              {drop.hintText}
-            </span>
-          )}
-        </>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={inputPlaceholder}
+          list={datalistId}
+          aria-label="Nombre del campo personalizado"
+        />
       )}
     </div>
   );
@@ -177,6 +163,7 @@ export function TransformConfigFields({
   mapping,
   transformCode,
   trigger,
+  variables: availableVariables,
   sample,
   usedTokens,
   onChange,
@@ -199,21 +186,9 @@ export function TransformConfigFields({
   const [rowsGeneration, setRowsGeneration] = useState(0);
   const generateTransform = useGenerateTransform();
 
-  // El textarea es JavaScript, no un template: soltar una variable acá inserta
-  // la expresión que la lee (`record.campo`), no un token (spec 037 §B3).
-  const codeRef = useRef<HTMLTextAreaElement>(null);
-  const codeDrop = useVariableDrop({
-    mode: "code",
-    inputRef: codeRef,
-    value: transformCode ?? "",
-    onChange: (next) => onChange({ transformCode: next }),
-  });
-
   const hasRealSample = Boolean(sample && sample.length > 0);
-  // Variables disponibles: muestra real si existe, si no los campos
-  // conocidos del tipo de evento del trigger (spec 023 §C) — alimenta tanto
-  // el datalist de abajo como los selectores emparejados del mapeo.
-  const availableVariables = deriveAvailableVariables(trigger, sample);
+  // Variables disponibles pre-mapeo (spec 039 §C3): alimentan tanto el
+  // datalist de abajo como los selectores emparejados del mapeo.
   const availableFields = availableVariables.map((v) => v.field);
   const internalFields = allInternalTargetFields();
 
@@ -406,7 +381,6 @@ export function TransformConfigFields({
                   emptyLabel="Campo recibido..."
                   inputPlaceholder="campo.origen"
                   datalistId={SOURCE_FIELDS_DATALIST_ID}
-                  acceptsVariableDrop
                 />
                 <span className="mt-2 text-muted-foreground">→</span>
                 <MappingFieldCell
@@ -685,16 +659,11 @@ export function TransformConfigFields({
         </div>
 
         <Textarea
-          ref={codeRef}
           value={transformCode || ""}
           onChange={(e) => onChange({ transformCode: e.target.value })}
           placeholder={`// Debes retornar el objeto transformado\nrecord.name = record.name.toUpperCase();\nreturn record;`}
-          className={cn("min-h-[150px] font-mono text-sm", codeDrop.dragOver && VARIABLE_DROP_RING)}
-          {...codeDrop.dropProps}
+          className="min-h-[150px] font-mono text-sm"
         />
-        <span id={codeDrop.hintId} className="sr-only">
-          {codeDrop.hintText}
-        </span>
         <Button size="sm" onClick={handleTestTransform}>
           <Play className="size-4" />
           Probar con datos de ejemplo

@@ -9,7 +9,8 @@ import type { FlowRule } from "@/domain/schemas/flow";
 import type { DomainEvent, DomainEventType } from "@/automations/events";
 import { runFlowEngine, pollTriggerKey, type FlowRunTrace } from "./engine";
 import { fetchPollSampleForFlow } from "./manual-run";
-import { EVENT_FIELD_EXAMPLES } from "@/features/flows/canvas/variables";
+import { rawEventFields } from "@/features/flows/canvas/variables";
+import { EVENT_SEED_REQUIREMENTS, buildSyntheticEvent } from "./synthetic-event";
 
 export interface DryRunDeps {
   projects: Project[];
@@ -69,11 +70,17 @@ export async function dryRunFlow(flow: FlowRule, deps: DryRunDeps): Promise<DryR
     externalData = new Map();
     externalData.set(pollTriggerKey(flow.trigger), fetchResult.records);
   } else {
-    // event: construir synthetic representativo desde los examples
-    // hardcoded (variables.ts:15-27). No exige entidad real — el dry-run
-    // de eventos previsualiza la *forma* del flujo, no invariant-check
-    // sobre una entidad específica. Spec 025 §C §design-§8.
-    events = [buildSyntheticEventFromExamples(flow.trigger.event)];
+    // event: sembrar desde una entidad REAL cuando la haya (spec 039 §B5,
+    // CA-03.6). Desde que el motor enriquece el registro, un evento sintético
+    // que apunta a `proj-123` —que no existe— no resolvería ninguna entidad y
+    // la simulación mostraría los campos nuevos vacíos: exactamente la clase
+    // de mentira que 038 combatió. Sin ninguna entidad válida se cae al
+    // sintético de ejemplos de siempre, que sigue previsualizando la *forma*
+    // del flujo (spec 025 §C).
+    events = [
+      pickRealSeedEvent(flow.trigger.event, deps.projects) ??
+        buildSyntheticEventFromExamples(flow.trigger.event),
+    ];
   }
 
   const result = await runFlowEngine({
@@ -105,12 +112,45 @@ export async function dryRunFlow(flow: FlowRule, deps: DryRunDeps): Promise<DryR
   return { ok: true, trace };
 }
 
+/** Busca la primera entidad real que satisface lo que el tipo de evento
+ * necesita (`EVENT_SEED_REQUIREMENTS`) y arma el evento con
+ * `buildSyntheticEvent` — los mismos dos módulos que "Ejecutar ahora" ya usa
+ * para resolver "qué entidad necesita cada tipo de evento" (spec 022 §C), sin
+ * duplicar esa tabla. Devuelve `undefined` si no hay ninguna entidad que
+ * sirva; el llamador cae entonces al sintético de ejemplos. */
+function pickRealSeedEvent(
+  eventType: DomainEventType,
+  projects: Project[],
+): DomainEvent | undefined {
+  const need = EVENT_SEED_REQUIREMENTS[eventType];
+  for (const project of projects) {
+    if (need === "none") return buildSyntheticEvent(eventType, { project });
+    if (need === "task") {
+      const task = project.tasks.find((t) => !t.archived) ?? project.tasks[0];
+      if (task) return buildSyntheticEvent(eventType, { project, task });
+      continue;
+    }
+    for (const area of project.areas) {
+      if (need === "area") return buildSyntheticEvent(eventType, { project, area });
+      for (const checklist of area.checklists) {
+        if (need === "checklist") {
+          return buildSyntheticEvent(eventType, { project, area, checklist });
+        }
+        const item = checklist.items[0];
+        if (item) return buildSyntheticEvent(eventType, { project, area, checklist, item });
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Construye un `DomainEvent` sintético representativo para dry-run de un
- * flujo de evento, sin exigir una entidad real. Usa `EVENT_FIELD_EXAMPLES`
- * (`variables.ts`) — el mismo set que ya alimenta el `availableVariables`
- * del editor cuando no hay muestra real. */
+ * flujo de evento, sin exigir una entidad real — último recurso cuando el
+ * usuario no tiene ninguna entidad que sirva de semilla. Usa los campos
+ * **crudos** de `EVENT_FIELD_EXAMPLES` (`variables.ts`): el enriquecimiento de
+ * esa tabla es lo que el motor añade, no lo que un `DomainEvent` lleva. */
 function buildSyntheticEventFromExamples(eventType: DomainEventType): DomainEvent {
-  const fields = EVENT_FIELD_EXAMPLES[eventType] as Record<string, string>;
+  const fields = rawEventFields(eventType);
   // `DomainEvent` es un discriminated union por `type`; los examples
   // incluyen `type: <DomainEventType>` que coincide con el discriminador.
   // El cast es seguro porque el shape del registro es exactamente el que

@@ -207,4 +207,77 @@ describe("validateFlow (spec 027 §A)", () => {
     });
     expect(validateFlow(flow, deps)).toEqual([]);
   });
+
+  // Spec 039 §C3 (CA-04.5, R2). `applyMapping` REEMPLAZA el registro por los
+  // `target` cuando hay mapeo, así que validar contra los campos del trigger
+  // fallaba en las DOS direcciones. Un test por dirección.
+  describe("tokens huérfanos con mapeo configurado (spec 039 CA-04.5)", () => {
+    const dealsTrigger: Trigger = {
+      type: "poll",
+      provider: "hubspot",
+      config: { connectionId: "c1", objectType: "deals", fields: [], filters: [], intervalMs: 300_000 },
+    };
+
+    it("AHORA avisa del token que apunta a un campo PRE-mapeo (antes callaba)", () => {
+      const flow = makeFlow({
+        trigger: dealsTrigger,
+        logic: { conditions: [], mapping: [{ source: "dealname", target: "title" }] },
+        outputs: [{ type: "createNotification", severity: "info", message: "Deal: {{dealname}}" }],
+        lastSample: [{ dealname: "ACME" }],
+      });
+      const issues = validateFlow(flow, deps);
+      expect(issues).toHaveLength(1);
+      expect(issues[0]).toMatchObject({ severity: "warning", nodeKind: "action", outputIndex: 0 });
+      expect(issues[0].message).toContain("{{dealname}}");
+      // El mensaje nombra la CAUSA, no solo el síntoma (R2).
+      expect(issues[0].message).toContain("Transformar renombró los campos");
+      expect(issues[0].message).toContain("`title`");
+    });
+
+    it("DEJA de avisar del token que apunta a un `target` (antes avisaba en falso)", () => {
+      const flow = makeFlow({
+        trigger: dealsTrigger,
+        logic: { conditions: [], mapping: [{ source: "dealname", target: "title" }] },
+        outputs: [{ type: "createNotification", severity: "info", message: "Deal: {{title}}" }],
+        lastSample: [{ dealname: "ACME" }],
+      });
+      expect(validateFlow(flow, deps)).toEqual([]);
+    });
+
+    it("es un warning, no un error: no bloquea guardar ni activar", () => {
+      const flow = makeFlow({
+        trigger: dealsTrigger,
+        logic: { conditions: [], mapping: [{ source: "dealname", target: "title" }] },
+        outputs: [{ type: "createNotification", severity: "info", message: "Deal: {{dealname}}" }],
+        lastSample: [{ dealname: "ACME" }],
+      });
+      expect(flowErrors(validateFlow(flow, deps))).toEqual([]);
+    });
+
+    it("con transformCode no avisa: la lista post-mapeo no es exhaustiva (CA-04.6)", () => {
+      const flow = makeFlow({
+        trigger: dealsTrigger,
+        logic: {
+          conditions: [],
+          mapping: [{ source: "dealname", target: "title" }],
+          transformCode: "record.extra = 1; return record;",
+        },
+        outputs: [{ type: "createNotification", severity: "info", message: "Deal: {{extra}}" }],
+        lastSample: [{ dealname: "ACME" }],
+      });
+      expect(validateFlow(flow, deps)).toEqual([]);
+    });
+
+    it("sin mapeo el mensaje no habla del Transformar", () => {
+      const flow = makeFlow({
+        trigger: dealsTrigger,
+        outputs: [{ type: "createNotification", severity: "info", message: "Deal: {{noexiste}}" }],
+        lastSample: [{ dealname: "ACME" }],
+      });
+      const issues = validateFlow(flow, deps);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].message).toContain("no existe en la muestra");
+      expect(issues[0].message).not.toContain("Transformar");
+    });
+  });
 });

@@ -21,7 +21,7 @@ import { getConnections, type IntegrationConnection } from "@/integrations/conne
 import { ROUTES } from "@/routes/paths";
 import { interpolateObject } from "@/flows/interpolation";
 import { testWebhook, type WebhookTestResult } from "@/flows/webhook-test";
-import { deriveAvailableVariables, INTERNAL_TARGET_FIELDS } from "./variables";
+import { INTERNAL_TARGET_FIELDS, type VariableRow } from "./variables";
 import { InterpolableField } from "./InterpolableField";
 import { WebhookSignatureGuide } from "./WebhookSignatureGuide";
 
@@ -34,6 +34,12 @@ function generateWebhookSecret(): string {
 interface Props {
   output: Output;
   trigger: Trigger;
+  /** Variables **post-mapeo** (spec 039 §C3, CA-04.1): las acciones consumen
+   * el registro después del Transformar, y `applyMapping` lo REEMPLAZA por los
+   * `target` cuando hay mapeo. Las calcula `FlowCanvas`
+   * (`stageVariables().after`) — antes este drawer derivaba las del trigger,
+   * ofreciendo campos que post-mapeo ya no existen y ocultando los que sí. */
+  variables: VariableRow[];
   /** Muestra real de la última "Probar conexión" del trigger (spec 022 §A),
    * reenviada al nodo de acción para alimentar el selector de variables
    * (spec 023 §C) y las vistas previas en vivo (spec 026 §D). */
@@ -137,12 +143,18 @@ function RetryFields({
  * `OutputStep.tsx` (retirado — el canvas es ahora la única superficie de
  * creación de flujos); la única diferencia estructural es que opera sobre un
  * output suelto en vez de un índice dentro de `flow.outputs`. */
-export function ActionConfigFields({ output, trigger, sample, previewRecordIndex, onChange }: Props) {
+export function ActionConfigFields({
+  output,
+  trigger,
+  variables: availableVariables,
+  sample,
+  previewRecordIndex,
+  onChange,
+}: Props) {
   const projectTypes = useDataStore((s) => s.projectTypes);
   const projects = useDataStore((s) => s.projects);
   const products = useDataStore((s) => s.products);
   const [emailConnections, setEmailConnections] = useState<IntegrationConnection[]>([]);
-  const availableVariables = deriveAvailableVariables(trigger, sample);
 
   // Estado de "Probar webhook" (spec 026 §C3) — declarado aquí (no dentro
   // del `case "webhook"`) porque los Hooks de React no pueden llamarse
@@ -845,6 +857,23 @@ export function ActionConfigFields({ output, trigger, sample, previewRecordIndex
                 ? "Se enviará el registro completo (después de mapeo/transformación) tal cual."
                 : "Solo se enviarán los campos definidos aquí, con sus valores interpolados."}
             </p>
+            {/* Spec 039 CA-03.7 / R1: el registro de un evento interno ahora
+                lleva también los datos legibles de la entidad, así que un
+                webhook sin payload explícito manda claves nuevas a Make/
+                Zapier. Es aditivo —las de siempre siguen ahí— pero es un
+                cambio observable FUERA de la app: decirlo donde se decide. */}
+            {payloadMode === "full" && trigger.type === "event" && (
+              <p className="text-xs text-muted-foreground">
+                Además de los ids del evento (<code className="font-mono">type</code>,{" "}
+                <code className="font-mono">projectId</code>,{" "}
+                <code className="font-mono">taskId</code>…), el registro incluye los datos
+                legibles de las entidades que el evento referencia —{" "}
+                <code className="font-mono">task.title</code>,{" "}
+                <code className="font-mono">project.name</code>… —. Las claves de siempre no
+                cambian de nombre ni de valor; si tu receptor las lee por nombre, sigue
+                funcionando igual.
+              </p>
+            )}
           </div>
 
           {preview && (

@@ -529,6 +529,149 @@ describe("FlowEngine", () => {
     });
   });
 
+  // Spec 039 §B (HU-03, R1). El registro de un evento interno se enriquece en
+  // UN solo punto —`resolveTriggerData`—, así que los datos legibles llegan
+  // igual a condiciones, mapeo, webhook, email y crear-tarea. Estos tests
+  // fijan el extremo del pipeline: lo que efectivamente sale por el webhook.
+  describe("Registro enriquecido del evento (spec 039 §B)", () => {
+    const enrichedProject = (): Project => {
+      const project = newProject("Migración ACME");
+      project.id = "project-1";
+      const task = newTask("Llamar a ACME");
+      task.id = "task-1";
+      task.status = "doing";
+      task.priority = "high";
+      task.assigneeId = "person-1";
+      project.tasks = [task];
+      return project;
+    };
+
+    const person = (): Person => {
+      const p = newPerson("Ana Gómez");
+      p.id = "person-1";
+      return p;
+    };
+
+    const changeEvent: DomainEvent = {
+      type: "task.statusChanged",
+      projectId: "project-1",
+      taskId: "task-1",
+      from: "todo",
+      to: "doing",
+    };
+
+    const webhookFlow = (): FlowRule => ({
+      id: "flow-enriched",
+      schemaVersion: 14,
+      name: "Webhook sin payload",
+      enabled: true,
+      notifyOnFailure: true,
+      trigger: { type: "event", event: "task.statusChanged" },
+      logic: { conditions: [], mapping: [] },
+      // `secret: ""` es lo que el drawer escribe en modo Simple (spec 034 §A):
+      // sin firma. Lo que este bloque prueba es el PAYLOAD, no la firma.
+      outputs: [{ type: "webhook", url: "https://example.com/webhook", secret: "" }],
+      lastRunAt: null,
+      runCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.clearAllMocks();
+    });
+
+    it("un webhook sin payload explícito envía los datos legibles además de los ids", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" }));
+
+      const result = await runFlowEngine({
+        flows: [webhookFlow()],
+        events: [changeEvent],
+        projects: [enrichedProject()],
+        people: [person()],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      const payload = result.outboundDeliveries[0].payload as Record<string, unknown>;
+      expect(payload["task.title"]).toBe("Llamar a ACME");
+      expect(payload["task.status"]).toBe("doing");
+      expect(payload["task.assigneeName"]).toBe("Ana Gómez");
+      expect(payload["project.name"]).toBe("Migración ACME");
+    });
+
+    it("ADITIVO: las claves de siempre siguen ahí, con el mismo valor (CA-03.2)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" }));
+
+      const result = await runFlowEngine({
+        flows: [webhookFlow()],
+        events: [changeEvent],
+        projects: [enrichedProject()],
+        people: [person()],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      const payload = result.outboundDeliveries[0].payload as Record<string, unknown>;
+      expect(payload.type).toBe("task.statusChanged");
+      expect(payload.projectId).toBe("project-1");
+      expect(payload.taskId).toBe("task-1");
+      expect(payload.from).toBe("todo");
+      expect(payload.to).toBe("doing");
+    });
+
+    it("una condición sobre un dato legible se evalúa (CA-03.4)", async () => {
+      const flow: FlowRule = {
+        ...webhookFlow(),
+        id: "flow-cond",
+        logic: {
+          conditions: [{ field: "task.title", op: "contains", value: "ACME" }],
+          mapping: [],
+        },
+        outputs: [{ type: "createNotification", severity: "info", message: "{{task.title}}" }],
+      };
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [changeEvent],
+        projects: [enrichedProject()],
+        people: [person()],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.notifications).toHaveLength(1);
+      expect(result.notifications[0].message).toBe("Llamar a ACME");
+    });
+
+    it("si la entidad ya no existe, la corrida no rompe: sigue con los ids (CA-03.5)", async () => {
+      const project = newProject("Migración ACME");
+      project.id = "project-1"; // la tarea fue borrada entre el evento y la corrida
+      const flow: FlowRule = {
+        ...webhookFlow(),
+        id: "flow-huerfano",
+        outputs: [{ type: "createNotification", severity: "info", message: "id {{taskId}}" }],
+      };
+
+      const result = await runFlowEngine({
+        flows: [flow],
+        events: [changeEvent],
+        projects: [project],
+        people: [],
+        checklistTemplates: [],
+        projectTypes: [],
+        processTemplates: [],
+      });
+
+      expect(result.errors).toEqual([]);
+      expect(result.notifications[0].message).toBe("id task-1");
+    });
+  });
+
   // Spec 024 §F2: antes de este fix, un webhook/email que fallaba por red se
   // registraba igual como "executed" — el run entero terminaba marcado
   // "Ejecutado correctamente" en el historial aunque la entrega real jamás

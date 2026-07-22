@@ -40,8 +40,12 @@ export function CanvasControls({
   return (
     <Panel position="bottom-left" className="m-4 flex flex-col gap-2">
       {/* Historial (spec 038 §C4). Cluster propio: es otra familia de acciones
-          que la de encuadre, y su estado deshabilitado tiene que leerse. */}
-      <div className="flex overflow-hidden rounded-md border border-border bg-background shadow-sm">
+          que la de encuadre, y su estado deshabilitado tiene que leerse.
+          En columna y del mismo ancho que el de encuadre (spec 039 §A1): en
+          fila medía dos botones de ancho sobre una columna de uno y dejaba un
+          escalón que tapaba el lienzo. Los dos grupos siguen separados por el
+          `gap-2` del `Panel` (CA-01.2). */}
+      <div className="flex flex-col overflow-hidden rounded-md border border-border bg-background shadow-sm">
         <ControlButton
           label={canUndo ? `Deshacer: ${undoLabel}` : "Deshacer (nada que deshacer)"}
           onClick={onUndo}
@@ -53,7 +57,7 @@ export function CanvasControls({
           label={canRedo ? `Rehacer: ${redoLabel}` : "Rehacer (nada que rehacer)"}
           onClick={onRedo}
           disabled={!canRedo}
-          className="border-l border-border"
+          className="border-t border-border"
         >
           <Redo2 className="size-4" />
         </ControlButton>

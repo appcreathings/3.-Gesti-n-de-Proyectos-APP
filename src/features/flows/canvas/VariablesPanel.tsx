@@ -1,21 +1,22 @@
 import { useMemo, useState } from "react";
-import { Braces, Check, ChevronRight, Copy, Database, Zap } from "lucide-react";
+import { ArrowRight, Braces, Check, ChevronRight, Copy, Database, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Trigger } from "@/domain/schemas/flow";
 import { triggerLabel, providerLabel } from "@/domain/labels";
-import { variableRows, type VariableRow } from "./variables";
-// El MIME se mudó a `useVariableDrop` (spec 037 §B1): ahora tiene varios
-// consumidores —este panel y los cuatro destinos que aceptan el drop— y el
-// hook es el módulo que los dos lados comparten.
-import { VARIABLE_DRAG_MIME } from "./useVariableDrop";
+import type { StageVariables, VariableRow } from "./variables";
+import { buildToken } from "./insertToken";
 
 interface Props {
-  /** Trigger del flujo — para el fallback sin muestra real (campos del evento
-   * o `config.fields` del poll) y para el encabezado de origen. */
+  /** Trigger del flujo — para el encabezado de origen. */
   trigger: Trigger | undefined;
-  /** Muestra real de la última "Probar conexión" exitosa. */
+  /** Muestra real de la última "Probar conexión" exitosa — para el encabezado
+   * de origen. */
   sample: Record<string, unknown>[] | undefined;
+  /** Las dos etapas del pipeline, ya calculadas por `FlowCanvas` (spec 039
+   * §C3). El panel es la única superficie que muestra **las dos**: es donde se
+   * ve qué renombra el Transformar (CA-04.4). */
+  stages: StageVariables;
   collapsed: boolean;
   onToggle: () => void;
   /** Abre el drawer del nodo Trigger — CTA del estado vacío (CA-04.5). */
@@ -27,15 +28,24 @@ interface Props {
  * `DebuggerPanel` (R4)—. Muestra siempre qué datos trae el flujo y de dónde
  * salen, sin tener que abrir el drawer del Trigger.
  *
- * Cada fila se puede copiar como token `{{campo}}` o arrastrar directamente a
- * un campo interpolable (`InterpolableField` es el drop target). */
-export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTrigger }: Props) {
+ * Desde spec 039 §C3 muestra las **dos etapas** del pipeline cuando difieren:
+ * lo que ven las condiciones (pre-mapeo) y lo que ven las acciones
+ * (post-mapeo). Que las dos listas sean distintas es la información, no un
+ * problema a esconder.
+ *
+ * Spec 039 §F (HU-07): las filas **ya no se arrastran**. El panel informa y
+ * deja copiar el token; poner una variable en un campo es el picker de ese
+ * campo. Es una retirada deliberada de 037 §B, no un olvido: el arrastre pedía
+ * puntería para hacer algo que el picker hace mejor, y su reemplazo (el picker
+ * homologado, §D) ya estaba en pie antes de quitarlo. */
+export function VariablesPanel({ trigger, sample, stages, collapsed, onToggle, onOpenTrigger }: Props) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Muestra real (la más rica) o los mismos fallbacks que
-  // `deriveAvailableVariables`. Vive en `variables.ts` desde spec 037 §D2 para
-  // que el selector de campo de las condiciones ofrezca esta misma lista.
-  const rows = useMemo<VariableRow[]>(() => variableRows(trigger, sample), [sample, trigger]);
+  const rows = stages.before;
+  // Sólo hay dos etapas que mostrar si el mapeo efectivamente reemplaza el
+  // registro. Sin mapeo, `after === before` (el passthrough de `applyMapping`)
+  // y una segunda sección idéntica sería ruido.
+  const showAfter = stages.after !== stages.before;
 
   // Origen visible (CA-04.3) — mismos niveles que `deriveAvailableVariables`.
   // Spec 038 §B1 (CA-06.3): cuando el trigger es de polling, el origen nombra
@@ -56,7 +66,7 @@ export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTri
   }, [sample, trigger]);
 
   function copyToken(field: string) {
-    navigator.clipboard?.writeText(`{{${field}}}`).then(() => {
+    navigator.clipboard?.writeText(buildToken(field)).then(() => {
       setCopiedField(field);
       setTimeout(() => setCopiedField((cur) => (cur === field ? null : cur)), 1500);
     });
@@ -133,75 +143,132 @@ export function VariablesPanel({ trigger, sample, collapsed, onToggle, onOpenTri
         </div>
       ) : (
         <>
+          {/* CA-07.4: qué forma espera cada destino — la información que
+              antes solo se descubría arrastrando. */}
           <p className="px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
-            Arrastra una variable a un campo del flujo, o copia su token. Se inserta en la forma
-            que espera cada campo: <code className="font-mono">{"{{campo}}"}</code> en las
-            acciones, el nombre solo en condiciones y en el origen del mapeo, y{" "}
-            <code className="font-mono">record.campo</code> en el código.
+            Copia el token, o usa el botón <code className="font-mono">{"{}"}</code> del campo que
+            quieras rellenar. Cada destino espera una forma distinta:{" "}
+            <code className="font-mono">{"{{campo}}"}</code> en las acciones, el nombre solo en
+            condiciones y en el origen del mapeo, y{" "}
+            <code className="font-mono">record.campo</code> en el código del Transformar.
           </p>
           <div className="flex-1 space-y-1 overflow-auto px-2 pb-2">
+            {/* Encabezados de etapa (CA-04.4): sólo cuando hay dos etapas que
+                distinguir — con una sola lista, un encabezado "Del trigger"
+                suelto sería un rótulo sin contraparte. */}
+            {showAfter && (
+              <StageHeading
+                title="Del trigger"
+                subtitle="Lo que ven las condiciones (antes de Transformar)"
+              />
+            )}
             {rows.map((row) => (
-              <div
+              <VariableRowItem
                 key={row.field}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(VARIABLE_DRAG_MIME, row.field);
-                  // `text/plain` como fallback para soltar fuera de un destino
-                  // conocido (ej. otra app, o un campo que no es drop target).
-                  e.dataTransfer.setData("text/plain", `{{${row.field}}}`);
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                // Lo que se inserta depende del destino (CA-02.1): token en un
-                // campo de acción, nombre crudo en una condición o en el origen
-                // del mapeo, `record.campo` en el textarea de código.
-                title={`Arrastra "${row.field}" a un campo del flujo`}
-                className="cursor-grab rounded border border-border/50 bg-background px-2 py-1 active:cursor-grabbing hover:border-border hover:bg-accent/50"
-              >
-                <div className="flex items-center gap-1">
-                  <code className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium">
-                    {row.field}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copyToken(row.field)}
-                    title={`Copiar {{${row.field}}}`}
-                    aria-label={`Copiar token de ${row.field}`}
-                    className="flex shrink-0 items-center rounded p-0.5 text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {copiedField === row.field ? (
-                      <Check className="size-3" />
-                    ) : (
-                      <Copy className="size-3" />
-                    )}
-                  </button>
-                </div>
-                {(row.type || row.example || row.presence) && (
-                  <div className="mt-0.5 flex items-center gap-1">
-                    {row.type && (
-                      <Badge variant="outline" className="px-1 py-0 text-[9px] uppercase">
-                        {row.type}
-                      </Badge>
-                    )}
-                    {row.example && (
-                      <span
-                        className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
-                        title={row.example}
-                      >
-                        {row.example}
-                      </span>
-                    )}
-                    {row.presence && (
-                      <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {row.presence}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+                row={row}
+                copied={copiedField === row.field}
+                onCopy={() => copyToken(row.field)}
+              />
             ))}
+
+            {showAfter && (
+              <>
+                <StageHeading
+                  title="Después de Transformar"
+                  subtitle="Lo que ven las acciones (el mapeo reemplaza el registro)"
+                />
+                {stages.after.length === 0 ? (
+                  <p className="px-1 text-[10px] italic leading-snug text-muted-foreground">
+                    El mapeo no tiene ningún destino completo todavía.
+                  </p>
+                ) : (
+                  stages.after.map((row) => (
+                    <VariableRowItem
+                      key={`after-${row.field}`}
+                      row={row}
+                      copied={copiedField === row.field}
+                      onCopy={() => copyToken(row.field)}
+                    />
+                  ))
+                )}
+              </>
+            )}
+
+            {stages.afterIsPartial && (
+              // CA-04.6: con código en el Transformar la lista se declara
+              // incompleta en vez de fingir exactitud — el código puede añadir
+              // o quitar claves y eso no se sabe sin ejecutarlo.
+              <p className="px-1 pt-1 text-[10px] leading-snug text-muted-foreground">
+                El nodo Transformar tiene código: esta lista puede quedarse corta o de más — el
+                código puede añadir o quitar campos.
+              </p>
+            )}
           </div>
         </>
       )}
     </aside>
+  );
+}
+
+/** Encabezado real de sección (design §7): la separación entre etapas no puede
+ * depender solo de un cambio de color. */
+function StageHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="flex items-start gap-1 px-1 pb-0.5 pt-2 first:pt-0">
+      <ArrowRight className="mt-[3px] size-3 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wide">{title}</h4>
+        <p className="text-[10px] leading-snug text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function VariableRowItem({
+  row,
+  copied,
+  onCopy,
+}: {
+  row: VariableRow;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="rounded border border-border/50 bg-background px-2 py-1">
+      <div className="flex items-center gap-1">
+        <code className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium">
+          {row.field}
+        </code>
+        <button
+          type="button"
+          onClick={onCopy}
+          title={`Copiar ${buildToken(row.field)}`}
+          aria-label={`Copiar token de ${row.field}`}
+          className="flex shrink-0 items-center rounded p-0.5 text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </button>
+      </div>
+      {(row.type || row.example || row.presence) && (
+        <div className="mt-0.5 flex items-center gap-1">
+          {row.type && (
+            <Badge variant="outline" className="px-1 py-0 text-[9px] uppercase">
+              {row.type}
+            </Badge>
+          )}
+          {row.example && (
+            <span
+              className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
+              title={row.example}
+            >
+              {row.example}
+            </span>
+          )}
+          {row.presence && (
+            <span className="shrink-0 text-[10px] text-muted-foreground">{row.presence}</span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
