@@ -13,4 +13,5 @@ export const BLOG_SLUGS = [
   "local-first-guia-definitiva-2026",
   "versionar-proyectos-con-git",
   "hito-vs-clickup",
+  "como-priorizar-tareas",
 ] as const;
